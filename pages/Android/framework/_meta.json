@@ -1,0 +1,14 @@
+{
+  "index": "Framework概述",
+  "ams": "ActivityManagerService",
+  "binder": "Binder机制",
+  "handler": "Handler消息机制",
+  "system-server": "SystemServer启动流程",
+  "view-event": "View事件分发机制",
+  "view-principle": "View绘制原理",
+  "window": "Window管理机制",
+  "pms": "PackageManagerService",
+  "wms": "WindowManagerService",
+  "power": "电源管理机制",
+  "input": "输入系统原理"
+}

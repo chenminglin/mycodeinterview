@@ -1,0 +1,115 @@
+# PackageManagerService面试题
+
+## 基础概念
+
+### 什么是PackageManagerService？
+PackageManagerService（简称PMS）是Android系统中负责管理应用程序包的核心服务，主要负责应用程序的安装、卸载、信息查询等操作。
+
+### PMS的主要职责有哪些？
+1. 应用安装和卸载管理
+2. 应用包信息的解析和管理
+3. 权限管理
+4. 应用签名验证
+5. 系统组件信息的管理（Activity、Service、Provider等）
+
+## 核心原理
+
+### PMS的启动流程是怎样的？
+1. SystemServer进程启动时初始化PMS
+2. 扫描系统目录和应用目录
+3. 解析AndroidManifest.xml文件
+4. 生成包信息数据结构
+5. 建立各种索引表
+
+### APK的安装流程是怎样的？
+1. 拷贝APK到指定目录
+2. 解析AndroidManifest.xml
+3. 检查签名和权限
+4. 优化dex文件
+5. 更新系统包信息
+6. 发送广播通知安装完成
+
+## 性能优化
+
+### 如何优化应用的安装速度？
+1. 使用增量更新
+2. 优化APK结构
+3. 减少不必要的资源文件
+4. 使用App Bundle
+5. 实现智能分包
+
+### PMS启动优化有哪些方案？
+1. 延迟扫描非系统应用
+2. 并行扫描优化
+3. 构建包信息缓存
+4. 优化dex2oat过程
+
+## 实践经验
+
+### 如何处理应用安装失败的问题？
+1. 检查存储空间是否充足
+2. 验证APK完整性
+3. 检查签名是否正确
+4. 分析系统日志定位具体原因
+5. 处理权限问题
+
+### 如何实现静默安装？
+1. 需要系统签名或root权限
+2. 使用PackageManager的installPackage方法
+3. 处理INSTALL_REPLACE_EXISTING标志
+4. 监听安装结果
+5. 注意安全风险
+
+## 常见问题
+
+### 为什么有些应用无法安装到外置SD卡？
+1. Android系统限制
+2. 存储权限问题
+3. 应用本身的配置限制
+4. 外置SD卡文件系统类型的限制
+
+### 如何解决应用安装时的签名冲突？
+1. 确保新版本使用相同的签名证书
+2. 先卸载旧版本再安装
+3. 使用相同的签名密钥
+4. 在AndroidManifest中正确配置android:sharedUserId
+
+## 源码分析
+
+### PMS中如何管理应用的权限？
+```java
+// 权限管理相关核心代码结构
+class PackageManagerService {
+    private final class Settings {
+        final GrantedPermissions mPermissions;
+        // 处理权限授予
+        void grantPermission() {
+            // 验证权限有效性
+            // 检查是否已授予
+            // 更新权限状态
+        }
+    }
+}
+```
+
+### APK解析过程的关键代码是什么？
+```java
+// APK解析核心流程
+class PackageParser {
+    public Package parsePackage() {
+        // 解析AndroidManifest.xml
+        // 解析资源文件
+        // 解析签名信息
+        // 生成Package对象
+    }
+}
+```
+
+## 面试技巧
+
+在回答PMS相关问题时，建议：
+1. 先说明PMS的基本概念和职责
+2. 结合实际开发经验举例
+3. 适当展示对源码的理解
+4. 说明优化方案和最佳实践
+5. 分享遇到的问题和解决方案

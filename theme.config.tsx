@@ -1,17 +1,17 @@
 import { DocsThemeConfig } from 'nextra-theme-docs'
 
 const config: DocsThemeConfig = {
-  logo: <span>我的文档</span>,
+  logo: <span>面试题收藏</span>,
   project: {
-    link: 'https://github.com/yourusername/yourproject',
+    link: 'https://github.com/chenminglin/mycodeinterview',
   },
-  docsRepositoryBase: 'https://github.com/yourusername/yourproject',
+  docsRepositoryBase: 'https://github.com/chenminglin/mycodeinterview',
   footer: {
-    text: '© 2024 My Project',
+    text: '© 2025 My Project',
   },
   useNextSeoProps() {
     return {
-      titleTemplate: '%s – 我的文档'
+      titleTemplate: '%s – 面试题收藏'
     }
   }
 }

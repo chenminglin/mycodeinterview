@@ -1,0 +1,133 @@
+# React Native开发
+
+## React Native原理
+
+### 1. 架构概述
+- JavaScript引擎
+- 原生桥接机制
+- 组件渲染流程
+
+### 2. 通信机制
+- Bridge工作原理
+- 新架构Fabric
+- 异步通信模型
+
+## 面试重点
+
+### 1. 架构原理
+```plaintext
+问：React Native的架构原理是什么？新架构有哪些改进？
+
+答：React Native架构包含：
+
+1. 传统架构
+   - JS引擎：执行JavaScript代码
+   - Bridge：JS和原生通信桥梁
+   - 原生模块：实现平台特定功能
+
+2. 新架构（Fabric）
+   - JSI：直接调用原生方法
+   - Turbo Modules：动态加载原生模块
+   - Fabric Rendering：新的渲染系统
+   - Codegen：代码自动生成
+```
+
+### 2. 性能优化
+```plaintext
+问：React Native应用常见的性能问题和优化方案有哪些？
+
+答：主要优化方向：
+
+1. JS性能优化
+   - 避免不必要的渲染
+   - 使用PureComponent
+   - 合理使用useCallback和useMemo
+
+2. 原生桥接优化
+   - 减少Bridge通信
+   - 使用Turbo Modules
+   - 批量处理更新
+
+3. 列表性能优化
+   - FlatList替代ScrollView
+   - 行组件复用
+   - 懒加载和分页
+```
+
+### 3. 原生模块开发
+```plaintext
+问：如何开发和集成原生模块？有哪些注意事项？
+
+答：原生模块开发流程：
+
+1. 模块定义
+   - 继承原生基类
+   - 实现导出方法
+   - 注册模块
+
+2. JS端调用
+   - 导入NativeModules
+   - 异步调用处理
+   - 错误处理
+
+3. 注意事项
+   - 线程安全
+   - 内存管理
+   - 版本兼容
+```
+
+### 4. 调试与测试
+```plaintext
+问：React Native应用的调试和测试方法有哪些？
+
+答：主要包括：
+
+1. 调试工具
+   - Chrome开发者工具
+   - React Native Debugger
+   - Flipper
+
+2. 性能监控
+   - Performance Monitor
+   - Systrace
+   - Metro Bundler
+
+3. 测试方案
+   - Jest单元测试
+   - E2E测试
+   - 原生测试
+```
+
+## 实践技巧
+
+### 1. 状态管理
+- Redux使用
+- Context API
+- Recoil方案
+
+### 2. 路由导航
+- React Navigation
+- 深层链接
+- 页面转场
+
+### 3. 热更新
+- CodePush使用
+- 增量更新
+- 回滚机制
+
+## 发展趋势
+
+1. 新架构普及
+   - Fabric全面应用
+   - 性能持续提升
+   - 开发体验优化
+
+2. 生态完善
+   - 组件库丰富
+   - 工具链升级
+   - 社区活跃
+
+3. 应用场景
+   - 企业应用
+   - 电商平台
+   - 社交应用

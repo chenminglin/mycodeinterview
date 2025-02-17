@@ -1,0 +1,115 @@
+# WindowManagerService面试题
+
+## 基础概念
+
+### 什么是WindowManagerService？
+WindowManagerService（简称WMS）是Android系统中负责管理窗口的核心服务，主要负责窗口的添加、删除、显示、隐藏等操作，以及窗口的层级管理、焦点管理等。
+
+### WMS的主要职责有哪些？
+1. 窗口的添加和删除
+2. 窗口的层级管理
+3. 窗口的焦点管理
+4. 输入事件的分发
+5. 窗口动画的管理
+6. 屏幕旋转处理
+
+## 核心原理
+
+### WMS的启动流程是怎样的？
+1. SystemServer进程中初始化WMS
+2. 注册系统服务
+3. 创建窗口管理器
+4. 初始化显示系统
+5. 启动窗口会话管理
+
+### Window的添加流程是怎样的？
+1. 应用调用WindowManager.addView
+2. 创建ViewRootImpl
+3. 进行窗口布局测量
+4. 通过Binder与WMS通信
+5. WMS处理窗口添加请求
+6. 更新窗口层级关系
+
+## 性能优化
+
+### 如何优化窗口切换性能？
+1. 减少窗口层级
+2. 优化窗口动画
+3. 使用硬件加速
+4. 合理设置窗口参数
+5. 避免频繁的窗口操作
+
+### 如何处理窗口泄漏问题？
+1. 及时移除不需要的窗口
+2. 正确处理Activity生命周期
+3. 使用WeakReference持有Context
+4. 监控窗口数量
+5. 实现泄漏检测机制
+
+## 实践经验
+
+### 如何实现悬浮窗？
+1. 申请SYSTEM_ALERT_WINDOW权限
+2. 设置合适的WindowManager.LayoutParams
+3. 处理触摸事件
+4. 管理悬浮窗生命周期
+5. 适配不同Android版本
+
+### 如何处理软键盘遮挡问题？
+1. 设置合适的windowSoftInputMode
+2. 监听软键盘显示/隐藏事件
+3. 动态调整布局
+4. 使用adjustPan或adjustResize
+5. 处理特殊机型适配
+
+## 常见问题
+
+### 为什么会出现BadTokenException？
+1. Context使用不当
+2. Activity已经销毁
+3. Token失效
+4. 系统窗口权限问题
+
+### 如何解决窗口层级问题？
+1. 合理设置窗口类型
+2. 正确设置窗口标志
+3. 处理好Z-Order
+4. 注意系统窗口的限制
+
+## 源码分析
+
+### WMS中如何管理窗口层级？
+```java
+// 窗口层级管理相关代码
+class WindowManagerService {
+    final WindowHashMap mWindowMap;
+    
+    private void assignLayersLocked() {
+        // 计算窗口Z轴顺序
+        // 更新窗口层级
+        // 处理子窗口关系
+    }
+}
+```
+
+### 窗口动画是如何实现的？
+```java
+// 窗口动画处理流程
+class WindowStateAnimator {
+    void applyAnimationLocked() {
+        // 创建动画
+        // 设置动画参数
+        // 启动动画
+        // 处理动画回调
+    }
+}
+```
+
+## 面试技巧
+
+回答WMS相关问题时，建议：
+1. 先说明WMS在Android系统中的地位和作用
+2. 结合实际开发中遇到的窗口问题
+3. 展示对窗口管理机制的深入理解
+4. 分享性能优化经验
+5. 讨论不同Android版本的适配方案

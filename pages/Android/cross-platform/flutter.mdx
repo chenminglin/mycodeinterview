@@ -1,0 +1,145 @@
+# Flutter开发
+
+## Flutter框架原理
+
+### 1. 渲染机制
+- 自绘引擎Skia
+- Widget、Element、RenderObject三树模型
+- 布局和绘制流程
+
+### 2. 状态管理
+- StatefulWidget生命周期
+- 常用状态管理方案对比
+- 响应式编程
+
+## 面试重点
+
+### 1. Flutter架构
+```plaintext
+问：Flutter的架构层次是怎样的？各层的作用是什么？
+
+答：Flutter架构分为以下几层：
+
+1. Framework层
+   - Material/Cupertino：风格组件
+   - Widgets：基础组件
+   - Rendering：渲染
+   - Animation：动画
+   - Painting：绘制
+   - Foundation：基础功能
+
+2. Engine层
+   - Skia：2D渲染引擎
+   - Dart Runtime：运行环境
+   - Platform Channels：平台通道
+
+3. Embedder层
+   - 平台适配
+   - 生命周期管理
+   - 插件注册
+```
+
+### 2. Widget原理
+```plaintext
+问：Flutter中Widget、Element、RenderObject三者的关系是什么？
+
+答：三者的关系和作用：
+
+1. Widget
+   - 配置描述
+   - 不可变对象
+   - 轻量级对象
+
+2. Element
+   - Widget的实例
+   - 维护树形结构
+   - 管理生命周期
+
+3. RenderObject
+   - 负责布局和绘制
+   - 维护具体尺寸位置
+   - 处理事件交互
+```
+
+### 3. 状态管理
+```plaintext
+问：Flutter中常用的状态管理方案有哪些？各有什么特点？
+
+答：主流的状态管理方案：
+
+1. Provider
+   - 简单易用
+   - 官方推荐
+   - 适合中小型应用
+
+2. GetX
+   - 功能全面
+   - 性能优秀
+   - 上手简单
+
+3. BLoC
+   - 响应式编程
+   - 可测试性好
+   - 适合大型应用
+
+4. Riverpod
+   - Provider的升级版
+   - 类型安全
+   - 依赖注入支持
+```
+
+### 4. 性能优化
+```plaintext
+问：Flutter应用性能优化的关键点有哪些？
+
+答：主要优化方向：
+
+1. 构建优化
+   - 合理使用const构造器
+   - 避免不必要的重建
+   - 使用RepaintBoundary隔离重绘
+
+2. 渲染优化
+   - 使用ListView.builder
+   - 图片缓存和预加载
+   - 避免过度重绘
+
+3. 内存优化
+   - 及时释放资源
+   - 大图片压缩处理
+   - 避免内存泄漏
+```
+
+## 实践技巧
+
+### 1. 混合开发
+- Platform Channel使用
+- 原生模块集成
+- 性能优化策略
+
+### 2. 包体积优化
+- 资源压缩
+- 代码混淆
+- 动态化方案
+
+### 3. 调试技巧
+- DevTools使用
+- 性能分析
+- 内存泄漏检测
+
+## 发展趋势
+
+1. 框架演进
+   - 空安全
+   - 性能提升
+   - Web支持增强
+
+2. 生态发展
+   - 插件完善
+   - 工具链优化
+   - 社区活跃度
+
+3. 应用场景
+   - 企业级应用
+   - 游戏开发
+   - 物联网设备

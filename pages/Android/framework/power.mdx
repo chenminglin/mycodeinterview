@@ -1,0 +1,119 @@
+# Android电源管理机制面试题
+
+## 基础概念
+
+### 什么是Android电源管理系统？
+Android电源管理系统是负责管理设备电源状态、优化电池使用和控制系统休眠唤醒的核心系统服务，主要由PowerManagerService实现。
+
+### 电源管理系统的主要职责有哪些？
+1. 管理系统电源状态
+2. 控制屏幕亮度和超时
+3. 管理系统休眠和唤醒
+4. 处理电池状态变化
+5. 优化应用耗电量
+
+## 核心原理
+
+### PowerManagerService的启动流程是怎样的？
+1. SystemServer中初始化PowerManagerService
+2. 注册系统服务
+3. 初始化电源管理策略
+4. 加载电源配置
+5. 启动电源状态监听
+
+### WakeLock机制是如何工作的？
+1. 应用申请WakeLock
+2. PowerManagerService处理请求
+3. 更新系统电源状态
+4. 控制硬件电源管理
+5. 释放WakeLock
+
+## 性能优化
+
+### 如何优化应用的电量消耗？
+1. 合理使用WakeLock
+2. 优化网络请求
+3. 避免后台频繁唤醒
+4. 使用JobScheduler调度任务
+5. 实现Doze模式适配
+
+### 如何处理耗电问题？
+1. 使用Battery Historian分析
+2. 监控WakeLock使用情况
+3. 优化后台服务
+4. 合理设置定时任务
+5. 实现低电量模式适配
+
+## 实践经验
+
+### 如何正确使用WakeLock？
+1. 选择合适的WakeLock类型
+2. 及时释放WakeLock
+3. 避免循环申请释放
+4. 使用超时机制
+5. 处理异常情况
+
+### 如何实现低电量优化？
+1. 监听电量变化广播
+2. 根据电量调整功能
+3. 实现省电模式
+4. 优化后台任务
+5. 降低刷新频率
+
+## 常见问题
+
+### 为什么会出现WakeLock泄漏？
+1. 忘记释放WakeLock
+2. 异常情况未处理
+3. 生命周期管理不当
+4. 多线程使用问题
+
+### 如何解决待机耗电问题？
+1. 使用WorkManager替代传统后台服务
+2. 合理使用AlarmManager
+3. 实现Doze模式适配
+4. 优化网络请求策略
+
+## 源码分析
+
+### PowerManagerService如何管理电源状态？
+```java
+// 电源状态管理核心代码
+class PowerManagerService extends SystemService {
+    private final class PowerManagerHandler extends Handler {
+        void handleMessage(Message msg) {
+            // 处理电源状态变化
+            // 更新系统休眠策略
+            // 控制设备电源状态
+        }
+    }
+}
+```
+
+### WakeLock的实现原理是什么？
+```java
+// WakeLock实现核心流程
+class PowerManager {
+    public final class WakeLock {
+        public void acquire() {
+            // 验证调用权限
+            // 更新WakeLock计数
+            // 通知PowerManagerService
+        }
+        
+        public void release() {
+            // 释放WakeLock
+            // 更新系统状态
+        }
+    }
+}
+```
+
+## 面试技巧
+
+回答电源管理相关问题时，建议：
+1. 先说明电源管理在Android系统中的重要性
+2. 结合实际开发中的电量优化经验
+3. 展示对WakeLock机制的深入理解
+4. 分享性能优化案例
+5. 讨论不同Android版本的适配经验
