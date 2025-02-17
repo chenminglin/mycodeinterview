@@ -1,0 +1,187 @@
+# Android 数据库
+
+## SQLite基础
+
+### 核心概念
+
+1. **数据库操作**
+   - 创建数据库
+   - 表操作
+   - 事务处理
+   - 索引优化
+
+2. **SQLiteOpenHelper**
+   - 数据库版本管理
+   - 数据库升级
+   - 数据迁移
+
+### 实现示例
+
+```kotlin
+class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, null, DATABASE_VERSION) {
+    companion object {
+        private const val DATABASE_NAME = "app.db"
+        private const val DATABASE_VERSION = 1
+    }
+
+    override fun onCreate(db: SQLiteDatabase) {
+        db.execSQL("""
+            CREATE TABLE users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                email TEXT UNIQUE
+            )
+        """)
+    }
+
+    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        // 数据库升级逻辑
+    }
+}
+```
+
+## Room数据库
+
+### 核心组件
+
+1. **Entity**
+   - 表结构定义
+   - 主键设置
+   - 索引配置
+   - 关系映射
+
+2. **DAO**
+   - CRUD操作
+   - 查询优化
+   - 事务处理
+   - 异步操作
+
+### 高级特性
+
+```kotlin
+// 复杂关系映射
+@Entity(tableName = "books")
+data class Book(
+    @PrimaryKey val id: Long,
+    val title: String,
+    val authorId: Long
+)
+
+@Entity(tableName = "authors")
+data class Author(
+    @PrimaryKey val id: Long,
+    val name: String
+)
+
+data class BookWithAuthor(
+    @Embedded val book: Book,
+    @Relation(
+        parentColumn = "authorId",
+        entityColumn = "id"
+    )
+    val author: Author
+)
+
+// DAO接口
+@Dao
+interface BookDao {
+    @Transaction
+    @Query("SELECT * FROM books")
+    suspend fun getBooksWithAuthors(): List<BookWithAuthor>
+
+    @Query("SELECT * FROM books WHERE authorId = :authorId")
+    fun getBooksByAuthor(authorId: Long): Flow<List<Book>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertBooks(vararg books: Book)
+}
+```
+
+## 面试常见问题
+
+### 1. Room与SQLite的区别？
+
+1. **Room优势**
+   - 编译时验证
+   - ORM映射
+   - 协程支持
+   - LiveData集成
+
+2. **SQLite特点**
+   - 底层API
+   - 灵活性高
+   - 手动管理
+   - 性能优势
+
+### 2. 数据库性能优化？
+
+1. **索引优化**
+   - 合理建立索引
+   - 避免过度索引
+   - 定期维护索引
+
+2. **查询优化**
+   - 使用EXPLAIN
+   - 优化查询语句
+   - 合理使用事务
+
+### 3. 数据库升级策略？
+
+1. **增量升级**
+   - 版本号管理
+   - 数据迁移
+   - 备份恢复
+
+2. **破坏性升级**
+   - 删除重建
+   - 数据导出导入
+   - 兼容性处理
+
+### 4. Room的事务处理？
+
+1. **事务注解**
+   - @Transaction
+   - 原子性保证
+   - 并发控制
+
+2. **最佳实践**
+   - 合理使用事务
+   - 避免长事务
+   - 异常处理
+
+## 最佳实践
+
+1. **数据库设计**
+   - 规范化设计
+   - 合理分表
+   - 字段类型选择
+   - 约束设置
+
+2. **性能优化**
+   - 批量操作
+   - 异步处理
+   - 缓存策略
+   - 定期维护
+
+3. **安全性**
+   - 加密存储
+   - 访问控制
+   - 备份策略
+   - 日志记录
+
+## 注意事项
+
+1. **内存管理**
+   - 及时关闭游标
+   - 避免内存泄漏
+   - 合理使用缓存
+
+2. **并发控制**
+   - 线程安全
+   - 死锁预防
+   - 事务隔离
+
+3. **异常处理**
+   - 错误恢复
+   - 数据一致性
+   - 降级策略

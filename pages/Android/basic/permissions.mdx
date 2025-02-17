@@ -1,0 +1,212 @@
+# Android权限管理面试题
+
+本章节包含Android权限管理相关的面试题，涵盖权限分类、运行时权限、权限申请流程等核心知识点。
+
+## 基础概念
+
+### 🔥 选择题1：Android权限分类
+
+关于Android权限分类，以下说法错误的是：
+
+A. 普通权限不需要用户明确授予，安装时会自动批准
+B. 危险权限必须由用户明确授予，可以在运行时申请
+C. 特殊权限只能通过系统设置界面授予
+D. 所有权限都需要在AndroidManifest.xml中声明后才能使用
+
+<details>
+<summary>答案与解析</summary>
+
+**答案：D**
+
+解析：
+1. 普通权限（Normal Permissions）确实在安装时自动授予，无需用户确认
+2. 危险权限（Dangerous Permissions）需要用户明确授权，可以使用运行时权限机制申请
+3. 特殊权限（Special Permissions）如SYSTEM_ALERT_WINDOW，确实需要通过系统设置授予
+4. 动态注册的广播接收器可以不在AndroidManifest.xml中声明权限，可以在代码中直接使用
+</details>
+
+### 🔥 问答题1：运行时权限机制
+
+**问题：请详细说明Android 6.0引入的运行时权限机制的工作原理和最佳实践。**
+
+<details>
+<summary>参考答案</summary>
+
+1. **运行时权限机制原理**
+   - Android 6.0（API 23）开始引入
+   - 将危险权限的授权时机从安装时改为运行时
+   - 用户可以随时撤销已授予的权限
+   - 权限分组管理，同组权限一起授予
+
+2. **权限申请流程**
+   - 检查是否已有权限
+   - 如果没有，请求用户授权
+   - 处理用户授权结果
+   - 根据授权结果执行相应操作
+
+3. **最佳实践**
+   - 在使用功能前检查和申请权限
+   - 解释为什么需要这些权限
+   - 优雅处理权限被拒绝的情况
+   - 考虑权限被永久拒绝的场景
+
+4. **注意事项**
+   - 不要一次性请求过多权限
+   - 提供降级功能选项
+   - 遵循最小权限原则
+   - 及时释放不需要的权限
+</details>
+
+### 🔥 编程题：权限管理工具类
+
+**问题：实现一个权限管理工具类，包含权限检查、申请、结果处理等功能。**
+
+<details>
+<summary>参考答案</summary>
+
+```java
+public class PermissionHelper {
+    private Activity activity;
+    private static final int PERMISSION_REQUEST_CODE = 100;
+    private PermissionCallback callback;
+    
+    public interface PermissionCallback {
+        void onPermissionGranted();
+        void onPermissionDenied(List<String> deniedPermissions);
+    }
+    
+    public PermissionHelper(Activity activity) {
+        this.activity = activity;
+    }
+    
+    // 检查单个权限
+    public boolean hasPermission(String permission) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            return activity.checkSelfPermission(permission) 
+                == PackageManager.PERMISSION_GRANTED;
+        }
+        return true;
+    }
+    
+    // 检查多个权限
+    public boolean hasPermissions(String[] permissions) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            for (String permission : permissions) {
+                if (activity.checkSelfPermission(permission) 
+                    != PackageManager.PERMISSION_GRANTED) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+    
+    // 请求权限
+    public void requestPermissions(String[] permissions, PermissionCallback callback) {
+        this.callback = callback;
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            List<String> permissionsToRequest = new ArrayList<>();
+            
+            for (String permission : permissions) {
+                if (activity.checkSelfPermission(permission) 
+                    != PackageManager.PERMISSION_GRANTED) {
+                    permissionsToRequest.add(permission);
+                }
+            }
+            
+            if (permissionsToRequest.isEmpty()) {
+                callback.onPermissionGranted();
+            } else {
+                activity.requestPermissions(
+                    permissionsToRequest.toArray(new String[0]),
+                    PERMISSION_REQUEST_CODE
+                );
+            }
+        } else {
+            callback.onPermissionGranted();
+        }
+    }
+    
+    // 处理权限请求结果
+    public void onRequestPermissionsResult(int requestCode,
+                                         String[] permissions,
+                                         int[] grantResults) {
+        if (requestCode == PERMISSION_REQUEST_CODE) {
+            List<String> deniedPermissions = new ArrayList<>();
+            
+            for (int i = 0; i < permissions.length; i++) {
+                if (grantResults[i] != PackageManager.PERMISSION_GRANTED) {
+                    deniedPermissions.add(permissions[i]);
+                }
+            }
+            
+            if (deniedPermissions.isEmpty()) {
+                if (callback != null) {
+                    callback.onPermissionGranted();
+                }
+            } else {
+                if (callback != null) {
+                    callback.onPermissionDenied(deniedPermissions);
+                }
+            }
+        }
+    }
+    
+    // 检查权限是否被永久拒绝
+    public boolean isPermissionPermanentlyDenied(String permission) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            return !activity.shouldShowRequestPermissionRationale(permission) &&
+                   activity.checkSelfPermission(permission) == 
+                   PackageManager.PERMISSION_DENIED;
+        }
+        return false;
+    }
+    
+    // 打开应用设置界面
+    public void openAppSettings() {
+        Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+        Uri uri = Uri.fromParts("package", activity.getPackageName(), null);
+        intent.setData(uri);
+        activity.startActivity(intent);
+    }
+    
+    // 使用示例
+    public void requestCameraPermission() {
+        String[] permissions = {Manifest.permission.CAMERA};
+        
+        requestPermissions(permissions, new PermissionCallback() {
+            @Override
+            public void onPermissionGranted() {
+                // 权限已授予，执行相机相关操作
+                startCamera();
+            }
+            
+            @Override
+            public void onPermissionDenied(List<String> deniedPermissions) {
+                // 权限被拒绝
+                if (isPermissionPermanentlyDenied(Manifest.permission.CAMERA)) {
+                    // 显示对话框引导用户去设置界面开启权限
+                    showSettingsDialog();
+                } else {
+                    // 显示权限用途说明
+                    showPermissionRationale();
+                }
+            }
+        });
+    }
+}
+```
+
+代码说明：
+1. 实现了完整的权限管理功能：
+   - 权限检查
+   - 权限请求
+   - 结果处理
+   - 永久拒绝检查
+2. 使用回调接口处理权限结果
+3. 支持单个和多个权限的请求
+4. 包含版本适配代码
+5. 提供了实用的辅助方法
+6. 包含完整的使用示例
+</details>

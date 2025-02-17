@@ -1,0 +1,240 @@
+# Android资源管理
+
+## 基础知识
+
+### Android资源类型
+
+1. **布局资源**
+   - XML布局文件
+   - 视图层次结构
+   - 布局优化
+
+2. **图片资源**
+   - Drawable资源
+   - 位图和矢量图
+   - 九宫格图片
+
+3. **值资源**
+   - 字符串
+   - 颜色
+   - 尺寸
+   - 样式和主题
+
+4. **动画资源**
+   - 补间动画
+   - 属性动画
+   - 帧动画
+
+## 面试题
+
+### 1. Android资源管理机制是如何工作的？
+
+**答案：**
+
+1. **资源组织**
+   - res目录结构
+   - 资源限定符
+   - 资源命名规范
+
+2. **资源编译**
+   - R文件生成
+   - 资源ID分配
+   - AAPT工具处理
+
+3. **资源访问**
+   - 代码中访问
+   - XML中引用
+   - 主题应用
+
+4. **资源优化**
+   - 资源混淆
+   - 资源合并
+   - 未使用资源删除
+
+### 2. Android如何实现多屏幕适配？
+
+**答案：**
+
+1. **屏幕密度适配**
+   - dp单位使用
+   - 密度限定符
+   - 图片资源适配
+
+2. **屏幕尺寸适配**
+   - 布局权重
+   - 约束布局
+   - 尺寸限定符
+
+3. **屏幕方向适配**
+   - 方向限定符
+   - 配置变化处理
+   - 布局复用
+
+4. **最佳实践**
+   - 弹性布局
+   - 自适应UI
+   - 屏幕兼容性测试
+
+### 3. 如何优化应用资源？
+
+**答案：**
+
+1. **图片优化**
+   - WebP格式
+   - 矢量图使用
+   - 图片压缩
+
+2. **布局优化**
+   - 层级优化
+   - Include复用
+   - ViewStub按需加载
+
+3. **资源管理**
+   - 多语言管理
+   - 主题定制
+   - 动态加载
+
+4. **构建优化**
+   - 资源压缩
+   - 资源混淆
+   - 按需打包
+
+## 编程实践
+
+### 1. 资源访问工具类
+
+```java
+public class ResourceUtil {
+    private static Context context;
+    
+    public static void init(Context appContext) {
+        context = appContext.getApplicationContext();
+    }
+    
+    public static String getString(@StringRes int resId) {
+        return context.getString(resId);
+    }
+    
+    public static String getString(@StringRes int resId, Object... formatArgs) {
+        return context.getString(resId, formatArgs);
+    }
+    
+    @ColorInt
+    public static int getColor(@ColorRes int resId) {
+        return ContextCompat.getColor(context, resId);
+    }
+    
+    public static float getDimension(@DimenRes int resId) {
+        return context.getResources().getDimension(resId);
+    }
+    
+    public static Drawable getDrawable(@DrawableRes int resId) {
+        return ContextCompat.getDrawable(context, resId);
+    }
+    
+    @SuppressWarnings("deprecation")
+    public static void setBackground(View view, @DrawableRes int resId) {
+        view.setBackground(getDrawable(resId));
+    }
+}
+```
+
+### 2. 屏幕适配工具类
+
+```java
+public class ScreenUtil {
+    private static Context context;
+    
+    public static void init(Context appContext) {
+        context = appContext.getApplicationContext();
+    }
+    
+    public static int dp2px(float dpValue) {
+        float scale = context.getResources().getDisplayMetrics().density;
+        return (int) (dpValue * scale + 0.5f);
+    }
+    
+    public static int px2dp(float pxValue) {
+        float scale = context.getResources().getDisplayMetrics().density;
+        return (int) (pxValue / scale + 0.5f);
+    }
+    
+    public static int sp2px(float spValue) {
+        float scale = context.getResources().getDisplayMetrics().scaledDensity;
+        return (int) (spValue * scale + 0.5f);
+    }
+    
+    public static int px2sp(float pxValue) {
+        float scale = context.getResources().getDisplayMetrics().scaledDensity;
+        return (int) (pxValue / scale + 0.5f);
+    }
+    
+    public static int getScreenWidth() {
+        WindowManager wm = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
+        if (wm == null) return -1;
+        Point point = new Point();
+        wm.getDefaultDisplay().getSize(point);
+        return point.x;
+    }
+    
+    public static int getScreenHeight() {
+        WindowManager wm = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
+        if (wm == null) return -1;
+        Point point = new Point();
+        wm.getDefaultDisplay().getSize(point);
+        return point.y;
+    }
+    
+    public static boolean isLandscape() {
+        return context.getResources().getConfiguration().orientation 
+                == Configuration.ORIENTATION_LANDSCAPE;
+    }
+    
+    public static boolean isPortrait() {
+        return context.getResources().getConfiguration().orientation 
+                == Configuration.ORIENTATION_PORTRAIT;
+    }
+}
+```
+
+使用示例：
+
+```java
+// 在Application中初始化
+public class MyApplication extends Application {
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        ResourceUtil.init(this);
+        ScreenUtil.init(this);
+    }
+}
+
+// 在Activity中使用
+public class MainActivity extends AppCompatActivity {
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+        
+        // 使用ResourceUtil
+        TextView textView = findViewById(R.id.text_view);
+        textView.setTextColor(ResourceUtil.getColor(R.color.text_color));
+        textView.setText(ResourceUtil.getString(R.string.hello));
+        
+        // 使用ScreenUtil
+        int paddingInDp = 16;
+        int paddingInPx = ScreenUtil.dp2px(paddingInDp);
+        textView.setPadding(paddingInPx, paddingInPx, paddingInPx, paddingInPx);
+        
+        // 根据屏幕方向调整布局
+        if (ScreenUtil.isLandscape()) {
+            // 横屏布局处理
+        } else {
+            // 竖屏布局处理
+        }
+    }
+}
+```
+
+这些工具类提供了常用的资源访问和屏幕适配方法，可以帮助开发者更方便地处理Android资源管理相关的任务。在实际开发中，可以根据项目需求进行扩展和定制。

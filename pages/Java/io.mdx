@@ -1,0 +1,228 @@
+# Java IO编程
+
+## IO基础
+
+### 1. Java IO流的分类有哪些？
+
+Java IO流的主要分类：
+
+1. 按照流的方向
+   - 输入流（InputStream/Reader）
+   - 输出流（OutputStream/Writer）
+
+2. 按照处理数据单位
+   - 字节流（Stream）
+   - 字符流（Reader/Writer）
+
+3. 按照功能
+   - 节点流（直接操作数据源）
+   - 处理流（封装节点流，提供更多功能）
+
+### 2. 字节流和字符流的区别？
+
+主要区别：
+
+1. 数据处理单位
+   - 字节流：以字节（8位）为单位
+   - 字符流：以字符（16位）为单位
+
+2. 使用场景
+   - 字节流：适合处理二进制文件
+   - 字符流：适合处理文本文件
+
+## NIO
+
+### 1. NIO的特性有哪些？
+
+NIO的核心特性：
+
+1. Buffer（缓冲区）
+   - 数据的容器
+   - 提供了对数据的结构化访问
+
+2. Channel（通道）
+   - 双向的
+   - 可以异步读写
+   - 支持scatter/gather
+
+3. Selector（选择器）
+   - 允许单线程处理多个Channel
+   - 基于事件驱动
+
+### 2. NIO和传统IO的区别？
+
+主要区别：
+
+1. 数据处理方式
+   - IO：面向流，单向
+   - NIO：面向缓冲区，双向
+
+2. 是否阻塞
+   - IO：阻塞IO
+   - NIO：支持非阻塞IO
+
+3. 性能
+   - IO：适合连接数少且固定的场景
+   - NIO：适合连接数多且短暂的场景
+
+## 文件操作
+
+### 1. 如何实现文件拷贝？
+
+常见的文件拷贝方式：
+
+1. 使用字节流
+```java
+public void copyFile(String src, String dest) throws IOException {
+    try (FileInputStream fis = new FileInputStream(src);
+         FileOutputStream fos = new FileOutputStream(dest)) {
+        byte[] buffer = new byte[1024];
+        int length;
+        while ((length = fis.read(buffer)) > 0) {
+            fos.write(buffer, 0, length);
+        }
+    }
+}
+```
+
+2. 使用NIO
+```java
+public void copyFileNIO(String src, String dest) throws IOException {
+    try (FileChannel srcChannel = FileChannel.open(Paths.get(src));
+         FileChannel destChannel = FileChannel.open(Paths.get(dest),
+             StandardOpenOption.CREATE, StandardOpenOption.WRITE)) {
+        srcChannel.transferTo(0, srcChannel.size(), destChannel);
+    }
+}
+```
+
+### 2. 如何实现文件读写？
+
+文件读写的实现：
+
+1. 字符流读写
+```java
+// 读取文件
+public String readFile(String filePath) throws IOException {
+    StringBuilder content = new StringBuilder();
+    try (BufferedReader reader = new BufferedReader(
+            new FileReader(filePath))) {
+        String line;
+        while ((line = reader.readLine()) != null) {
+            content.append(line).append("\n");
+        }
+    }
+    return content.toString();
+}
+
+// 写入文件
+public void writeFile(String filePath, String content) throws IOException {
+    try (BufferedWriter writer = new BufferedWriter(
+            new FileWriter(filePath))) {
+        writer.write(content);
+    }
+}
+```
+
+2. NIO读写
+```java
+// 读取文件
+public String readFileNIO(String filePath) throws IOException {
+    return new String(Files.readAllBytes(Paths.get(filePath)));
+}
+
+// 写入文件
+public void writeFileNIO(String filePath, String content) throws IOException {
+    Files.write(Paths.get(filePath), content.getBytes());
+}
+```
+
+## 序列化
+
+### 1. 什么是序列化？如何实现？
+
+序列化的概念和实现：
+
+1. 序列化的概念
+   - 将对象转换为字节序列
+   - 便于存储和传输
+
+2. 实现方式
+   - 实现Serializable接口
+   - 使用ObjectOutputStream和ObjectInputStream
+
+```java
+// 序列化
+public void serialize(Object obj, String filePath) throws IOException {
+    try (ObjectOutputStream oos = new ObjectOutputStream(
+            new FileOutputStream(filePath))) {
+        oos.writeObject(obj);
+    }
+}
+
+// 反序列化
+public Object deserialize(String filePath) throws IOException, ClassNotFoundException {
+    try (ObjectInputStream ois = new ObjectInputStream(
+            new FileInputStream(filePath))) {
+        return ois.readObject();
+    }
+}
+```
+
+### 2. transient关键字的作用是什么？
+
+transient的作用：
+
+1. 作用
+   - 修饰的字段不会被序列化
+   - 在反序列化时，该字段值被设为默认值
+
+2. 使用场景
+   - 敏感信息不需要序列化
+   - 临时性数据不需要序列化
+
+## 网络IO
+
+### 1. BIO、NIO、AIO的区别？
+
+三种IO模型的比较：
+
+1. BIO（Blocking IO）
+   - 同步阻塞
+   - 一个连接一个线程
+   - 适用于连接数较少的场景
+
+2. NIO（Non-blocking IO）
+   - 同步非阻塞
+   - 一个线程处理多个连接
+   - 适用于连接数较多且短暂的场景
+
+3. AIO（Asynchronous IO）
+   - 异步非阻塞
+   - 引入回调机制
+   - 适用于连接数多且长期的场景
+
+### 2. Netty框架的优势是什么？
+
+Netty的主要优势：
+
+1. 性能优势
+   - 高性能的网络框架
+   - 零拷贝机制
+   - 内存池设计
+
+2. 功能优势
+   - 丰富的协议支持
+   - 灵活的线程模型
+   - 完善的安全性
+
+## 面试重点
+
+1. Java IO流的分类和使用场景
+2. NIO的核心组件和工作原理
+3. BIO、NIO、AIO的区别和应用场景
+4. 文件操作的最佳实践
+5. 序列化机制的原理和注意事项
+6. Netty框架的核心特性
+7. IO性能优化策略
+8. 网络编程模型的演进

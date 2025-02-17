@@ -1,0 +1,230 @@
+# Handler消息机制面试题
+
+本章节包含Android Handler消息机制的相关面试题，涵盖Handler基本原理、消息队列、线程通信等核心概念。
+
+## 基础概念
+
+### 🔥 选择题：Handler基础
+
+关于Android Handler机制，以下说法正确的是：
+
+A. Handler必须在主线程创建才能使用
+B. 一个线程可以有多个Looper实例
+C. Handler发送的消息在创建Handler的线程中处理
+D. MessageQueue采用先进后出（LIFO）的方式处理消息
+
+<details>
+<summary>答案与解析</summary>
+
+**答案：C**
+
+解析：
+1. Handler可以在任何线程创建，但创建时该线程必须有Looper
+2. 一个线程只能有一个Looper实例
+3. Handler发送的消息会在创建Handler的线程的Looper中处理
+4. MessageQueue采用先进先出（FIFO）的方式处理消息
+</details>
+
+### 🔥 问答题：Handler工作原理
+
+**问题：请详细说明Android Handler消息机制的工作原理，以及Handler、Looper、MessageQueue三者之间的关系。**
+
+<details>
+<summary>参考答案</summary>
+
+1. **基本组成部分：**
+   - Handler：消息的发送和处理者
+   - Looper：消息循环器，不断从MessageQueue中取出消息
+   - MessageQueue：消息队列，存储待处理的消息
+   - Message：消息对象，包含要处理的信息
+
+2. **工作流程：**
+   - Handler发送消息（Message）到MessageQueue
+   - Looper不断循环从MessageQueue中取出消息
+   - 将消息分发给对应的Handler处理
+   - Handler在其关联的线程中处理消息
+
+3. **三者关系：**
+   - 一个线程只能有一个Looper
+   - 一个Looper只能有一个MessageQueue
+   - 一个线程可以有多个Handler
+   - Handler持有Looper和MessageQueue的引用
+
+4. **主要特点：**
+   - 线程间通信的核心机制
+   - 消息处理的有序性
+   - 避免线程同步问题
+   - 支持延时消息
+</details>
+
+### 🔥 编程题：自定义Handler
+
+**问题：请实现一个自定义Handler，实现异步任务执行和主线程更新UI的功能。同时处理Handler可能引起的内存泄漏问题。**
+
+<details>
+<summary>参考答案</summary>
+
+```java
+public class SafeHandler extends Handler {
+    private final WeakReference<Callback> mCallback;
+
+    public SafeHandler(Callback callback) {
+        mCallback = new WeakReference<>(callback);
+    }
+
+    @Override
+    public void handleMessage(Message msg) {
+        Callback callback = mCallback.get();
+        if (callback != null) {
+            callback.handleMessage(msg);
+        }
+    }
+
+    public interface Callback {
+        void handleMessage(Message msg);
+    }
+}
+
+// 使用示例
+public class MyActivity extends Activity implements SafeHandler.Callback {
+    private SafeHandler mHandler;
+    private static final int MSG_UPDATE_UI = 1;
+    private static final int MSG_ASYNC_COMPLETE = 2;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        mHandler = new SafeHandler(this);
+        startAsyncTask();
+    }
+
+    private void startAsyncTask() {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                // 模拟耗时操作
+                try {
+                    Thread.sleep(2000);
+                    // 发送进度更新消息
+                    mHandler.sendEmptyMessage(MSG_UPDATE_UI);
+                    
+                    Thread.sleep(3000);
+                    // 发送完成消息
+                    mHandler.sendEmptyMessage(MSG_ASYNC_COMPLETE);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }).start();
+    }
+
+    @Override
+    public void handleMessage(Message msg) {
+        switch (msg.what) {
+            case MSG_UPDATE_UI:
+                updateProgressUI();
+                break;
+            case MSG_ASYNC_COMPLETE:
+                handleTaskComplete();
+                break;
+        }
+    }
+
+    private void updateProgressUI() {
+        // 更新进度UI
+    }
+
+    private void handleTaskComplete() {
+        // 处理任务完成
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        // 移除所有消息和回调，防止内存泄漏
+        if (mHandler != null) {
+            mHandler.removeCallbacksAndMessages(null);
+        }
+    }
+}
+```
+
+代码说明：
+1. 使用WeakReference避免Handler持有Activity引用导致的内存泄漏
+2. 实现Handler.Callback接口处理消息
+3. 在Activity销毁时清除消息队列
+4. 使用静态常量定义消息类型
+5. 提供异步任务执行和UI更新的完整示例
+6. 包含异常处理和资源清理
+</details>
+
+## Handler高级特性
+
+### 🔥 选择题：Handler同步屏障
+
+关于Handler的同步屏障机制，以下说法正确的是：
+
+A. 同步屏障会阻止所有消息的分发
+B. 同步屏障只阻止同步消息，不影响异步消息
+C. 普通的Handler可以直接发送异步消息
+D. 同步屏障会自动移除
+
+<details>
+<summary>答案与解析</summary>
+
+**答案：B**
+
+解析：
+1. 同步屏障只会阻止同步消息的分发，不会阻止异步消息
+2. 异步消息可以突破同步屏障的限制
+3. 发送异步消息需要使用特殊的方法或标记
+4. 同步屏障需要手动移除，否则会一直存在
+</details>
+
+### 🔥 问答题：IdleHandler机制
+
+**问题：请解释Handler中IdleHandler的作用和使用场景，并说明其实现原理。**
+
+<details>
+<summary>参考答案</summary>
+
+1. **IdleHandler的作用：**
+   - 在消息队列空闲时执行任务
+   - 执行优先级较低的任务
+   - 不影响主线程的及时响应
+
+2. **使用场景：**
+   - 界面初始化完成后的延迟加载
+   - 资源预加载
+   - 数据预取
+   - 清理工作
+
+3. **实现原理：**
+```java
+public class IdleHandlerExample {
+    private void addIdleHandler() {
+        Looper.myQueue().addIdleHandler(new MessageQueue.IdleHandler() {
+            @Override
+            public boolean queueIdle() {
+                // 执行空闲时的任务
+                doIdleWork();
+                // 返回false表示只执行一次
+                // 返回true表示每次队列空闲时都执行
+                return false;
+            }
+        });
+    }
+
+    private void doIdleWork() {
+        // 执行优先级较低的任务
+        // 例如：预加载数据、清理缓存等
+    }
+}
+```
+
+4. **注意事项：**
+   - IdleHandler不保证一定会执行
+   - 执行时间不应过长
+   - 需要考虑返回值的影响
+   - 可能会被新消息打断
+</details>

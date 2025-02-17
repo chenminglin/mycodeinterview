@@ -1,0 +1,241 @@
+# Android应用安全
+
+## 基础知识
+
+### Android安全模型
+
+Android的安全模型建立在以下几个核心概念之上：
+
+1. **应用沙箱**
+   - 每个应用运行在独立的进程中
+   - 拥有唯一的Linux用户ID
+   - 独立的虚拟机实例
+
+2. **权限系统**
+   - 声明式权限模型
+   - 运行时权限请求
+   - 权限分组管理
+
+3. **签名机制**
+   - 应用签名验证
+   - 系统签名保护
+   - 升级校验
+
+4. **SELinux**
+   - 强制访问控制
+   - 最小权限原则
+   - 域隔离
+
+## 面试题
+
+### 1. Android权限机制是如何工作的？
+
+**答案：**
+
+1. **权限声明**
+   - 在AndroidManifest.xml中声明所需权限
+   - 区分普通权限和危险权限
+
+2. **权限分类**
+   - 普通权限：安装时自动授予
+   - 危险权限：需要用户明确授权
+   - 特殊权限：需要特殊方式授予
+
+3. **运行时权限**
+   - Android 6.0引入
+   - 动态申请权限
+   - 用户可随时撤销
+
+4. **权限最佳实践**
+   - 只申请必要权限
+   - 合适时机请求权限
+   - 处理权限拒绝情况
+
+### 2. 如何保护应用数据安全？
+
+**答案：**
+
+1. **数据存储安全**
+   - 使用内部存储
+   - 文件加密
+   - 安全SharedPreferences
+
+2. **网络通信安全**
+   - HTTPS协议
+   - 证书校验
+   - 数据加密传输
+
+3. **密钥管理**
+   - KeyStore系统
+   - 硬件支持
+   - 密钥保护
+
+4. **代码安全**
+   - 混淆配置
+   - 加固保护
+   - 反调试措施
+
+### 3. 应用签名的作用是什么？
+
+**答案：**
+
+1. **身份识别**
+   - 确保应用来源可信
+   - 建立开发者身份
+
+2. **升级保证**
+   - 确保更新包来自同一开发者
+   - 防止恶意替换
+
+3. **应用间通信**
+   - 基于签名的权限控制
+   - 共享用户ID
+
+4. **系统集成**
+   - 系统权限控制
+   - 系统应用识别
+
+## 编程实践
+
+### 1. 运行时权限请求示例
+
+```java
+public class PermissionExample extends AppCompatActivity {
+    private static final int PERMISSION_REQUEST_CODE = 123;
+    
+    private void checkAndRequestPermission() {
+        if (ContextCompat.checkSelfPermission(this, 
+                Manifest.permission.CAMERA)
+                != PackageManager.PERMISSION_GRANTED) {
+            
+            // 判断是否需要解释权限用途
+            if (ActivityCompat.shouldShowRequestPermissionRationale(this,
+                    Manifest.permission.CAMERA)) {
+                showPermissionExplanation();
+            } else {
+                requestCameraPermission();
+            }
+        } else {
+            startCamera();
+        }
+    }
+    
+    private void requestCameraPermission() {
+        ActivityCompat.requestPermissions(this,
+                new String[]{Manifest.permission.CAMERA},
+                PERMISSION_REQUEST_CODE);
+    }
+    
+    @Override
+    public void onRequestPermissionsResult(int requestCode,
+            String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        
+        if (requestCode == PERMISSION_REQUEST_CODE) {
+            if (grantResults.length > 0
+                    && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                startCamera();
+            } else {
+                handlePermissionDenied();
+            }
+        }
+    }
+    
+    private void showPermissionExplanation() {
+        new AlertDialog.Builder(this)
+            .setTitle("需要相机权限")
+            .setMessage("此功能需要使用相机权限，请在设置中授予权限。")
+            .setPositiveButton("确定", (dialog, which) -> {
+                requestCameraPermission();
+            })
+            .setNegativeButton("取消", null)
+            .show();
+    }
+    
+    private void handlePermissionDenied() {
+        Toast.makeText(this, "未能获取相机权限", Toast.LENGTH_SHORT).show();
+    }
+    
+    private void startCamera() {
+        // 启动相机相关功能
+    }
+}
+```
+
+### 2. 数据加密工具类
+
+```java
+public class SecurityUtil {
+    private static final String ALGORITHM = "AES";
+    private static final String TRANSFORMATION = "AES/CBC/PKCS5Padding";
+    
+    public static String encrypt(String data, String key) throws Exception {
+        SecretKeySpec secretKey = new SecretKeySpec(
+                key.getBytes(StandardCharsets.UTF_8), ALGORITHM);
+        
+        Cipher cipher = Cipher.getInstance(TRANSFORMATION);
+        byte[] iv = generateIV();
+        IvParameterSpec ivSpec = new IvParameterSpec(iv);
+        
+        cipher.init(Cipher.ENCRYPT_MODE, secretKey, ivSpec);
+        byte[] encrypted = cipher.doFinal(data.getBytes());
+        
+        // 组合IV和加密数据
+        byte[] combined = new byte[iv.length + encrypted.length];
+        System.arraycopy(iv, 0, combined, 0, iv.length);
+        System.arraycopy(encrypted, 0, combined, iv.length, encrypted.length);
+        
+        return Base64.encodeToString(combined, Base64.DEFAULT);
+    }
+    
+    public static String decrypt(String encryptedData, String key) 
+            throws Exception {
+        byte[] combined = Base64.decode(encryptedData, Base64.DEFAULT);
+        
+        // 分离IV和加密数据
+        byte[] iv = new byte[16];
+        byte[] encrypted = new byte[combined.length - 16];
+        System.arraycopy(combined, 0, iv, 0, 16);
+        System.arraycopy(combined, 16, encrypted, 0, encrypted.length);
+        
+        SecretKeySpec secretKey = new SecretKeySpec(
+                key.getBytes(StandardCharsets.UTF_8), ALGORITHM);
+        
+        Cipher cipher = Cipher.getInstance(TRANSFORMATION);
+        IvParameterSpec ivSpec = new IvParameterSpec(iv);
+        
+        cipher.init(Cipher.DECRYPT_MODE, secretKey, ivSpec);
+        byte[] decrypted = cipher.doFinal(encrypted);
+        
+        return new String(decrypted);
+    }
+    
+    private static byte[] generateIV() {
+        byte[] iv = new byte[16];
+        SecureRandom random = new SecureRandom();
+        random.nextBytes(iv);
+        return iv;
+    }
+}
+```
+
+使用示例：
+
+```java
+try {
+    String key = "YourSecretKey123"; // 16字节的密钥
+    String originalData = "需要加密的数据";
+    
+    // 加密
+    String encrypted = SecurityUtil.encrypt(originalData, key);
+    
+    // 解密
+    String decrypted = SecurityUtil.decrypt(encrypted, key);
+    
+    Log.d("Security", "解密后的数据: " + decrypted);
+} catch (Exception e) {
+    e.printStackTrace();
+}
+```
+
+这些示例展示了Android中常见的安全实践，包括运行时权限处理和数据加密。在实际应用中，应根据具体需求选择合适的安全措施。

@@ -1,0 +1,174 @@
+# Android动画效果
+
+## 概述
+Android提供了多种动画系统，包括视图动画（View Animation）、属性动画（Property Animation）和过渡动画（Transition Animation）。每种动画系统都有其特定的使用场景和优势。
+
+## 动画类型
+
+### 1. 视图动画（View Animation）
+- **补间动画**：通过指定开始和结束状态，系统自动计算中间帧
+- **帧动画**：通过连续播放一系列图片实现动画效果
+
+```xml
+<!-- 补间动画示例 -->
+<?xml version="1.0" encoding="utf-8"?>
+<set xmlns:android="http://schemas.android.com/apk/res/android"
+    android:fillAfter="true">
+    <scale
+        android:duration="1000"
+        android:fromXScale="1.0"
+        android:fromYScale="1.0"
+        android:pivotX="50%"
+        android:pivotY="50%"
+        android:toXScale="2.0"
+        android:toYScale="2.0" />
+</set>
+```
+
+### 2. 属性动画（Property Animation）
+- **ObjectAnimator**：针对特定属性的动画
+- **ValueAnimator**：更通用的值动画器
+- **AnimatorSet**：组合多个动画
+
+```kotlin
+// 属性动画示例
+ObjectAnimator.ofFloat(view, "alpha", 1f, 0f).apply {
+    duration = 1000
+    repeatCount = ValueAnimator.INFINITE
+    repeatMode = ValueAnimator.REVERSE
+    start()
+}
+
+// 组合动画
+AnimatorSet().apply {
+    playTogether(
+        ObjectAnimator.ofFloat(view, "scaleX", 1f, 1.5f),
+        ObjectAnimator.ofFloat(view, "scaleY", 1f, 1.5f)
+    )
+    duration = 1000
+    start()
+}
+```
+
+### 3. 过渡动画（Transition Animation）
+- **Activity过渡**
+- **共享元素过渡**
+- **布局变化动画**
+
+```kotlin
+// Activity过渡动画
+class MainActivity : AppCompatActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        // 启用Activity过渡
+        window.requestFeature(Window.FEATURE_ACTIVITY_TRANSITIONS)
+        
+        // 设置进入和退出过渡
+        window.enterTransition = Slide()
+        window.exitTransition = Fade()
+    }
+}
+```
+
+## 性能优化
+
+1. **使用硬件加速**
+```kotlin
+view.layerType = View.LAYER_TYPE_HARDWARE
+```
+
+2. **避免过度绘制**
+- 减少动画中的透明度变化
+- 使用clipRect裁剪不必要的绘制区域
+
+3. **使用属性动画替代视图动画**
+- 视图动画只改变视图的绘制位置
+- 属性动画实际改变视图属性
+
+## 面试常见问题
+
+### 1. 属性动画和视图动画的区别？
+
+1. **视图动画**：
+   - 只能应用于View对象
+   - 只改变视图的绘制位置
+   - 不影响View的实际属性
+   - 性能较好但功能有限
+
+2. **属性动画**：
+   - 可以应用于任何对象
+   - 真实改变对象属性
+   - 功能更强大灵活
+   - 性能消耗相对较大
+
+### 2. 如何实现自定义动画？
+
+1. **自定义插值器**
+```kotlin
+class CustomInterpolator : TimeInterpolator {
+    override fun getInterpolation(input: Float): Float {
+        // 自定义插值计算
+        return input * input
+    }
+}
+```
+
+2. **自定义估值器**
+```kotlin
+class CustomEvaluator : TypeEvaluator<Point> {
+    override fun evaluate(fraction: Float, startValue: Point, endValue: Point): Point {
+        // 自定义估值计算
+        val x = startValue.x + fraction * (endValue.x - startValue.x)
+        val y = startValue.y + fraction * (endValue.y - startValue.y)
+        return Point(x.toInt(), y.toInt())
+    }
+}
+```
+
+### 3. 动画卡顿的原因和解决方案？
+
+1. **原因**：
+   - 主线程阻塞
+   - 动画计算复杂
+   - 过度绘制
+   - 内存压力
+
+2. **解决方案**：
+   - 使用硬件加速
+   - 优化动画计算
+   - 减少动画中的透明度变化
+   - 使用ViewCompat优化
+
+## 最佳实践
+
+1. **选择合适的动画类型**
+   - 简单视图变化用视图动画
+   - 复杂交互用属性动画
+   - 布局变化用过渡动画
+
+2. **性能优化**
+   - 合理使用硬件加速
+   - 避免过度绘制
+   - 控制动画时长和帧率
+
+3. **用户体验**
+   - 动画要流畅自然
+   - 避免过度使用动画
+   - 提供动画禁用选项
+
+## 注意事项
+
+1. **内存管理**
+   - 及时清理动画资源
+   - 停止不可见的动画
+   - 避免内存泄漏
+
+2. **兼容性**
+   - 考虑不同Android版本
+   - 提供降级方案
+   - 处理异常情况
+
+3. **调试技巧**
+   - 使用Profile GPU Rendering
+   - 监控帧率
+   - 分析动画性能

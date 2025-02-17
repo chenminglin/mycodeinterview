@@ -1,0 +1,158 @@
+# 热修复方案
+
+## 概述
+热修复是在不需要重新安装应用的情况下，动态修复线上bug的一种技术方案。它能够帮助开发者快速响应线上问题，提升用户体验。
+
+## 主流方案
+
+1. **Sophix**
+   - 阿里巴巴开源的热修复方案
+   - 支持代码、资源、SO库修复
+   - 高兼容性和稳定性
+
+2. **Tinker**
+   - 腾讯开源的热修复方案
+   - 支持全量更新
+   - 补丁包较小
+
+3. **AndFix**
+   - 阿里巴巴早期热修复方案
+   - 即时生效
+   - 仅支持方法替换
+
+## 核心原理
+
+### 1. 类加载方案
+```java
+// 自定义ClassLoader
+public class PatchClassLoader extends ClassLoader {
+    private final String patchDexPath;
+
+    public PatchClassLoader(String patchDexPath, ClassLoader parent) {
+        super(parent);
+        this.patchDexPath = patchDexPath;
+    }
+
+    @Override
+    protected Class<?> findClass(String name) throws ClassNotFoundException {
+        // 优先从补丁包中加载
+        Class<?> c = loadClassFromPatch(name);
+        if (c != null) return c;
+        return super.findClass(name);
+    }
+}
+```
+
+### 2. 底层替换方案
+```java
+// 方法替换
+public class MethodReplacer {
+    public static void replace(Method src, Method dst) {
+        // 替换方法的具体实现
+        long srcArtMethod = getArtMethod(src);
+        long dstArtMethod = getArtMethod(dst);
+        replaceArtMethod(srcArtMethod, dstArtMethod);
+    }
+}
+```
+
+## 实现方式
+
+1. **代码修复**
+   - Dex文件替换
+   - 方法替换
+   - 类替换
+
+2. **资源修复**
+   - 创建新的AssetManager
+   - 加载补丁资源
+   - 替换Resources对象
+
+3. **SO库修复**
+   - 加载补丁SO文件
+   - 替换原有SO文件
+   - 重启生效
+
+## 面试常见问题
+
+### 1. 热修复的原理是什么？
+
+主要包括以下几个方面：
+- 类加载机制的利用
+- 方法替换的实现
+- 资源更新的处理
+- SO库的动态加载
+
+### 2. 各种热修复方案的对比？
+
+1. **Sophix**
+   - 优点：兼容性好，功能全面
+   - 缺点：商业收费
+
+2. **Tinker**
+   - 优点：补丁包小，稳定性好
+   - 缺点：需要重启生效
+
+3. **AndFix**
+   - 优点：即时生效
+   - 缺点：兼容性差，功能有限
+
+### 3. 热修复的注意事项？
+
+- 版本兼容性处理
+- 多进程情况处理
+- 补丁包的安全性
+- 加载时机的选择
+- 异常情况的降级策略
+
+### 4. 如何保证热修复的稳定性？
+
+- 全面的测试覆盖
+- 灰度发布策略
+- 监控和报警机制
+- 回滚机制
+- 降级方案
+
+## 最佳实践
+
+1. **方案选择**
+   - 根据业务需求选择
+   - 考虑兼容性要求
+   - 评估成本和收益
+
+2. **补丁管理**
+   - 版本控制
+   - 补丁加密
+   - 增量更新
+
+3. **发布流程**
+   - 严格的测试流程
+   - 灰度发布策略
+   - 应急回滚方案
+
+4. **监控体系**
+   - 补丁加载监控
+   - 性能监控
+   - 异常监控
+
+## 注意事项
+
+1. **安全性**
+   - 补丁包签名验证
+   - 传输加密
+   - 代码混淆
+
+2. **性能影响**
+   - 补丁加载耗时
+   - 内存占用
+   - 启动速度
+
+3. **兼容性**
+   - 系统版本适配
+   - 机型适配
+   - ART/Dalvik兼容
+
+4. **限制条件**
+   - 方法数限制
+   - 包大小限制
+   - 类结构变更限制

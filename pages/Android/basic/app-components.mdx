@@ -1,0 +1,361 @@
+# Android应用程序基础组件面试题
+
+本章节包含Android应用程序基本组成部分的相关面试题，涵盖四大组件概述、应用程序入口点、应用程序上下文等核心概念。
+
+## 基础概念
+
+### 🔥 选择题1：Android四大组件
+
+关于Android四大组件，以下说法正确的是：
+
+A. Activity必须在AndroidManifest.xml中注册才能使用
+B. Service可以直接通过new关键字创建实例
+C. BroadcastReceiver必须是动态注册，不能静态注册
+D. ContentProvider不需要在AndroidManifest.xml中声明
+
+<details>
+<summary>答案与解析</summary>
+
+**答案：A**
+
+解析：
+1. Activity必须在AndroidManifest.xml中注册，否则无法使用
+2. Service是系统组件，不能直接new，必须通过Context的startService()或bindService()方法启动
+3. BroadcastReceiver既可以动态注册也可以在AndroidManifest.xml中静态注册
+4. ContentProvider必须在AndroidManifest.xml中声明，以便其他应用能够访问
+</details>
+
+### 🔥 问答题1：Application类的作用
+
+**问题：请详细说明Android中Application类的作用，以及如何正确使用自定义Application类。**
+
+<details>
+<summary>参考答案</summary>
+
+1. **Application类的作用：**
+   - 作为应用程序的全局入口点
+   - 维护应用的全局状态
+   - 在组件创建之前初始化
+   - 共享全局数据和资源
+   - 注册全局的生命周期回调
+
+2. **使用方法：**
+```java
+public class MyApplication extends Application {
+    private static MyApplication instance;
+    
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        instance = this;
+        // 初始化全局资源
+        initializeResources();
+    }
+    
+    public static MyApplication getInstance() {
+        return instance;
+    }
+    
+    private void initializeResources() {
+        // 初始化第三方库
+        // 初始化全局配置
+        // 注册生命周期回调等
+    }
+}
+```
+
+3. **在AndroidManifest.xml中注册：**
+```xml
+<application
+    android:name=".MyApplication"
+    android:icon="@mipmap/ic_launcher"
+    android:label="@string/app_name">
+    <!-- 其他配置 -->
+</application>
+```
+
+4. **注意事项：**
+   - 不要在Application中存储视图相关的数据
+   - 避免在onCreate中进行耗时操作
+   - 使用单例模式时注意内存泄漏
+   - 考虑进程间数据共享的问题
+</details>
+
+### 🔥 编程题：Context使用
+
+**问题：请实现一个工具类，用于管理全局Context，并说明不同Context的使用场景。**
+
+<details>
+<summary>参考答案</summary>
+
+```java
+public class ContextManager {
+    private static Context applicationContext;
+    private static WeakReference<Activity> currentActivity;
+
+    private ContextManager() {
+        // 私有构造函数
+    }
+
+    public static void init(Context context) {
+        if (context != null) {
+            applicationContext = context.getApplicationContext();
+        }
+    }
+
+    public static void setCurrentActivity(Activity activity) {
+        currentActivity = new WeakReference<>(activity);
+    }
+
+    public static Context getApplicationContext() {
+        if (applicationContext == null) {
+            throw new IllegalStateException("Context must be initialized");
+        }
+        return applicationContext;
+    }
+
+    public static Activity getCurrentActivity() {
+        return currentActivity != null ? currentActivity.get() : null;
+    }
+
+    // 根据不同场景选择合适的Context
+    public static Context getProperContext(boolean preferActivity) {
+        if (preferActivity) {
+            Activity activity = getCurrentActivity();
+            return activity != null ? activity : getApplicationContext();
+        }
+        return getApplicationContext();
+    }
+
+    // 示例：不同Context的使用场景
+    public static void showToast(String message) {
+        // UI操作优先使用Activity Context
+        Context context = getProperContext(true);
+        Toast.makeText(context, message, Toast.LENGTH_SHORT).show();
+    }
+
+    public static void startService(Intent intent) {
+        // 服务操作使用Application Context
+        getApplicationContext().startService(intent);
+    }
+
+    public static File getCacheDir() {
+        // 文件操作使用Application Context
+        return getApplicationContext().getCacheDir();
+    }
+}
+```
+
+代码说明：
+1. 使用单例模式管理全局Context
+2. 使用WeakReference避免Activity内存泄漏
+3. 区分不同场景下Context的使用：
+   - Activity Context：UI相关操作（Dialog、Toast等）
+   - Application Context：独立于UI的操作（Service、文件操作等）
+4. 提供工具方法简化Context的使用
+5. 包含异常处理和空值检查
+</details>
+
+## Android系统启动流程
+
+### 🔥 选择题：Android系统启动过程
+
+关于Android系统的启动过程，以下说法正确的是：
+
+A. Zygote进程是在System Server进程启动之后才创建的
+B. Android系统启动时，先启动Home应用，再启动系统服务
+C. Init进程是Android系统的第一个进程，进程号为1
+D. Application进程一定是在Activity创建之后才启动的
+
+<details>
+<summary>答案与解析</summary>
+
+**答案：C**
+
+解析：
+1. Init进程是Android系统的第一个进程，PID为1，负责创建系统需要的目录，启动Zygote等关键进程
+2. Zygote进程是由Init进程启动的，它会创建虚拟机实例，预加载系统资源，并fork出System Server进程
+3. System Server进程负责启动和管理整个Android Framework中的各种Service
+4. 应用进程是在需要时由Zygote进程fork出来的，在Activity创建之前就已经启动
+</details>
+
+### 🔥 问答题：详解Android系统启动流程
+
+**问题：请详细描述Android系统从按下电源键到桌面显示的完整启动流程。**
+
+<details>
+<summary>参考答案</summary>
+
+1. **引导程序Boot ROM和Bootloader：**
+   - 加载引导程序到RAM
+   - 初始化硬件设备
+   - 建立内存空间映射
+   - 加载Android系统内核
+
+2. **Linux内核启动：**
+   - 初始化内核
+   - 挂载根文件系统
+   - 启动init进程
+
+3. **Init进程启动：**
+   - 创建和挂载启动所需的文件目录
+   - 解析init.rc配置文件
+   - 启动属性服务
+   - 启动Zygote进程
+
+4. **Zygote进程启动：**
+   - 创建Java虚拟机
+   - 预加载系统类和资源
+   - 启动System Server进程
+   - 等待AMS请求创建应用进程
+
+5. **System Server进程：**
+   - 启动Binder线程池
+   - 创建SystemServiceManager
+   - 启动各种系统服务（AMS、WMS、PMS等）
+   - 进入Loop循环等待事件处理
+
+6. **Launcher启动：**
+   - AMS启动Launcher应用
+   - Launcher加载已安装应用的快捷图标
+   - 显示桌面界面
+</details>
+
+### 🔥 编程题：模拟系统启动流程
+
+**问题：请实现一个简单的框架，模拟Android系统的启动流程，包括进程创建和系统服务启动的核心逻辑。**
+
+<details>
+<summary>参考答案</summary>
+
+```java
+public class SystemBootSimulator {
+    private static volatile SystemBootSimulator instance;
+    private final List<SystemService> systemServices;
+    private boolean isSystemBooted;
+
+    private SystemBootSimulator() {
+        systemServices = new ArrayList<>();
+        isSystemBooted = false;
+    }
+
+    public static SystemBootSimulator getInstance() {
+        if (instance == null) {
+            synchronized (SystemBootSimulator.class) {
+                if (instance == null) {
+                    instance = new SystemBootSimulator();
+                }
+            }
+        }
+        return instance;
+    }
+
+    // 模拟Init进程
+    public void startInit() {
+        System.out.println("Init进程启动...PID: 1");
+        createSystemDirectories();
+        startZygote();
+    }
+
+    // 模拟Zygote进程
+    private void startZygote() {
+        System.out.println("Zygote进程启动...");
+        initJavaRuntime();
+        startSystemServer();
+    }
+
+    // 模拟System Server进程
+    private void startSystemServer() {
+        System.out.println("System Server进程启动...");
+        startSystemServices();
+        startLauncher();
+        isSystemBooted = true;
+    }
+
+    // 启动系统服务
+    private void startSystemServices() {
+        // 添加核心系统服务
+        addSystemService(new ActivityManagerService());
+        addSystemService(new PackageManagerService());
+        addSystemService(new WindowManagerService());
+        
+        // 启动所有服务
+        for (SystemService service : systemServices) {
+            service.start();
+        }
+    }
+
+    private void addSystemService(SystemService service) {
+        systemServices.add(service);
+    }
+
+    // 模拟创建应用进程
+    public void forkAppProcess(String processName) {
+        if (!isSystemBooted) {
+            throw new IllegalStateException("System not fully booted");
+        }
+        System.out.println("Fork new process: " + processName);
+    }
+
+    // 辅助方法
+    private void createSystemDirectories() {
+        System.out.println("创建系统目录...");
+    }
+
+    private void initJavaRuntime() {
+        System.out.println("初始化Java运行时...");
+    }
+
+    private void startLauncher() {
+        System.out.println("启动Launcher...");
+        forkAppProcess("com.android.launcher");
+    }
+
+    // 系统服务基类
+    abstract static class SystemService {
+        abstract void start();
+    }
+
+    // 模拟ActivityManagerService
+    static class ActivityManagerService extends SystemService {
+        @Override
+        void start() {
+            System.out.println("ActivityManagerService启动");
+        }
+    }
+
+    // 模拟PackageManagerService
+    static class PackageManagerService extends SystemService {
+        @Override
+        void start() {
+            System.out.println("PackageManagerService启动");
+        }
+    }
+
+    // 模拟WindowManagerService
+    static class WindowManagerService extends SystemService {
+        @Override
+        void start() {
+            System.out.println("WindowManagerService启动");
+        }
+    }
+
+    // 使用示例
+    public static void main(String[] args) {
+        SystemBootSimulator simulator = SystemBootSimulator.getInstance();
+        simulator.startInit();
+        
+        // 模拟启动一个应用
+        simulator.forkAppProcess("com.example.app");
+    }
+}
+```
+
+代码说明：
+1. 使用单例模式实现SystemBootSimulator，确保系统启动流程只执行一次
+2. 模拟了Init、Zygote、System Server等核心进程的启动流程
+3. 实现了系统服务的注册和启动机制
+4. 提供了应用进程创建的模拟实现
+5. 包含了启动状态检查和异常处理
+6. 使用观察者模式管理系统服务
+</details>

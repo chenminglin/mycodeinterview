@@ -1,0 +1,311 @@
+# Java高级面试题
+
+## Spring框架
+
+### 1. Spring循环依赖
+
+**问题：Spring如何解决循环依赖问题？三级缓存的作用是什么？**
+
+分析要点：
+
+1. 循环依赖场景
+   ```java
+   @Service
+   public class A {
+       @Autowired
+       private B b;
+   }
+
+   @Service
+   public class B {
+       @Autowired
+       private A a;
+   }
+   ```
+
+2. 三级缓存的作用
+   - singletonObjects：一级缓存，存放完全初始化好的bean
+   - earlySingletonObjects：二级缓存，存放原始的bean对象
+   - singletonFactories：三级缓存，存放bean的工厂对象
+
+3. 解决流程
+   ```java
+   // Spring创建Bean的关键代码
+   protected Object getSingleton(String beanName, boolean allowEarlyReference) {
+       // 先从一级缓存查找
+       Object singletonObject = this.singletonObjects.get(beanName);
+       if (singletonObject == null && isSingletonCurrentlyInCreation(beanName)) {
+           // 从二级缓存查找
+           singletonObject = this.earlySingletonObjects.get(beanName);
+           if (singletonObject == null && allowEarlyReference) {
+               // 从三级缓存查找
+               ObjectFactory<?> singletonFactory = this.singletonFactories.get(beanName);
+               if (singletonFactory != null) {
+                   singletonObject = singletonFactory.getObject();
+                   this.earlySingletonObjects.put(beanName, singletonObject);
+                   this.singletonFactories.remove(beanName);
+               }
+           }
+       }
+       return singletonObject;
+   }
+   ```
+
+### 2. Spring事务
+
+**问题：Spring事务的传播行为和隔离级别有哪些？如何处理分布式事务？**
+
+分析要点：
+
+1. 事务传播行为
+   ```java
+   @Transactional(propagation = Propagation.REQUIRED)
+   public void methodA() {
+       // 如果当前没有事务，就新建一个事务
+       // 如果已经存在一个事务，就加入到这个事务中
+   }
+
+   @Transactional(propagation = Propagation.REQUIRES_NEW)
+   public void methodB() {
+       // 无论是否存在事务，都会新建事务
+   }
+   ```
+
+2. 分布式事务解决方案
+   - 2PC/3PC协议
+   - TCC补偿机制
+   - 可靠消息最终一致性
+   - SAGA模式
+
+## 微服务架构
+
+### 1. 服务治理
+
+**问题：在微服务架构中，如何实现服务的优雅降级和熔断？设计一个动态线程池方案。**
+
+实现思路：
+
+1. 熔断器实现
+   ```java
+   public class CustomCircuitBreaker {
+       private final int failureThreshold;
+       private final long resetTimeout;
+       private int failureCount;
+       private long lastFailureTime;
+       private State state;
+
+       public enum State {
+           CLOSED, OPEN, HALF_OPEN
+       }
+
+       public CustomCircuitBreaker(int failureThreshold, long resetTimeout) {
+           this.failureThreshold = failureThreshold;
+           this.resetTimeout = resetTimeout;
+           this.state = State.CLOSED;
+       }
+
+       public synchronized boolean allowRequest() {
+           if (state == State.OPEN) {
+               if (System.currentTimeMillis() - lastFailureTime >= resetTimeout) {
+                   state = State.HALF_OPEN;
+                   return true;
+               }
+               return false;
+           }
+           return true;
+       }
+
+       public synchronized void recordSuccess() {
+           failureCount = 0;
+           state = State.CLOSED;
+       }
+
+       public synchronized void recordFailure() {
+           failureCount++;
+           lastFailureTime = System.currentTimeMillis();
+           if (failureCount >= failureThreshold) {
+               state = State.OPEN;
+           }
+       }
+   }
+   ```
+
+2. 动态线程池方案
+   ```java
+   public class DynamicThreadPool {
+       private ThreadPoolExecutor executor;
+       private final int minPoolSize;
+       private final int maxPoolSize;
+       private final LoadMonitor loadMonitor;
+
+       public DynamicThreadPool(int minPoolSize, int maxPoolSize) {
+           this.minPoolSize = minPoolSize;
+           this.maxPoolSize = maxPoolSize;
+           this.executor = new ThreadPoolExecutor(
+               minPoolSize, minPoolSize, 60L, TimeUnit.SECONDS,
+               new LinkedBlockingQueue<>(1000)
+           );
+           this.loadMonitor = new LoadMonitor();
+           startMonitoring();
+       }
+
+       private void startMonitoring() {
+           new Thread(() -> {
+               while (true) {
+                   int currentLoad = loadMonitor.getCurrentLoad();
+                   adjustPoolSize(currentLoad);
+                   try {
+                       Thread.sleep(5000);
+                   } catch (InterruptedException e) {
+                       Thread.currentThread().interrupt();
+                       break;
+                   }
+               }
+           }).start();
+       }
+
+       private void adjustPoolSize(int load) {
+           int currentPoolSize = executor.getCorePoolSize();
+           if (load > 80 && currentPoolSize < maxPoolSize) {
+               executor.setCorePoolSize(currentPoolSize + 1);
+           } else if (load < 30 && currentPoolSize > minPoolSize) {
+               executor.setCorePoolSize(currentPoolSize - 1);
+           }
+       }
+   }
+   ```
+
+### 2. 分布式缓存
+
+**问题：如何设计一个大规模分布式缓存系统？需要考虑哪些技术难点？**
+
+设计要点：
+
+1. 缓存架构
+   - 多级缓存策略
+   - 一致性Hash分片
+   - 主从复制机制
+
+2. 关键问题解决
+   ```java
+   public class ConsistentHash<T> {
+       private final int numberOfReplicas;  // 虚拟节点数量
+       private final SortedMap<Integer, T> circle = new TreeMap<>();
+
+       public ConsistentHash(int numberOfReplicas, Collection<T> nodes) {
+           this.numberOfReplicas = numberOfReplicas;
+           for (T node : nodes) {
+               add(node);
+           }
+       }
+
+       public void add(T node) {
+           for (int i = 0; i < numberOfReplicas; i++) {
+               circle.put(hash(node.toString() + i), node);
+           }
+       }
+
+       public void remove(T node) {
+           for (int i = 0; i < numberOfReplicas; i++) {
+               circle.remove(hash(node.toString() + i));
+           }
+       }
+
+       public T get(Object key) {
+           if (circle.isEmpty()) {
+               return null;
+           }
+           int hash = hash(key.toString());
+           if (!circle.containsKey(hash)) {
+               SortedMap<Integer, T> tailMap = circle.tailMap(hash);
+               hash = tailMap.isEmpty() ? circle.firstKey() : tailMap.firstKey();
+           }
+           return circle.get(hash);
+       }
+
+       private int hash(String key) {
+           return MurmurHash.hash32(key);
+       }
+   }
+   ```
+
+## 性能优化
+
+### 1. JVM调优实战
+
+**问题：一个Spring Boot应用在生产环境频繁发生Full GC，如何进行问题诊断和优化？**
+
+解决方案：
+
+1. 问题诊断
+   ```bash
+   # 收集GC日志
+   -XX:+PrintGCDetails -XX:+PrintGCDateStamps -Xloggc:/path/to/gc.log
+
+   # 使用JMX监控
+   -Dcom.sun.management.jmxremote
+   -Dcom.sun.management.jmxremote.port=9010
+   -Dcom.sun.management.jmxremote.authenticate=false
+   -Dcom.sun.management.jmxremote.ssl=false
+   ```
+
+2. 优化措施
+   - 内存分配优化
+   - 垃圾收集器选择
+   - 代码层面优化
+
+### 2. 数据库优化
+
+**问题：如何优化一个慢SQL查询？设计一个分库分表方案。**
+
+优化思路：
+
+1. SQL优化
+   ```sql
+   -- 优化前
+   SELECT * FROM orders o 
+   LEFT JOIN users u ON o.user_id = u.id
+   WHERE o.create_time >= '2023-01-01'
+
+   -- 优化后
+   SELECT o.id, o.order_no, u.name
+   FROM orders o FORCE INDEX(idx_create_time)
+   INNER JOIN users u ON o.user_id = u.id
+   WHERE o.create_time >= '2023-01-01'
+   ```
+
+2. 分库分表设计
+   ```java
+   public class ShardingStrategy {
+       private final int dbCount;     // 库数量
+       private final int tableCount;  // 表数量
+
+       public ShardingStrategy(int dbCount, int tableCount) {
+           this.dbCount = dbCount;
+           this.tableCount = tableCount;
+       }
+
+       public int getDbIndex(String shardingKey) {
+           long hash = MurmurHash.hash64(shardingKey);
+           return (int) (hash % dbCount);
+       }
+
+       public int getTableIndex(String shardingKey) {
+           long hash = MurmurHash.hash64(shardingKey);
+           return (int) ((hash / dbCount) % tableCount);
+       }
+   }
+   ```
+
+## 面试重点
+
+1. Spring框架核心原理
+2. 微服务架构设计
+3. 分布式系统问题处理
+4. 性能优化最佳实践
+5. 高并发系统设计
+6. 分布式事务解决方案
+7. 缓存架构设计
+8. 数据库优化技术
+9. 服务治理策略
+10. 线程池动态调优

@@ -1,0 +1,163 @@
+# Java集合框架
+
+## 1. 集合框架概述
+
+### 1.1 集合框架体系
+
+- **Collection接口**：List、Set、Queue
+- **Map接口**：HashMap、TreeMap等
+
+### 1.2 主要特点
+
+- 统一的接口和实现
+- 丰富的数据结构支持
+- 高性能的实现
+
+## 2. List集合
+
+### 2.1 ArrayList
+
+- 基于动态数组实现
+- 支持随机访问
+- 适合读多写少的场景
+
+```java
+// ArrayList使用示例
+ArrayList<String> list = new ArrayList<>();
+list.add("Apple");
+list.add("Banana");
+list.add("Orange");
+
+// 随机访问
+String fruit = list.get(1);    // 获取Banana
+```
+
+### 2.2 LinkedList
+
+- 基于双向链表实现
+- 适合频繁插入、删除的场景
+- 实现了Queue接口
+
+```java
+// LinkedList使用示例
+LinkedList<String> list = new LinkedList<>();
+list.addFirst("First");    // 头部插入
+list.addLast("Last");      // 尾部插入
+```
+
+## 3. Set集合
+
+### 3.1 HashSet
+
+- 基于HashMap实现
+- 不允许重复元素
+- 无序存储
+
+```java
+// HashSet使用示例
+HashSet<String> set = new HashSet<>();
+set.add("Apple");
+set.add("Apple");    // 重复元素不会被添加
+System.out.println(set.size());    // 输出1
+```
+
+### 3.2 TreeSet
+
+- 基于红黑树实现
+- 有序存储
+- 支持自定义排序
+
+```java
+// TreeSet使用示例
+TreeSet<Integer> set = new TreeSet<>();
+set.add(3);
+set.add(1);
+set.add(2);
+// 自动排序：1, 2, 3
+```
+
+## 4. Map集合
+
+### 4.1 HashMap
+
+- 哈希表实现
+- 键值对存储
+- 非线程安全
+
+```java
+// HashMap使用示例
+HashMap<String, Integer> map = new HashMap<>();
+map.put("Apple", 1);
+map.put("Banana", 2);
+
+Integer value = map.get("Apple");    // 获取值1
+```
+
+### 4.2 ConcurrentHashMap
+
+- 线程安全的HashMap
+- 分段锁机制
+- 并发性能好
+
+```java
+// ConcurrentHashMap使用示例
+ConcurrentHashMap<String, Integer> map = new ConcurrentHashMap<>();
+map.put("key", 1);
+map.putIfAbsent("key", 2);    // 不会覆盖已有值
+```
+
+## 5. 面试常考题
+
+### 5.1 ArrayList和LinkedList的区别？
+
+1. **底层实现**
+   - ArrayList：动态数组
+   - LinkedList：双向链表
+
+2. **性能特点**
+   - ArrayList：随机访问快，插入删除慢
+   - LinkedList：随机访问慢，插入删除快
+
+3. **内存占用**
+   - ArrayList：连续内存空间
+   - LinkedList：额外的节点开销
+
+### 5.2 HashMap的工作原理？
+
+1. **数据结构**
+   - 数组 + 链表 + 红黑树（JDK 8）
+   - 链表长度超过8转换为红黑树
+
+2. **哈希冲突解决**
+   - 链地址法
+   - 红黑树优化
+
+3. **扩容机制**
+   - 负载因子0.75
+   - 容量翻倍扩容
+
+## 6. 最佳实践
+
+1. **选择合适的集合类型**
+   - 需要唯一性用Set
+   - 需要键值对用Map
+   - 需要有序用List
+
+2. **性能优化**
+   - 合理指定初始容量
+   - 避免频繁扩容
+   - 使用批量操作
+
+3. **线程安全考虑**
+   - 单线程：优先使用非同步集合
+   - 多线程：使用并发集合或同步包装
+
+```java
+// 集合性能优化示例
+ArrayList<String> list = new ArrayList<>(10000);    // 指定初始容量
+list.addAll(Arrays.asList("A", "B", "C"));         // 批量添加
+
+// 线程安全示例
+List<String> syncList = Collections.synchronizedList(new ArrayList<>());
+Map<String, Integer> concurrentMap = new ConcurrentHashMap<>();
+```

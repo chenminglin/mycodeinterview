@@ -1,0 +1,261 @@
+# Android进程和线程管理面试题
+
+本章节包含Android进程和线程管理相关的面试题，涵盖进程优先级、线程调度、Handler机制等核心知识点。
+
+## 基础概念
+
+### 🔥 选择题1：Android进程优先级
+
+关于Android进程优先级，以下说法错误的是：
+
+A. 前台进程（Foreground Process）具有最高优先级
+B. 可见进程（Visible Process）包含用户当前可见但不可交互的Activity
+C. 服务进程（Service Process）的优先级高于前台进程
+D. 空进程（Empty Process）用于优化系统性能，可以被随时终止
+
+<details>
+<summary>答案与解析</summary>
+
+**答案：C**
+
+解析：
+1. 前台进程确实具有最高优先级，包含用户正在交互的Activity
+2. 可见进程包含可见但不可交互的Activity，如对话框背后的Activity
+3. 服务进程优先级低于前台进程和可见进程，但高于后台进程
+4. 空进程不包含任何活动的应用组件，用于加快应用下次启动速度
+</details>
+
+### 🔥 问答题1：Handler机制原理
+
+**问题：请详细说明Android Handler机制的工作原理，以及如何正确使用Handler避免内存泄漏。**
+
+<details>
+<summary>参考答案</summary>
+
+1. **Handler机制组成部分**
+   - Handler：发送和处理消息
+   - Message：消息对象
+   - MessageQueue：消息队列
+   - Looper：消息循环
+
+2. **工作流程**
+   - Handler发送消息到MessageQueue
+   - Looper不断从MessageQueue中取出消息
+   - Handler处理消息
+
+3. **主要用途**
+   - 线程间通信
+   - 延迟执行任务
+   - 处理异步操作结果
+
+4. **避免内存泄漏的方法**
+   - 使用静态内部类
+   - 弱引用持有外部类
+   - 及时移除消息
+   - Activity销毁时清理Handler
+
+5. **最佳实践**
+   - 正确管理Handler生命周期
+   - 使用post方法简化代码
+   - 合理设置消息优先级
+   - 避免重复发送消息
+</details>
+
+### 🔥 编程题：线程池管理
+
+**问题：实现一个线程池管理工具类，包含常用线程池的创建和管理功能。**
+
+<details>
+<summary>参考答案</summary>
+
+```java
+public class ThreadPoolManager {
+    private static ThreadPoolManager instance;
+    
+    // 不同类型的线程池
+    private ExecutorService cachedThreadPool;
+    private ExecutorService fixedThreadPool;
+    private ScheduledExecutorService scheduledThreadPool;
+    private ExecutorService singleThreadExecutor;
+    
+    // 线程池配置参数
+    private static final int CORE_POOL_SIZE = 5;
+    private static final int MAX_POOL_SIZE = 10;
+    private static final int KEEP_ALIVE_TIME = 60;
+    private static final int SCHEDULED_POOL_SIZE = 3;
+    
+    private ThreadPoolManager() {
+        initThreadPools();
+    }
+    
+    public static ThreadPoolManager getInstance() {
+        if (instance == null) {
+            synchronized (ThreadPoolManager.class) {
+                if (instance == null) {
+                    instance = new ThreadPoolManager();
+                }
+            }
+        }
+        return instance;
+    }
+    
+    private void initThreadPools() {
+        // 创建缓存线程池
+        cachedThreadPool = Executors.newCachedThreadPool();
+        
+        // 创建固定大小线程池
+        fixedThreadPool = new ThreadPoolExecutor(
+            CORE_POOL_SIZE,
+            MAX_POOL_SIZE,
+            KEEP_ALIVE_TIME,
+            TimeUnit.SECONDS,
+            new LinkedBlockingQueue<>(),
+            new ThreadPoolExecutor.CallerRunsPolicy()
+        );
+        
+        // 创建定时任务线程池
+        scheduledThreadPool = Executors.newScheduledThreadPool(SCHEDULED_POOL_SIZE);
+        
+        // 创建单线程池
+        singleThreadExecutor = Executors.newSingleThreadExecutor();
+    }
+    
+    // 执行普通任务
+    public void execute(Runnable task) {
+        fixedThreadPool.execute(task);
+    }
+    
+    // 执行需要返回结果的任务
+    public <T> Future<T> submit(Callable<T> task) {
+        return fixedThreadPool.submit(task);
+    }
+    
+    // 执行定时任务
+    public ScheduledFuture<?> scheduleTask(Runnable task, long delay, TimeUnit unit) {
+        return scheduledThreadPool.schedule(task, delay, unit);
+    }
+    
+    // 执行周期性任务
+    public ScheduledFuture<?> schedulePeriodicTask(
+            Runnable task, 
+            long initialDelay, 
+            long period, 
+            TimeUnit unit) {
+        return scheduledThreadPool.scheduleAtFixedRate(task, initialDelay, period, unit);
+    }
+    
+    // 在缓存线程池中执行任务
+    public void executeInCachedPool(Runnable task) {
+        cachedThreadPool.execute(task);
+    }
+    
+    // 在单线程池中执行任务
+    public void executeInSingleThread(Runnable task) {
+        singleThreadExecutor.execute(task);
+    }
+    
+    // 关闭线程池
+    public void shutdown() {
+        if (!cachedThreadPool.isShutdown()) {
+            cachedThreadPool.shutdown();
+        }
+        if (!fixedThreadPool.isShutdown()) {
+            fixedThreadPool.shutdown();
+        }
+        if (!scheduledThreadPool.isShutdown()) {
+            scheduledThreadPool.shutdown();
+        }
+        if (!singleThreadExecutor.isShutdown()) {
+            singleThreadExecutor.shutdown();
+        }
+    }
+    
+    // 立即关闭线程池
+    public void shutdownNow() {
+        if (!cachedThreadPool.isShutdown()) {
+            cachedThreadPool.shutdownNow();
+        }
+        if (!fixedThreadPool.isShutdown()) {
+            fixedThreadPool.shutdownNow();
+        }
+        if (!scheduledThreadPool.isShutdown()) {
+            scheduledThreadPool.shutdownNow();
+        }
+        if (!singleThreadExecutor.isShutdown()) {
+            singleThreadExecutor.shutdownNow();
+        }
+    }
+    
+    // 使用示例
+    public void exampleUsage() {
+        // 执行普通任务
+        execute(() -> {
+            // 执行任务逻辑
+            System.out.println("Executing task in fixed thread pool");
+        });
+        
+        // 执行需要返回结果的任务
+        Future<String> future = submit(() -> {
+            // 执行任务逻辑
+            return "Task result";
+        });
+        
+        // 执行定时任务
+        scheduleTask(() -> {
+            System.out.println("Executing delayed task");
+        }, 5, TimeUnit.SECONDS);
+        
+        // 执行周期性任务
+        schedulePeriodicTask(() -> {
+            System.out.println("Executing periodic task");
+        }, 0, 1, TimeUnit.MINUTES);
+        
+        // 在缓存线程池中执行任务
+        executeInCachedPool(() -> {
+            System.out.println("Executing task in cached thread pool");
+        });
+        
+        // 在单线程池中执行任务
+        executeInSingleThread(() -> {
+            System.out.println("Executing task in single thread pool");
+        });
+    }
+    
+    // 监控线程池状态的方法
+    public ThreadPoolStatus getThreadPoolStatus() {
+        ThreadPoolStatus status = new ThreadPoolStatus();
+        
+        if (fixedThreadPool instanceof ThreadPoolExecutor) {
+            ThreadPoolExecutor executor = (ThreadPoolExecutor) fixedThreadPool;
+            status.activeCount = executor.getActiveCount();
+            status.poolSize = executor.getPoolSize();
+            status.queueSize = executor.getQueue().size();
+            status.completedTaskCount = executor.getCompletedTaskCount();
+        }
+        
+        return status;
+    }
+    
+    // 线程池状态数据类
+    public static class ThreadPoolStatus {
+        public int activeCount;      // 活动线程数
+        public int poolSize;         // 线程池大小
+        public int queueSize;        // 队列中等待的任务数
+        public long completedTaskCount; // 已完成的任务数
+    }
+}
+```
+
+代码说明：
+1. 实现了完整的线程池管理功能：
+   - 不同类型的线程池
+   - 任务提交和执行
+   - 定时任务支持
+   - 线程池状态监控
+2. 使用单例模式确保线程池全局唯一
+3. 提供了灵活的任务提交方式
+4. 包含线程池参数配置
+5. 实现了资源管理和释放
+6. 提供了状态监控功能
+7. 包含完整的使用示例
+</details>

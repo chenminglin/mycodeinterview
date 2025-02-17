@@ -1,0 +1,307 @@
+# BroadcastReceiver
+
+## 概述
+BroadcastReceiver（广播接收器）是Android四大组件之一，用于在不同组件、应用之间传递消息。它能够接收来自系统或其他应用发出的广播消息，并做出响应。
+
+## 广播类型
+
+### 1. 标准广播（Normal Broadcast）
+- 完全异步执行
+- 所有接收器几乎同时接收到广播
+- 无法被截断
+
+### 2. 有序广播（Ordered Broadcast）
+- 同步执行
+- 按照优先级顺序接收
+- 可以被截断
+
+## 注册方式
+
+### 1. 静态注册
+```xml
+<!-- AndroidManifest.xml -->
+<receiver
+    android:name=".MyReceiver"
+    android:enabled="true"
+    android:exported="true">
+    <intent-filter>
+        <action android:name="com.example.MY_ACTION" />
+    </intent-filter>
+</receiver>
+```
+
+### 2. 动态注册
+```kotlin
+class MainActivity : AppCompatActivity() {
+    private val receiver = MyReceiver()
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        registerReceiver(receiver, IntentFilter("com.example.MY_ACTION"))
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        unregisterReceiver(receiver)
+    }
+}
+```
+
+## 实现示例
+
+### 1. 基本实现
+```kotlin
+class MyReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        when (intent.action) {
+            "com.example.MY_ACTION" -> {
+                // 处理广播
+            }
+        }
+    }
+}
+```
+
+### 2. 发送广播
+```kotlin
+// 发送标准广播
+val intent = Intent("com.example.MY_ACTION")
+intent.putExtra("data", "Hello")
+sendBroadcast(intent)
+
+// 发送有序广播
+sendOrderedBroadcast(intent, null)
+```
+
+## 常见系统广播
+
+1. **系统启动相关**
+```kotlin
+android.intent.action.BOOT_COMPLETED
+android.intent.action.PACKAGE_ADDED
+android.intent.action.PACKAGE_REMOVED
+```
+
+2. **网络状态相关**
+```kotlin
+android.net.conn.CONNECTIVITY_CHANGE
+android.net.wifi.WIFI_STATE_CHANGED
+```
+
+3. **电池相关**
+```kotlin
+android.intent.action.BATTERY_LOW
+android.intent.action.BATTERY_CHANGED
+```
+
+## 使用场景
+
+### 1. 监听系统事件
+```kotlin
+class NetworkReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action == ConnectivityManager.CONNECTIVITY_ACTION) {
+            val networkInfo = intent.getParcelableExtra<NetworkInfo>(
+                ConnectivityManager.EXTRA_NETWORK_INFO)
+            // 处理网络状态变化
+        }
+    }
+}
+```
+
+### 2. 应用内通信
+```kotlin
+class MessageReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action == "com.example.NEW_MESSAGE") {
+            val message = intent.getStringExtra("message")
+            // 处理新消息
+        }
+    }
+}
+```
+
+## 面试常见问题
+
+### 1. 广播的两种注册方式的区别？
+
+1. **静态注册**：
+   - 在AndroidManifest中注册
+   - 应用未启动也能接收广播
+   - 常驻系统，占用资源
+   - Android 8.0后受限制
+
+2. **动态注册**：
+   - 在代码中注册
+   - 需要应用启动才能接收
+   - 跟随组件生命周期
+   - 更加灵活
+
+### 2. LocalBroadcastManager的作用？
+
+1. **特点**：
+   - 应用内广播
+   - 更高效
+   - 更安全
+   - 无需跨进程
+
+2. **使用方式**：
+```kotlin
+val localBroadcastManager = LocalBroadcastManager.getInstance(context)
+
+// 注册
+localBroadcastManager.registerReceiver(receiver, IntentFilter("MY_ACTION"))
+
+// 发送
+localBroadcastManager.sendBroadcast(intent)
+
+// 注销
+localBroadcastManager.unregisterReceiver(receiver)
+```
+
+### 3. 广播的优先级如何设置？
+
+1. **静态注册**：
+```xml
+<receiver android:name=".MyReceiver">
+    <intent-filter android:priority="100">
+        <action android:name="com.example.MY_ACTION" />
+    </intent-filter>
+</receiver>
+```
+
+2. **动态注册**：
+```kotlin
+val intentFilter = IntentFilter("com.example.MY_ACTION")
+intentFilter.priority = 100
+registerReceiver(receiver, intentFilter)
+```
+
+## 最佳实践
+
+1. **选择合适的注册方式**
+   - 需要常驻监听：静态注册
+   - 临时监听：动态注册
+   - 应用内通信：LocalBroadcastManager
+
+2. **性能优化**
+   - 避免在onReceive中执行耗时操作
+   - 合理使用优先级
+   - 及时注销广播接收器
+
+3. **安全性考虑**
+   - 使用LocalBroadcastManager
+   - 设置权限控制
+   - 避免敏感信息传递
+
+## 源码分析
+
+### 1. 广播注册流程
+```java
+// ContextImpl.java
+public Intent registerReceiver(BroadcastReceiver receiver, IntentFilter filter) {
+    // 创建接收器包装对象
+    // 添加到广播管理器
+    // 返回粘性广播
+}
+```
+
+### 2. 广播发送流程
+```java
+// ActivityManagerService.java
+public void broadcastIntent(Intent intent, String resolvedType,
+        IIntentReceiver resultTo, int resultCode) {
+    // 处理权限
+    // 查找匹配的接收器
+    // 发送广播
+}
+```
+
+## 注意事项
+
+1. **生命周期管理**
+   - 动态注册必须注销
+   - 避免内存泄漏
+   - 注意Context引用
+
+2. **性能问题**
+   - 避免广播滥用
+   - 合理设置优先级
+   - 使用LocalBroadcastManager
+
+3. **兼容性问题**
+   - 适配Android 8.0限制
+   - 处理系统广播变化
+   - 考虑不同厂商差异
+
+## 高级特性
+
+### 1. 粘性广播
+```kotlin
+// 发送粘性广播（已废弃）
+val intent = Intent("com.example.STICKY_ACTION")
+sendStickyBroadcast(intent)
+
+// 移除粘性广播
+removeStickyBroadcast(intent)
+```
+
+### 2. 跨进程广播
+```kotlin
+// 发送广播到指定包名
+val intent = Intent("com.example.MY_ACTION")
+intent.setPackage("com.example.app")
+sendBroadcast(intent)
+```
+
+### 3. 广播权限控制
+```kotlin
+// 发送带权限的广播
+sendBroadcast(intent, "com.example.CUSTOM_PERMISSION")
+
+// 接收带权限的广播
+<uses-permission android:name="com.example.CUSTOM_PERMISSION" />
+```
+
+## 实战技巧
+
+### 1. 动态注册优化
+```kotlin
+class MainActivity : AppCompatActivity() {
+    private val receiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            // 处理广播
+        }
+    }.also { receiver ->
+        registerReceiver(receiver, IntentFilter().apply {
+            addAction("com.example.ACTION_1")
+            addAction("com.example.ACTION_2")
+        })
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        unregisterReceiver(receiver)
+    }
+}
+```
+
+### 2. 广播接收器复用
+```kotlin
+class SharedReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        when (intent.action) {
+            "com.example.ACTION_1" -> handleAction1()
+            "com.example.ACTION_2" -> handleAction2()
+        }
+    }
+
+    private fun handleAction1() {
+        // 处理动作1
+    }
+
+    private fun handleAction2() {
+        // 处理动作2
+    }
+}
+```

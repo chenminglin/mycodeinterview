@@ -1,0 +1,192 @@
+# Android布局优化
+
+## 概述
+布局优化是Android性能优化中的重要一环，良好的布局结构可以提高渲染效率，减少内存占用，提升应用的整体性能和用户体验。
+
+## 常见问题
+
+### 1. 过度绘制
+- **定义**：同一个像素被多次绘制
+- **影响**：消耗额外的GPU资源
+- **检测**：开发者选项中的"显示过度绘制区域"
+
+### 2. 布局嵌套
+- **问题**：过深的视图层级
+- **影响**：增加测量和布局时间
+- **表现**：页面加载慢，滑动卡顿
+
+## 优化技术
+
+### 1. 布局层级优化
+```xml
+<!-- 优化前 -->
+<LinearLayout>
+    <LinearLayout>
+        <LinearLayout>
+            <TextView/>
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>
+
+<!-- 优化后 -->
+<ConstraintLayout>
+    <TextView
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"/>
+</ConstraintLayout>
+```
+
+### 2. 布局工具
+
+1. **ConstraintLayout**
+```xml
+<androidx.constraintlayout.widget.ConstraintLayout
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    
+    <ImageView
+        android:id="@+id/image"
+        app:layout_constraintDimensionRatio="1:1"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"/>
+        
+    <TextView
+        android:layout_width="0dp"
+        app:layout_constraintStart_toEndOf="@id/image"
+        app:layout_constraintTop_toTopOf="@id/image"
+        app:layout_constraintEnd_toEndOf="parent"/>
+        
+</androidx.constraintlayout.widget.ConstraintLayout>
+```
+
+2. **<merge>标签**
+```xml
+<!-- layout_item.xml -->
+<merge xmlns:android="http://schemas.android.com/apk/res/android">
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"/>
+    <ImageView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"/>
+</merge>
+```
+
+### 3. 性能优化技巧
+
+1. **ViewStub**
+```xml
+<ViewStub
+    android:id="@+id/stub"
+    android:layout="@layout/error_view"
+    android:inflatedId="@+id/error"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"/>
+```
+
+```kotlin
+// 按需加载布局
+viewStub.inflate()
+```
+
+2. **include标签**
+```xml
+<include
+    layout="@layout/common_toolbar"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"/>
+```
+
+## 测量工具
+
+### 1. Layout Inspector
+```kotlin
+// 在开发者选项中启用
+// 使用Android Studio的Layout Inspector工具
+// 分析视图层级和布局性能
+```
+
+### 2. Systrace
+```kotlin
+// 使用Systrace分析布局性能
+TraceCompat.beginSection("Layout Performance")
+// 布局操作
+TraceCompat.endSection()
+```
+
+## 面试常见问题
+
+### 1. 如何优化布局性能？
+
+1. **减少布局层级**
+   - 使用ConstraintLayout
+   - 移除无用的嵌套
+   - 合理使用ViewStub
+
+2. **避免过度绘制**
+   - 移除不必要的背景
+   - 使用裁剪区域
+   - 使用自定义View优化
+
+3. **布局复用**
+   - 使用<include>标签
+   - 使用<merge>标签
+   - 合理使用ViewHolder
+
+### 2. ConstraintLayout的优势？
+
+1. **性能优势**
+   - 扁平化视图层级
+   - 减少测量和布局时间
+   - 提高渲染效率
+
+2. **功能优势**
+   - 灵活的约束关系
+   - 支持比例布局
+   - 支持辅助线和链
+
+### 3. 如何处理复杂布局？
+
+1. **模块化**
+   - 拆分复杂布局
+   - 使用include复用
+   - 合理使用自定义View
+
+2. **按需加载**
+   - 使用ViewStub
+   - 延迟初始化
+   - 分步加载
+
+## 最佳实践
+
+1. **布局设计**
+   - 控制视图层级
+   - 选择合适的布局容器
+   - 避免过度设计
+
+2. **复用优化**
+   - 提取公共布局
+   - 使用样式和主题
+   - 合理使用资源
+
+3. **性能监控**
+   - 使用性能分析工具
+   - 监控布局性能指标
+   - 持续优化改进
+
+## 注意事项
+
+1. **内存管理**
+   - 及时释放资源
+   - 避免内存泄漏
+   - 控制图片大小
+
+2. **兼容性**
+   - 适配不同屏幕
+   - 处理方向变化
+   - 考虑系统版本
+
+3. **维护性**
+   - 保持代码整洁
+   - 添加必要注释
+   - 遵循命名规范

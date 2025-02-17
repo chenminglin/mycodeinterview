@@ -1,0 +1,141 @@
+# Intent和Intent Filter面试题
+
+本章节包含Android中Intent和Intent Filter相关的面试题，涵盖Intent的基本概念、使用方式、Intent Filter的配置等重要知识点。
+
+## Intent基础
+
+### 🔥 选择题1：Intent的类型
+
+关于Intent的类型，以下说法正确的是：
+
+A. 显式Intent只能用于启动同一应用内的组件
+B. 隐式Intent必须指定具体的组件类名
+C. 使用隐式Intent时必须指定Action
+D. Bundle对象不能通过Intent传递
+
+<details>
+<summary>答案与解析</summary>
+
+**答案：C**
+
+解析：
+1. 显式Intent可以启动其他应用的组件，只要知道完整的组件类名
+2. 隐式Intent不需要指定具体组件类名，而是通过Intent Filter匹配
+3. 隐式Intent必须指定Action，这是匹配的基本条件
+4. Bundle对象可以通过Intent的putExtra()方法传递
+</details>
+
+### 🔥 问答题1：Intent Filter的匹配规则
+
+**问题：请详细说明Intent Filter的匹配规则，包括Action、Category和Data的匹配过程。**
+
+<details>
+<summary>参考答案</summary>
+
+1. **Action匹配规则：**
+   - Intent中声明的Action必须和Filter中的某个Action相同
+   - Filter中可以声明多个Action
+   - 大小写敏感
+
+2. **Category匹配规则：**
+   - Intent中所有的Category都必须在Filter中找到匹配
+   - Filter可以声明多个Category
+   - 隐式Intent默认添加CATEGORY_DEFAULT
+
+3. **Data匹配规则：**
+   - 同时匹配URI和MIME类型
+   - URI匹配包括Scheme、Authority、Path
+   - MIME类型可以使用通配符
+
+4. **示例配置：**
+```xml
+<intent-filter>
+    <action android:name="android.intent.action.VIEW" />
+    <action android:name="android.intent.action.EDIT" />
+    <category android:name="android.intent.category.DEFAULT" />
+    <data android:scheme="http" 
+          android:host="example.com"
+          android:mimeType="text/*" />
+</intent-filter>
+```
+</details>
+
+### 🔥 编程题：自定义URL Scheme处理
+
+**问题：实现一个Activity，通过自定义URL Scheme打开应用并处理参数。例如：myapp://user/profile?id=123**
+
+<details>
+<summary>参考答案</summary>
+
+```java
+public class DeepLinkActivity extends AppCompatActivity {
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_deep_link);
+        
+        // 处理Intent
+        handleIntent(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        handleIntent(intent);
+    }
+
+    private void handleIntent(Intent intent) {
+        String action = intent.getAction();
+        Uri data = intent.getData();
+        
+        if (Intent.ACTION_VIEW.equals(action) && data != null) {
+            String path = data.getPath();
+            String id = data.getQueryParameter("id");
+            
+            if ("/user/profile".equals(path) && id != null) {
+                loadUserProfile(id);
+            }
+        }
+    }
+
+    private void loadUserProfile(String userId) {
+        // 加载用户资料
+        Toast.makeText(this, "Loading user profile: " + userId, Toast.LENGTH_SHORT).show();
+    }
+}
+```
+
+在AndroidManifest.xml中配置：
+```xml
+<activity android:name=".DeepLinkActivity">
+    <intent-filter>
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <category android:name="android.intent.category.BROWSABLE" />
+        <data
+            android:scheme="myapp"
+            android:host="user"
+            android:pathPattern="/profile" />
+    </intent-filter>
+</activity>
+```
+
+测试方法：
+```java
+// 在其他Activity中测试
+Intent intent = new Intent(Intent.ACTION_VIEW, 
+    Uri.parse("myapp://user/profile?id=123"));
+startActivity(intent);
+
+// 或在终端使用adb命令测试
+// adb shell am start -a android.intent.action.VIEW -d "myapp://user/profile?id=123"
+```
+
+代码说明：
+1. 实现自定义URL Scheme的Activity
+2. 在AndroidManifest中配置Intent Filter
+3. 解析URL中的参数
+4. 处理不同路径的逻辑
+5. 提供测试方法
+</details>

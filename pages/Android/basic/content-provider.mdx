@@ -25,6 +25,159 @@ D. ContentProvider不需要在AndroidManifest.xml中注册
 4. ContentProvider必须在AndroidManifest.xml中注册才能使用
 </details>
 
+## ContentProvider高级特性
+
+### 🔥 选择题2：ContentProvider数据同步
+
+关于ContentProvider的数据同步机制，以下说法正确的是：
+
+A. ContentObserver只能监听单个URI的数据变化
+B. notifyChange方法只能在主线程中调用
+C. 注册ContentObserver后必须手动解除注册
+D. ContentProvider的数据变化通知是同步的
+
+<details>
+<summary>答案与解析</summary>
+
+**答案：C**
+
+解析：
+1. ContentObserver可以监听多个URI的数据变化
+2. notifyChange方法可以在任何线程中调用
+3. 为避免内存泄漏，必须在不需要时解除注册
+4. 数据变化通知是异步的，通过Handler机制实现
+</details>
+
+### 🔥 问答题3：ContentProvider的批量操作
+
+**问题：如何在ContentProvider中实现高效的批量操作？请详细说明实现方案和注意事项。**
+
+<details>
+<summary>参考答案</summary>
+
+1. **实现方案：**
+   ```java
+   @Override
+   public ContentProviderResult[] applyBatch(ArrayList<ContentProviderOperation> operations) {
+       SQLiteDatabase db = mDbHelper.getWritableDatabase();
+       db.beginTransaction();
+       try {
+           ContentProviderResult[] results = new ContentProviderResult[operations.size()];
+           for (int i = 0; i < operations.size(); i++) {
+               results[i] = operations.get(i).apply(this, results, i);
+           }
+           db.setTransactionSuccessful();
+           return results;
+       } finally {
+           db.endTransaction();
+       }
+   }
+   ```
+
+2. **性能优化：**
+   - 使用事务保证原子性
+   - 批量操作减少IPC次数
+   - 合理使用BackReference
+   - 优化数据库索引
+
+3. **注意事项：**
+   - 控制单次批量操作数量
+   - 处理并发访问
+   - 异常回滚处理
+   - 避免ANR风险
+</details>
+
+### 🔥 问答题4：ContentProvider的URI权限
+
+**问题：ContentProvider如何实现临时URI权限授予？请详细说明实现方式和应用场景。**
+
+<details>
+<summary>参考答案</summary>
+
+1. **实现方式：**
+   ```java
+   // 授予URI权限
+   Intent intent = new Intent(Intent.ACTION_VIEW);
+   intent.setData(uri);
+   intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+   intent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+   
+   // 在Provider中处理
+   @Override
+   public void onGrantUriPermission(String name, Uri uri, int mode) {
+       super.onGrantUriPermission(name, uri, mode);
+       // 处理临时权限授予
+   }
+   ```
+
+2. **应用场景：**
+   - 文件共享
+   - 图片选择
+   - 文档处理
+   - 媒体播放
+
+3. **最佳实践：**
+   - 合理设置权限范围
+   - 及时回收临时权限
+   - 验证调用方身份
+   - 日志记录和审计
+</details>
+
+### 🔥 编程题2：高性能ContentProvider
+
+**问题：实现一个支持高并发、批量操作的ContentProvider，要求具备缓存机制和性能优化。**
+
+<details>
+<summary>参考答案</summary>
+
+```java
+public class HighPerformanceProvider extends ContentProvider {
+    private static final int CACHE_SIZE = 1024 * 1024; // 1MB缓存
+    private LruCache<String, Object> mMemoryCache;
+    private SQLiteDatabase mDb;
+    
+    @Override
+    public boolean onCreate() {
+        mMemoryCache = new LruCache<String, Object>(CACHE_SIZE) {
+            @Override
+            protected int sizeOf(String key, Object value) {
+                // 计算缓存对象大小
+                return getObjectSize(value);
+            }
+        };
+        mDb = new DatabaseHelper(getContext()).getWritableDatabase();
+        return true;
+    }
+    
+    @Override
+    public ContentProviderResult[] applyBatch(ArrayList<ContentProviderOperation> operations) {
+        ContentProviderResult[] results = new ContentProviderResult[operations.size()];
+        mDb.beginTransaction();
+        try {
+            for (int i = 0; i < operations.size(); i++) {
+                results[i] = operations.get(i).apply(this, results, i);
+                updateCache(operations.get(i));
+            }
+            mDb.setTransactionSuccessful();
+        } finally {
+            mDb.endTransaction();
+        }
+        return results;
+    }
+    
+    @Override
+    public Cursor query(Uri uri, String[] projection, String selection,
+                       String[] selectionArgs, String sortOrder) {
+        // 先查询缓存
+        String cacheKey = generateCacheKey(uri, projection, selection,
+            selectionArgs, sortOrder);
+        Object cachedResult = mMemoryCache.get(cacheKey);
+        if (cachedResult != null) {
+            return (Cursor) cachedResult;
+        }
+```
+</details>
+
 ### 🔥 问答题1：ContentProvider的作用
 
 **问题：请详细说明ContentProvider的作用和应用场景，以及与其他数据共享方式的比较。**
@@ -49,6 +202,159 @@ D. ContentProvider不需要在AndroidManifest.xml中注册
    - 相比SharedPreferences：支持复杂数据类型，支持跨进程
    - 相比SQLite：提供安全访问机制，无需关心底层实现
    - 相比Socket：更适合数据共享场景，使用更简单
+</details>
+
+## ContentProvider高级特性
+
+### 🔥 选择题2：ContentProvider数据同步
+
+关于ContentProvider的数据同步机制，以下说法正确的是：
+
+A. ContentObserver只能监听单个URI的数据变化
+B. notifyChange方法只能在主线程中调用
+C. 注册ContentObserver后必须手动解除注册
+D. ContentProvider的数据变化通知是同步的
+
+<details>
+<summary>答案与解析</summary>
+
+**答案：C**
+
+解析：
+1. ContentObserver可以监听多个URI的数据变化
+2. notifyChange方法可以在任何线程中调用
+3. 为避免内存泄漏，必须在不需要时解除注册
+4. 数据变化通知是异步的，通过Handler机制实现
+</details>
+
+### 🔥 问答题3：ContentProvider的批量操作
+
+**问题：如何在ContentProvider中实现高效的批量操作？请详细说明实现方案和注意事项。**
+
+<details>
+<summary>参考答案</summary>
+
+1. **实现方案：**
+   ```java
+   @Override
+   public ContentProviderResult[] applyBatch(ArrayList<ContentProviderOperation> operations) {
+       SQLiteDatabase db = mDbHelper.getWritableDatabase();
+       db.beginTransaction();
+       try {
+           ContentProviderResult[] results = new ContentProviderResult[operations.size()];
+           for (int i = 0; i < operations.size(); i++) {
+               results[i] = operations.get(i).apply(this, results, i);
+           }
+           db.setTransactionSuccessful();
+           return results;
+       } finally {
+           db.endTransaction();
+       }
+   }
+   ```
+
+2. **性能优化：**
+   - 使用事务保证原子性
+   - 批量操作减少IPC次数
+   - 合理使用BackReference
+   - 优化数据库索引
+
+3. **注意事项：**
+   - 控制单次批量操作数量
+   - 处理并发访问
+   - 异常回滚处理
+   - 避免ANR风险
+</details>
+
+### 🔥 问答题4：ContentProvider的URI权限
+
+**问题：ContentProvider如何实现临时URI权限授予？请详细说明实现方式和应用场景。**
+
+<details>
+<summary>参考答案</summary>
+
+1. **实现方式：**
+   ```java
+   // 授予URI权限
+   Intent intent = new Intent(Intent.ACTION_VIEW);
+   intent.setData(uri);
+   intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+   intent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+   
+   // 在Provider中处理
+   @Override
+   public void onGrantUriPermission(String name, Uri uri, int mode) {
+       super.onGrantUriPermission(name, uri, mode);
+       // 处理临时权限授予
+   }
+   ```
+
+2. **应用场景：**
+   - 文件共享
+   - 图片选择
+   - 文档处理
+   - 媒体播放
+
+3. **最佳实践：**
+   - 合理设置权限范围
+   - 及时回收临时权限
+   - 验证调用方身份
+   - 日志记录和审计
+</details>
+
+### 🔥 编程题2：高性能ContentProvider
+
+**问题：实现一个支持高并发、批量操作的ContentProvider，要求具备缓存机制和性能优化。**
+
+<details>
+<summary>参考答案</summary>
+
+```java
+public class HighPerformanceProvider extends ContentProvider {
+    private static final int CACHE_SIZE = 1024 * 1024; // 1MB缓存
+    private LruCache<String, Object> mMemoryCache;
+    private SQLiteDatabase mDb;
+    
+    @Override
+    public boolean onCreate() {
+        mMemoryCache = new LruCache<String, Object>(CACHE_SIZE) {
+            @Override
+            protected int sizeOf(String key, Object value) {
+                // 计算缓存对象大小
+                return getObjectSize(value);
+            }
+        };
+        mDb = new DatabaseHelper(getContext()).getWritableDatabase();
+        return true;
+    }
+    
+    @Override
+    public ContentProviderResult[] applyBatch(ArrayList<ContentProviderOperation> operations) {
+        ContentProviderResult[] results = new ContentProviderResult[operations.size()];
+        mDb.beginTransaction();
+        try {
+            for (int i = 0; i < operations.size(); i++) {
+                results[i] = operations.get(i).apply(this, results, i);
+                updateCache(operations.get(i));
+            }
+            mDb.setTransactionSuccessful();
+        } finally {
+            mDb.endTransaction();
+        }
+        return results;
+    }
+    
+    @Override
+    public Cursor query(Uri uri, String[] projection, String selection,
+                       String[] selectionArgs, String sortOrder) {
+        // 先查询缓存
+        String cacheKey = generateCacheKey(uri, projection, selection,
+            selectionArgs, sortOrder);
+        Object cachedResult = mMemoryCache.get(cacheKey);
+        if (cachedResult != null) {
+            return (Cursor) cachedResult;
+        }
+```
 </details>
 
 ### 🔥 问答题2：ContentProvider的实现原理
@@ -77,7 +383,160 @@ D. ContentProvider不需要在AndroidManifest.xml中注册
    - 临时权限授予
 </details>
 
-### 🔥 编程题：自定义ContentProvider
+## ContentProvider高级特性
+
+### 🔥 选择题2：ContentProvider数据同步
+
+关于ContentProvider的数据同步机制，以下说法正确的是：
+
+A. ContentObserver只能监听单个URI的数据变化
+B. notifyChange方法只能在主线程中调用
+C. 注册ContentObserver后必须手动解除注册
+D. ContentProvider的数据变化通知是同步的
+
+<details>
+<summary>答案与解析</summary>
+
+**答案：C**
+
+解析：
+1. ContentObserver可以监听多个URI的数据变化
+2. notifyChange方法可以在任何线程中调用
+3. 为避免内存泄漏，必须在不需要时解除注册
+4. 数据变化通知是异步的，通过Handler机制实现
+</details>
+
+### 🔥 问答题3：ContentProvider的批量操作
+
+**问题：如何在ContentProvider中实现高效的批量操作？请详细说明实现方案和注意事项。**
+
+<details>
+<summary>参考答案</summary>
+
+1. **实现方案：**
+   ```java
+   @Override
+   public ContentProviderResult[] applyBatch(ArrayList<ContentProviderOperation> operations) {
+       SQLiteDatabase db = mDbHelper.getWritableDatabase();
+       db.beginTransaction();
+       try {
+           ContentProviderResult[] results = new ContentProviderResult[operations.size()];
+           for (int i = 0; i < operations.size(); i++) {
+               results[i] = operations.get(i).apply(this, results, i);
+           }
+           db.setTransactionSuccessful();
+           return results;
+       } finally {
+           db.endTransaction();
+       }
+   }
+   ```
+
+2. **性能优化：**
+   - 使用事务保证原子性
+   - 批量操作减少IPC次数
+   - 合理使用BackReference
+   - 优化数据库索引
+
+3. **注意事项：**
+   - 控制单次批量操作数量
+   - 处理并发访问
+   - 异常回滚处理
+   - 避免ANR风险
+</details>
+
+### 🔥 问答题4：ContentProvider的URI权限
+
+**问题：ContentProvider如何实现临时URI权限授予？请详细说明实现方式和应用场景。**
+
+<details>
+<summary>参考答案</summary>
+
+1. **实现方式：**
+   ```java
+   // 授予URI权限
+   Intent intent = new Intent(Intent.ACTION_VIEW);
+   intent.setData(uri);
+   intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+   intent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+   
+   // 在Provider中处理
+   @Override
+   public void onGrantUriPermission(String name, Uri uri, int mode) {
+       super.onGrantUriPermission(name, uri, mode);
+       // 处理临时权限授予
+   }
+   ```
+
+2. **应用场景：**
+   - 文件共享
+   - 图片选择
+   - 文档处理
+   - 媒体播放
+
+3. **最佳实践：**
+   - 合理设置权限范围
+   - 及时回收临时权限
+   - 验证调用方身份
+   - 日志记录和审计
+</details>
+
+### 🔥 编程题2：高性能ContentProvider
+
+**问题：实现一个支持高并发、批量操作的ContentProvider，要求具备缓存机制和性能优化。**
+
+<details>
+<summary>参考答案</summary>
+
+```java
+public class HighPerformanceProvider extends ContentProvider {
+    private static final int CACHE_SIZE = 1024 * 1024; // 1MB缓存
+    private LruCache<String, Object> mMemoryCache;
+    private SQLiteDatabase mDb;
+    
+    @Override
+    public boolean onCreate() {
+        mMemoryCache = new LruCache<String, Object>(CACHE_SIZE) {
+            @Override
+            protected int sizeOf(String key, Object value) {
+                // 计算缓存对象大小
+                return getObjectSize(value);
+            }
+        };
+        mDb = new DatabaseHelper(getContext()).getWritableDatabase();
+        return true;
+    }
+    
+    @Override
+    public ContentProviderResult[] applyBatch(ArrayList<ContentProviderOperation> operations) {
+        ContentProviderResult[] results = new ContentProviderResult[operations.size()];
+        mDb.beginTransaction();
+        try {
+            for (int i = 0; i < operations.size(); i++) {
+                results[i] = operations.get(i).apply(this, results, i);
+                updateCache(operations.get(i));
+            }
+            mDb.setTransactionSuccessful();
+        } finally {
+            mDb.endTransaction();
+        }
+        return results;
+    }
+    
+    @Override
+    public Cursor query(Uri uri, String[] projection, String selection,
+                       String[] selectionArgs, String sortOrder) {
+        // 先查询缓存
+        String cacheKey = generateCacheKey(uri, projection, selection,
+            selectionArgs, sortOrder);
+        Object cachedResult = mMemoryCache.get(cacheKey);
+        if (cachedResult != null) {
+            return (Cursor) cachedResult;
+        }
+```
+</details>
+
+### 🔥 编程题1：自定义ContentProvider
 
 **问题：实现一个自定义ContentProvider，要求支持基本的CRUD操作，并实现权限控制。**
 
@@ -220,4 +679,157 @@ public class BookProvider extends ContentProvider {
 4. 添加权限控制
 5. 支持单条和多条数据操作
 6. 在Manifest中正确配置Provider
+</details>
+
+## ContentProvider高级特性
+
+### 🔥 选择题2：ContentProvider数据同步
+
+关于ContentProvider的数据同步机制，以下说法正确的是：
+
+A. ContentObserver只能监听单个URI的数据变化
+B. notifyChange方法只能在主线程中调用
+C. 注册ContentObserver后必须手动解除注册
+D. ContentProvider的数据变化通知是同步的
+
+<details>
+<summary>答案与解析</summary>
+
+**答案：C**
+
+解析：
+1. ContentObserver可以监听多个URI的数据变化
+2. notifyChange方法可以在任何线程中调用
+3. 为避免内存泄漏，必须在不需要时解除注册
+4. 数据变化通知是异步的，通过Handler机制实现
+</details>
+
+### 🔥 问答题3：ContentProvider的批量操作
+
+**问题：如何在ContentProvider中实现高效的批量操作？请详细说明实现方案和注意事项。**
+
+<details>
+<summary>参考答案</summary>
+
+1. **实现方案：**
+   ```java
+   @Override
+   public ContentProviderResult[] applyBatch(ArrayList<ContentProviderOperation> operations) {
+       SQLiteDatabase db = mDbHelper.getWritableDatabase();
+       db.beginTransaction();
+       try {
+           ContentProviderResult[] results = new ContentProviderResult[operations.size()];
+           for (int i = 0; i < operations.size(); i++) {
+               results[i] = operations.get(i).apply(this, results, i);
+           }
+           db.setTransactionSuccessful();
+           return results;
+       } finally {
+           db.endTransaction();
+       }
+   }
+   ```
+
+2. **性能优化：**
+   - 使用事务保证原子性
+   - 批量操作减少IPC次数
+   - 合理使用BackReference
+   - 优化数据库索引
+
+3. **注意事项：**
+   - 控制单次批量操作数量
+   - 处理并发访问
+   - 异常回滚处理
+   - 避免ANR风险
+</details>
+
+### 🔥 问答题4：ContentProvider的URI权限
+
+**问题：ContentProvider如何实现临时URI权限授予？请详细说明实现方式和应用场景。**
+
+<details>
+<summary>参考答案</summary>
+
+1. **实现方式：**
+   ```java
+   // 授予URI权限
+   Intent intent = new Intent(Intent.ACTION_VIEW);
+   intent.setData(uri);
+   intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+   intent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+   
+   // 在Provider中处理
+   @Override
+   public void onGrantUriPermission(String name, Uri uri, int mode) {
+       super.onGrantUriPermission(name, uri, mode);
+       // 处理临时权限授予
+   }
+   ```
+
+2. **应用场景：**
+   - 文件共享
+   - 图片选择
+   - 文档处理
+   - 媒体播放
+
+3. **最佳实践：**
+   - 合理设置权限范围
+   - 及时回收临时权限
+   - 验证调用方身份
+   - 日志记录和审计
+</details>
+
+### 🔥 编程题2：高性能ContentProvider
+
+**问题：实现一个支持高并发、批量操作的ContentProvider，要求具备缓存机制和性能优化。**
+
+<details>
+<summary>参考答案</summary>
+
+```java
+public class HighPerformanceProvider extends ContentProvider {
+    private static final int CACHE_SIZE = 1024 * 1024; // 1MB缓存
+    private LruCache<String, Object> mMemoryCache;
+    private SQLiteDatabase mDb;
+    
+    @Override
+    public boolean onCreate() {
+        mMemoryCache = new LruCache<String, Object>(CACHE_SIZE) {
+            @Override
+            protected int sizeOf(String key, Object value) {
+                // 计算缓存对象大小
+                return getObjectSize(value);
+            }
+        };
+        mDb = new DatabaseHelper(getContext()).getWritableDatabase();
+        return true;
+    }
+    
+    @Override
+    public ContentProviderResult[] applyBatch(ArrayList<ContentProviderOperation> operations) {
+        ContentProviderResult[] results = new ContentProviderResult[operations.size()];
+        mDb.beginTransaction();
+        try {
+            for (int i = 0; i < operations.size(); i++) {
+                results[i] = operations.get(i).apply(this, results, i);
+                updateCache(operations.get(i));
+            }
+            mDb.setTransactionSuccessful();
+        } finally {
+            mDb.endTransaction();
+        }
+        return results;
+    }
+    
+    @Override
+    public Cursor query(Uri uri, String[] projection, String selection,
+                       String[] selectionArgs, String sortOrder) {
+        // 先查询缓存
+        String cacheKey = generateCacheKey(uri, projection, selection,
+            selectionArgs, sortOrder);
+        Object cachedResult = mMemoryCache.get(cacheKey);
+        if (cachedResult != null) {
+            return (Cursor) cachedResult;
+        }
+```
 </details>

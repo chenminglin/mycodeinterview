@@ -1,0 +1,264 @@
+# Fragment
+
+## 概述
+Fragment是Android中可重用的UI组件，它可以作为Activity的一部分嵌入到Activity中，也可以作为一个独立的UI容器。Fragment具有自己的生命周期，可以动态地添加、替换和移除。
+
+## 生命周期
+
+### 1. 基本生命周期方法
+
+```kotlin
+class MyFragment : Fragment() {
+    override fun onAttach(context: Context) {
+        super.onAttach(context)
+        // Fragment和Activity建立关联
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        // Fragment被创建
+    }
+
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
+        // 创建Fragment的视图
+        return inflater.inflate(R.layout.fragment_my, container, false)
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        // 视图创建完成
+    }
+
+    override fun onStart() {
+        super.onStart()
+        // Fragment可见
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Fragment可交互
+    }
+
+    override fun onPause() {
+        super.onPause()
+        // Fragment失去焦点
+    }
+
+    override fun onStop() {
+        super.onStop()
+        // Fragment不可见
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        // Fragment视图被销毁
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // Fragment被销毁
+    }
+
+    override fun onDetach() {
+        super.onDetach()
+        // Fragment和Activity解除关联
+    }
+}
+```
+
+## Fragment管理
+
+### 1. 添加Fragment
+```kotlin
+supportFragmentManager.beginTransaction()
+    .add(R.id.container, MyFragment())
+    .commit()
+```
+
+### 2. 替换Fragment
+```kotlin
+supportFragmentManager.beginTransaction()
+    .replace(R.id.container, NewFragment())
+    .addToBackStack(null)
+    .commit()
+```
+
+### 3. 移除Fragment
+```kotlin
+supportFragmentManager.beginTransaction()
+    .remove(fragment)
+    .commit()
+```
+
+## Fragment通信
+
+### 1. Fragment与Activity通信
+
+```kotlin
+// 1. 接口回调
+class MyFragment : Fragment() {
+    interface OnFragmentInteractionListener {
+        fun onFragmentInteraction(data: String)
+    }
+
+    private var listener: OnFragmentInteractionListener? = null
+
+    override fun onAttach(context: Context) {
+        super.onAttach(context)
+        if (context is OnFragmentInteractionListener) {
+            listener = context
+        }
+    }
+}
+
+// 2. ViewModel共享
+class SharedViewModel : ViewModel() {
+    private val _data = MutableLiveData<String>()
+    val data: LiveData<String> = _data
+}
+```
+
+### 2. Fragment间通信
+
+```kotlin
+// 1. 通过Activity
+parentFragmentManager.setFragmentResultListener("requestKey", viewLifecycleOwner) { key, bundle ->
+    val result = bundle.getString("bundleKey")
+}
+
+// 2. 通过ViewModel
+class SharedViewModel : ViewModel() {
+    private val _sharedData = MutableLiveData<String>()
+    val sharedData: LiveData<String> = _sharedData
+}
+```
+
+## 面试常见问题
+
+### 1. Fragment的生命周期和Activity的关系？
+
+1. **Fragment生命周期依赖于Activity**：
+   - Activity暂停，Fragment必定暂停
+   - Activity销毁，Fragment必定销毁
+
+2. **生命周期对应关系**：
+   - Activity onCreate() → Fragment onAttach() → onCreate()
+   - Activity onDestroy() → Fragment onDetach()
+
+### 2. Fragment为什么要有setRetainInstance(true)？
+
+1. **作用**：
+   - 在配置变更时保留Fragment实例
+   - 避免重新创建Fragment
+   - 保留数据状态
+
+2. **使用场景**：
+   - 异步操作
+   - 数据缓存
+   - 配置变更处理
+
+### 3. Fragment的懒加载如何实现？
+
+```kotlin
+class LazyFragment : Fragment() {
+    private var isFirstLoad = true
+
+    override fun onResume() {
+        super.onResume()
+        if (isFirstLoad) {
+            lazyLoad()
+            isFirstLoad = false
+        }
+    }
+
+    private fun lazyLoad() {
+        // 加载数据
+    }
+}
+```
+
+### 4. Fragment重叠问题如何解决？
+
+1. **问题原因**：
+   - Activity重建导致Fragment重叠
+   - Fragment事务处理不当
+
+2. **解决方案**：
+   - 使用add/hide代替replace
+   - 保存Fragment状态
+   - 正确使用事务
+
+### 5. Fragment如何处理返回键事件？
+
+```kotlin
+class MainActivity : AppCompatActivity() {
+    override fun onBackPressed() {
+        val fragment = supportFragmentManager.findFragmentById(R.id.container)
+        if (fragment is OnBackPressedListener) {
+            if (!(fragment as OnBackPressedListener).onBackPressed()) {
+                super.onBackPressed()
+            }
+        } else {
+            super.onBackPressed()
+        }
+    }
+}
+```
+
+### 6. Fragment的通信方式有哪些？
+
+1. **Fragment → Activity**：
+   - 接口回调
+   - ViewModel共享
+   - EventBus
+
+2. **Fragment → Fragment**：
+   - ViewModel共享
+   - Fragment Result API
+   - EventBus
+
+### 7. Fragment的优势和使用场景？
+
+1. **优势**：
+   - 模块化UI
+   - 重用性好
+   - 灵活的生命周期
+
+2. **使用场景**：
+   - ViewPager页面
+   - 底部导航栏
+   - 分屏显示
+
+## 最佳实践
+
+1. **生命周期管理**
+   - 使用LifecycleObserver
+   - 合理处理状态保存
+   - 避免内存泄漏
+
+2. **通信机制**
+   - 优先使用ViewModel
+   - 避免直接持有引用
+   - 使用Fragment Result API
+
+3. **性能优化**
+   - 实现懒加载
+   - 合理使用事务
+   - 避免嵌套过深
+
+## 注意事项
+
+1. **事务处理**
+   - 正确使用commit()
+   - 合理使用回退栈
+   - 避免状态丢失
+
+2. **生命周期**
+   - 注意Fragment重叠
+   - 处理配置变更
+   - 管理视图状态
+
+3. **内存管理**
+   - 避免内存泄漏
+   - 及时释放资源
+   - 处理大数据加载

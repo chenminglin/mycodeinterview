@@ -1,0 +1,204 @@
+# Android 网络安全
+
+## HTTPS原理
+
+### 核心概念
+
+1. **SSL/TLS协议**
+   - 握手过程
+   - 证书验证
+   - 数据加密
+   - 密钥交换
+
+2. **证书体系**
+   - CA证书
+   - 数字签名
+   - 证书链
+   - 证书验证
+
+### 实现示例
+
+```kotlin
+// 自定义证书验证
+class CustomTrustManager : X509TrustManager {
+    private val defaultTrustManager: X509TrustManager
+    
+    init {
+        val trustManagerFactory = TrustManagerFactory.getInstance(
+            TrustManagerFactory.getDefaultAlgorithm()
+        )
+        trustManagerFactory.init(null as KeyStore?)
+        defaultTrustManager = trustManagerFactory.trustManagers[0] as X509TrustManager
+    }
+    
+    override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) {
+        defaultTrustManager.checkClientTrusted(chain, authType)
+    }
+    
+    override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) {
+        try {
+            defaultTrustManager.checkServerTrusted(chain, authType)
+        } catch (e: CertificateException) {
+            // 自定义证书验证逻辑
+        }
+    }
+    
+    override fun getAcceptedIssuers(): Array<X509Certificate> {
+        return defaultTrustManager.acceptedIssuers
+    }
+}
+```
+
+## 网络攻击防护
+
+### 常见攻击类型
+
+1. **中间人攻击**
+   - 证书固定
+   - 双向认证
+   - 证书透明度
+
+2. **注入攻击**
+   - 参数验证
+   - 转义处理
+   - 预编译语句
+
+### 防护措施
+
+```kotlin
+// 证书固定示例
+val certificatePinner = CertificatePinner.Builder()
+    .add("api.example.com", "sha256/XXXX=") // 证书指纹
+    .build()
+
+val client = OkHttpClient.Builder()
+    .certificatePinner(certificatePinner)
+    .build()
+```
+
+## 数据加密
+
+### 加密算法
+
+1. **对称加密**
+   - AES
+   - DES
+   - 3DES
+
+2. **非对称加密**
+   - RSA
+   - ECC
+   - DSA
+
+### 实现示例
+
+```kotlin
+// AES加密工具类
+class AESEncryption {
+    private val keySpec: SecretKeySpec
+    private val cipher: Cipher
+    
+    init {
+        val key = generateKey()
+        keySpec = SecretKeySpec(key, "AES")
+        cipher = Cipher.getInstance("AES")
+    }
+    
+    fun encrypt(data: String): String {
+        cipher.init(Cipher.ENCRYPT_MODE, keySpec)
+        val encrypted = cipher.doFinal(data.toByteArray())
+        return Base64.encodeToString(encrypted, Base64.DEFAULT)
+    }
+    
+    fun decrypt(data: String): String {
+        cipher.init(Cipher.DECRYPT_MODE, keySpec)
+        val decoded = Base64.decode(data, Base64.DEFAULT)
+        return String(cipher.doFinal(decoded))
+    }
+}
+```
+
+## 面试常见问题
+
+### 1. HTTPS的工作原理？
+
+1. **握手过程**
+   - 客户端发送随机数和支持的加密算法
+   - 服务器返回证书和随机数
+   - 生成会话密钥
+   - 验证证书有效性
+
+2. **数据传输**
+   - 使用对称加密
+   - 密钥协商
+   - 数据完整性校验
+
+### 2. 如何防止中间人攻击？
+
+1. **证书固定**
+   - 预埋证书
+   - 指纹验证
+   - 证书链验证
+
+2. **其他措施**
+   - 双向认证
+   - 证书透明度
+   - 证书吊销检查
+
+### 3. 常见的加密算法有哪些？
+
+1. **对称加密**
+   - 优点：速度快
+   - 缺点：密钥分发问题
+   - 应用：数据加密
+
+2. **非对称加密**
+   - 优点：安全性高
+   - 缺点：速度慢
+   - 应用：密钥交换
+
+### 4. 如何保护API密钥？
+
+1. **存储安全**
+   - 使用NDK存储
+   - 加密存储
+   - 混淆保护
+
+2. **传输安全**
+   - HTTPS传输
+   - 参数签名
+   - 时间戳验证
+
+## 最佳实践
+
+1. **证书管理**
+   - 正确配置证书
+   - 定期更新证书
+   - 证书备份
+
+2. **密钥管理**
+   - 安全存储
+   - 定期轮换
+   - 访问控制
+
+3. **加密策略**
+   - 选择合适算法
+   - 密钥长度
+   - 加密模式
+
+## 注意事项
+
+1. **性能考虑**
+   - 加密开销
+   - 网络延迟
+   - 内存消耗
+
+2. **兼容性**
+   - 系统版本
+   - 加密库版本
+   - 证书兼容
+
+3. **调试与测试**
+   - 证书验证
+   - 加密测试
+   - 性能测试

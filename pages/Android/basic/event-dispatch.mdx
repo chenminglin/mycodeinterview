@@ -1,0 +1,302 @@
+# View事件分发机制面试题
+
+本章节包含Android View事件分发机制的相关面试题，涵盖事件分发流程、事件处理、滑动冲突等核心概念。
+
+## 基础概念
+
+### 🔥 选择题：事件分发基础
+
+关于Android事件分发机制，以下说法正确的是：
+
+A. 事件分发顺序是：View -> ViewGroup -> Activity
+B. 返回true表示拦截该事件，不继续分发
+C. onTouch方法优先级低于onClick方法
+D. 子View可以请求父View不要拦截事件
+
+<details>
+<summary>答案与解析</summary>
+
+**答案：B、D**
+
+解析：
+1. 事件分发顺序是：Activity -> ViewGroup -> View
+2. 返回true表示事件被消费，不继续分发
+3. onTouch方法优先级高于onClick方法
+4. 子View可以通过requestDisallowInterceptTouchEvent方法请求父View不要拦截事件
+</details>
+
+### 🔥 问答题：事件分发流程
+
+**问题：请详细说明Android事件分发的完整流程，包括相关方法的作用和返回值的影响。**
+
+<details>
+<summary>参考答案</summary>
+
+1. **事件分发流程：**
+   - Activity：dispatchTouchEvent -> PhoneWindow -> DecorView
+   - ViewGroup：dispatchTouchEvent -> onInterceptTouchEvent -> onTouchEvent
+   - View：dispatchTouchEvent -> onTouchEvent
+
+2. **关键方法说明：**
+   - dispatchTouchEvent：事件分发
+   - onInterceptTouchEvent：事件拦截
+   - onTouchEvent：事件处理
+
+3. **返回值影响：**
+   - true：表示事件被消费，不继续分发
+   - false：表示不消费事件，继续分发给父View
+
+4. **事件序列：**
+   - ACTION_DOWN：按下事件
+   - ACTION_MOVE：移动事件
+   - ACTION_UP：抬起事件
+   - ACTION_CANCEL：取消事件
+</details>
+
+### 🔥 编程题：自定义ViewGroup处理滑动冲突
+
+**问题：请实现一个自定义ViewGroup，解决与子View之间的滑动冲突问题。**
+
+<details>
+<summary>参考答案</summary>
+
+```java
+public class CustomViewGroup extends ViewGroup {
+    private int lastX;
+    private int lastY;
+    private boolean isHorizontalScroll;
+    private boolean isFirstTouch;
+
+    public CustomViewGroup(Context context) {
+        super(context);
+    }
+
+    public CustomViewGroup(Context context, AttributeSet attrs) {
+        super(context, attrs);
+    }
+
+    @Override
+    protected void onLayout(boolean changed, int l, int t, int r, int b) {
+        // 实现子View的布局
+        int childCount = getChildCount();
+        int left = 0;
+        for (int i = 0; i < childCount; i++) {
+            View child = getChildAt(i);
+            if (child.getVisibility() != GONE) {
+                int childWidth = child.getMeasuredWidth();
+                int childHeight = child.getMeasuredHeight();
+                child.layout(left, 0, left + childWidth, childHeight);
+                left += childWidth;
+            }
+        }
+    }
+
+    @Override
+    public boolean onInterceptTouchEvent(MotionEvent ev) {
+        boolean intercept = false;
+        int x = (int) ev.getX();
+        int y = (int) ev.getY();
+
+        switch (ev.getAction()) {
+            case MotionEvent.ACTION_DOWN:
+                lastX = x;
+                lastY = y;
+                isFirstTouch = true;
+                break;
+
+            case MotionEvent.ACTION_MOVE:
+                int deltaX = x - lastX;
+                int deltaY = y - lastY;
+
+                if (isFirstTouch) {
+                    isFirstTouch = false;
+                    // 根据第一次移动判断滑动方向
+                    isHorizontalScroll = Math.abs(deltaX) > Math.abs(deltaY);
+                }
+
+                // 根据滑动方向决定是否拦截
+                if (isHorizontalScroll) {
+                    intercept = true;
+                }
+                break;
+
+            case MotionEvent.ACTION_UP:
+                intercept = false;
+                isFirstTouch = true;
+                break;
+        }
+
+        lastX = x;
+        lastY = y;
+        return intercept;
+    }
+
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        int x = (int) event.getX();
+        int y = (int) event.getY();
+
+        switch (event.getAction()) {
+            case MotionEvent.ACTION_DOWN:
+                lastX = x;
+                lastY = y;
+                break;
+
+            case MotionEvent.ACTION_MOVE:
+                int deltaX = x - lastX;
+                int deltaY = y - lastY;
+
+                // 处理水平滑动
+                if (isHorizontalScroll) {
+                    scrollBy(-deltaX, 0);
+                }
+                break;
+
+            case MotionEvent.ACTION_UP:
+                // 处理滑动结束
+                break;
+        }
+
+        lastX = x;
+        lastY = y;
+        return true;
+    }
+
+    @Override
+    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+        // 测量所有子View
+        measureChildren(widthMeasureSpec, heightMeasureSpec);
+
+        int width = 0;
+        int height = 0;
+
+        int childCount = getChildCount();
+        for (int i = 0; i < childCount; i++) {
+            View child = getChildAt(i);
+            if (child.getVisibility() != GONE) {
+                width += child.getMeasuredWidth();
+                height = Math.max(height, child.getMeasuredHeight());
+            }
+        }
+
+        setMeasuredDimension(
+            resolveSize(width, widthMeasureSpec),
+            resolveSize(height, heightMeasureSpec)
+        );
+    }
+}
+```
+
+代码说明：
+1. 实现了水平滑动的自定义ViewGroup
+2. 通过onInterceptTouchEvent方法处理事件拦截
+3. 根据滑动方向判断是否需要拦截事件
+4. 在onTouchEvent中处理具体的滑动逻辑
+5. 完整实现了View的测量和布局
+6. 考虑了多点触控的场景
+</details>
+
+## 高级特性
+
+### 🔥 选择题：事件处理机制
+
+关于Android事件处理机制，以下说法正确的是：
+
+A. ViewGroup默认拦截所有事件
+B. View的onTouchEvent返回false表示消费了事件
+C. 事件分发过程中，Down事件确定了事件序列的处理者
+D. 子View可以通过设置clickable为false来放弃事件处理
+
+<details>
+<summary>答案与解析</summary>
+
+**答案：C**
+
+解析：
+1. ViewGroup默认不拦截任何事件
+2. onTouchEvent返回false表示不消费事件
+3. Down事件确定了整个事件序列的处理者
+4. View的clickable属性为false不一定放弃事件处理，还要考虑longClickable等属性
+</details>
+
+### 🔥 问答题：事件冲突解决方案
+
+**问题：请详细说明Android中常见的滑动冲突场景及其解决方案。**
+
+<details>
+<summary>参考答案</summary>
+
+1. **常见冲突场景：**
+   - 外部滑动和内部滑动方向不一致
+   - 外部滑动和内部滑动方向一致
+   - 嵌套滑动场景
+
+2. **解决方案：**
+   - 外部拦截法
+   - 内部拦截法
+   - 使用嵌套滑动机制
+
+3. **外部拦截法示例：**
+```java
+@Override
+public boolean onInterceptTouchEvent(MotionEvent ev) {
+    boolean intercept = false;
+    int x = (int) ev.getX();
+    int y = (int) ev.getY();
+    
+    switch (ev.getAction()) {
+        case MotionEvent.ACTION_DOWN:
+            intercept = false;
+            break;
+            
+        case MotionEvent.ACTION_MOVE:
+            if (父容器需要当前事件) {
+                intercept = true;
+            } else {
+                intercept = false;
+            }
+            break;
+            
+        case MotionEvent.ACTION_UP:
+            intercept = false;
+            break;
+    }
+    
+    return intercept;
+}
+```
+
+4. **内部拦截法示例：**
+```java
+// 子View中处理
+@Override
+public boolean dispatchTouchEvent(MotionEvent ev) {
+    int x = (int) ev.getX();
+    int y = (int) ev.getY();
+    
+    switch (ev.getAction()) {
+        case MotionEvent.ACTION_DOWN:
+            parent.requestDisallowInterceptTouchEvent(true);
+            break;
+            
+        case MotionEvent.ACTION_MOVE:
+            if (父容器需要此事件) {
+                parent.requestDisallowInterceptTouchEvent(false);
+            }
+            break;
+            
+        case MotionEvent.ACTION_UP:
+            break;
+    }
+    
+    return super.dispatchTouchEvent(ev);
+}
+```
+
+5. **注意事项：**
+   - 需要考虑多点触控
+   - 处理好事件的取消
+   - 考虑性能影响
+   - 保持代码可维护性
+</details>

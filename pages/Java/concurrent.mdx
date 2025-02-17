@@ -1,0 +1,564 @@
+# Java并发编程
+
+## 线程基础
+
+### 1. 线程的创建方式有哪些？
+
+在Java中，创建线程主要有以下几种方式：
+
+1. 继承Thread类
+```java
+class MyThread extends Thread {
+    @Override
+    public void run() {
+        // 线程执行代码
+    }
+}
+// 使用
+MyThread thread = new MyThread();
+thread.start();
+```
+
+2. 实现Runnable接口
+```java
+class MyRunnable implements Runnable {
+    @Override
+    public void run() {
+        // 线程执行代码
+    }
+}
+// 使用
+Thread thread = new Thread(new MyRunnable());
+thread.start();
+```
+
+3. 使用匿名内部类
+```java
+Thread thread = new Thread(new Runnable() {
+    @Override
+    public void run() {
+        // 线程执行代码
+    }
+});
+```
+
+4. 使用Lambda表达式（Java 8+）
+```java
+Thread thread = new Thread(() -> {
+    // 线程执行代码
+});
+```
+
+5. 使用Callable和Future
+```java
+Callable<String> callable = new Callable<String>() {
+    @Override
+    public String call() throws Exception {
+        return "线程执行结果";
+    }
+};
+FutureTask<String> futureTask = new FutureTask<>(callable);
+Thread thread = new Thread(futureTask);
+thread.start();
+```
+
+### 2. 线程的生命周期有哪些状态？
+
+Java线程的生命周期包含以下状态：
+
+1. NEW（新建）：线程被创建但还没有调用start()方法
+2. RUNNABLE（可运行）：线程正在Java虚拟机中运行
+3. BLOCKED（阻塞）：线程被阻塞等待监视器锁
+4. WAITING（等待）：线程处于等待状态
+5. TIMED_WAITING（限时等待）：线程处于计时等待状态
+6. TERMINATED（终止）：线程已经执行完毕
+
+## 线程池
+
+### 1. 线程池的优势是什么？
+
+使用线程池的主要优势：
+
+1. 降低资源消耗：重复利用已创建的线程，减少线程创建和销毁的开销
+2. 提高响应速度：任务到达时，无需等待线程创建就能立即执行
+3. 提高线程的可管理性：线程池可以统一管理线程，调度任务
+4. 提供更多更强大的功能：定时执行、定期执行、并发数控制等
+
+### 2. 线程池的核心参数有哪些？
+
+ThreadPoolExecutor的核心参数：
+
+1. corePoolSize：核心线程数
+2. maximumPoolSize：最大线程数
+3. keepAliveTime：线程空闲时间
+4. unit：时间单位
+5. workQueue：工作队列
+6. threadFactory：线程工厂
+7. handler：拒绝策略
+
+## 锁机制
+
+### 1. synchronized关键字的使用方式有哪些？
+
+synchronized的使用方式：
+
+1. 修饰实例方法：锁定当前对象实例
+```java
+public synchronized void method() {
+    // 方法体
+}
+```
+
+2. 修饰静态方法：锁定当前类对象
+```java
+public static synchronized void method() {
+    // 方法体
+}
+```
+
+3. 修饰代码块：锁定指定对象
+```java
+synchronized(this) {
+    // 同步代码块
+}
+```
+
+### 2. synchronized和ReentrantLock的区别？
+
+主要区别：
+
+1. 实现方式
+   - synchronized是JVM层面的锁实现
+   - ReentrantLock是API层面的锁实现
+
+2. 功能特点
+   - ReentrantLock具有更多特性，如：
+     - 可中断锁
+     - 可实现公平锁
+     - 可实现选择性通知
+
+3. 使用方式
+   - synchronized自动释放锁
+   - ReentrantLock需要手动释放锁
+
+## 线程安全集合
+
+### 1. ConcurrentHashMap的实现原理？
+
+ConcurrentHashMap的关键特性：
+
+1. 分段锁机制
+   - JDK 1.7：使用Segment分段锁
+   - JDK 1.8：使用CAS和synchronized
+
+2. 并发度
+   - JDK 1.7：由Segment数量决定
+   - JDK 1.8：由桶数量决定
+
+3. 数据结构
+   - 数组 + 链表 + 红黑树（JDK 1.8）
+
+### 2. 常见的线程安全集合类有哪些？
+
+1. 同步集合类
+   - Vector
+   - Hashtable
+   - Collections.synchronizedXxx()
+
+2. 并发集合类
+   - ConcurrentHashMap
+   - CopyOnWriteArrayList
+   - ConcurrentLinkedQueue
+   - BlockingQueue的实现类
+
+## 线程通信
+
+### 1. 线程间通信的方式有哪些？
+
+1. volatile关键字
+   - 保证可见性
+   - 禁止指令重排
+
+2. wait/notify机制
+```java
+synchronized(obj) {
+    while(条件不满足) {
+        obj.wait();
+    }
+    // 执行操作
+    obj.notify(); // 或notifyAll()
+}
+```
+
+3. Condition接口
+```java
+Lock lock = new ReentrantLock();
+Condition condition = lock.newCondition();
+
+lock.lock();
+try {
+    while(条件不满足) {
+        condition.await();
+    }
+    // 执行操作
+    condition.signal(); // 或signalAll()
+} finally {
+    lock.unlock();
+}
+```
+
+### 2. volatile关键字的作用是什么？
+
+volatile关键字的主要作用：
+
+1. 保证可见性
+   - 一个线程修改变量后，其他线程能立即看到最新值
+
+2. 禁止指令重排
+   - 防止编译器和CPU对代码进行重排序优化
+
+3. 不保证原子性
+   - 复合操作（如i++）不能保证原子性
+   - 需要配合synchronized或锁使用
+
+## 死锁
+
+### 1. 什么是死锁？如何避免？
+
+死锁的概念和条件：
+
+1. 死锁的四个必要条件
+   - 互斥条件
+   - 请求与保持条件
+   - 不剥夺条件
+   - 循环等待条件
+
+2. 避免死锁的方法
+   - 固定加锁顺序
+   - 使用超时机制
+   - 使用死锁检测
+   - 避免嵌套锁
+
+### 2. 如何检测死锁？
+
+死锁检测的方法：
+
+1. 使用jstack命令
+```bash
+jps // 查看Java进程
+jstack pid // 查看线程堆栈
+```
+
+2. 使用Java代码检测
+```java
+ThreadMXBean threadMXBean = ManagementFactory.getThreadMXBean();
+long[] deadlockedThreads = threadMXBean.findDeadlockedThreads();
+```
+
+## 面试重点
+
+1. 线程池的工作原理和使用场景
+2. synchronized的实现原理和优化
+3. volatile的实现原理和使用场景
+4. ConcurrentHashMap的实现原理和演进
+5. 线程安全的实现方式比较
+6. 死锁的产生原因和解决方案
+7. AQS（AbstractQueuedSynchronizer）的原理
+8. ThreadLocal的原理和使用场景
+
+## AQS（AbstractQueuedSynchronizer）
+
+### 1. AQS的核心原理是什么？
+
+AQS的核心实现原理：
+
+1. 同步状态管理
+   - 使用volatile的state变量维护同步状态
+   - 提供getState()、setState()、compareAndSetState()方法
+
+2. 等待队列机制
+   - 使用双向链表维护等待线程
+   - 支持独占模式和共享模式
+
+3. 独占锁实现
+```java
+public class MyLock extends AbstractQueuedSynchronizer {
+    protected boolean tryAcquire(int arg) {
+        if (compareAndSetState(0, 1)) {
+            setExclusiveOwnerThread(Thread.currentThread());
+            return true;
+        }
+        return false;
+    }
+
+    protected boolean tryRelease(int arg) {
+        setState(0);
+        setExclusiveOwnerThread(null);
+        return true;
+    }
+}
+```
+
+### 2. AQS的应用场景有哪些？
+
+常见的AQS应用：
+
+1. ReentrantLock
+   - 可重入锁的实现
+   - 支持公平和非公平锁
+
+2. Semaphore
+   - 信号量实现
+   - 控制并发访问数量
+
+3. CountDownLatch
+   - 倒计时门闩
+   - 等待多个线程完成
+
+4. ReentrantReadWriteLock
+   - 读写锁实现
+   - 支持读写分离
+
+## 线程池调优
+
+### 1. 线程池的调优参数有哪些？
+
+线程池调优的关键参数：
+
+1. 核心线程数设置
+```java
+// CPU密集型任务
+int threadNum = Runtime.getRuntime().availableProcessors();
+
+// IO密集型任务
+int threadNum = Runtime.getRuntime().availableProcessors() * 2;
+```
+
+2. 任务队列选择
+   - ArrayBlockingQueue：有界队列，适合限制任务数
+   - LinkedBlockingQueue：无界队列，需要注意内存
+   - SynchronousQueue：直接提交，适合快速响应
+
+3. 拒绝策略选择
+   - CallerRunsPolicy：调用者执行
+   - AbortPolicy：抛出异常
+   - DiscardPolicy：直接丢弃
+   - DiscardOldestPolicy：丢弃最旧任务
+
+### 2. 如何监控线程池的运行状态？
+
+线程池监控指标：
+
+1. 基本指标
+```java
+ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(10);
+
+// 活跃线程数
+int activeCount = executor.getActiveCount();
+// 完成任务数
+long completedTaskCount = executor.getCompletedTaskCount();
+// 任务总数
+long taskCount = executor.getTaskCount();
+// 队列大小
+int queueSize = executor.getQueue().size();
+```
+
+2. 自定义监控
+```java
+public class MonitoredThreadPool extends ThreadPoolExecutor {
+    @Override
+    protected void beforeExecute(Thread t, Runnable r) {
+        // 执行前记录
+    }
+
+    @Override
+    protected void afterExecute(Runnable r, Throwable t) {
+        // 执行后记录
+    }
+}
+```
+
+## 并发设计模式
+
+### 1. 生产者-消费者模式如何实现？
+
+实现方式：
+
+1. 使用BlockingQueue
+```java
+public class ProducerConsumer {
+    private BlockingQueue<Object> queue = new LinkedBlockingQueue<>(10);
+
+    public void produce() throws InterruptedException {
+        Object object = new Object();
+        queue.put(object);
+    }
+
+    public Object consume() throws InterruptedException {
+        return queue.take();
+    }
+}
+```
+
+2. 使用wait/notify
+```java
+public class ProducerConsumer {
+    private Queue<Object> queue = new LinkedList<>();
+    private int maxSize = 10;
+
+    public synchronized void produce() throws InterruptedException {
+        while (queue.size() == maxSize) {
+            wait();
+        }
+        queue.offer(new Object());
+        notifyAll();
+    }
+
+    public synchronized Object consume() throws InterruptedException {
+        while (queue.isEmpty()) {
+            wait();
+        }
+        Object item = queue.poll();
+        notifyAll();
+        return item;
+    }
+}
+```
+
+### 2. 如何实现线程安全的单例模式？
+
+常见实现方式：
+
+1. 双重检查锁定
+```java
+public class Singleton {
+    private volatile static Singleton instance;
+
+    private Singleton() {}
+
+    public static Singleton getInstance() {
+        if (instance == null) {
+            synchronized (Singleton.class) {
+                if (instance == null) {
+                    instance = new Singleton();
+                }
+            }
+        }
+        return instance;
+    }
+}
+```
+
+2. 静态内部类
+```java
+public class Singleton {
+    private Singleton() {}
+
+    private static class SingletonHolder {
+        private static final Singleton INSTANCE = new Singleton();
+    }
+
+    public static Singleton getInstance() {
+        return SingletonHolder.INSTANCE;
+    }
+}
+```
+
+## 实际案例分析
+
+### 1. 如何处理高并发场景下的缓存问题？
+
+常见缓存问题及解决方案：
+
+1. 缓存击穿
+```java
+public class CacheService {
+    private Map<String, Object> cache = new ConcurrentHashMap<>();
+    private Lock lock = new ReentrantLock();
+
+    public Object getWithLock(String key) {
+        Object value = cache.get(key);
+        if (value == null) {
+            lock.lock();
+            try {
+                value = cache.get(key);
+                if (value == null) {
+                    value = loadFromDB(key);
+                    cache.put(key, value);
+                }
+            } finally {
+                lock.unlock();
+            }
+        }
+        return value;
+    }
+}
+```
+
+2. 缓存雪崩
+```java
+public class CacheService {
+    public void initCache() {
+        // 随机化缓存过期时间
+        int expireTime = baseExpireTime + random.nextInt(randomRange);
+        // 使用定时任务分散缓存更新
+        scheduledExecutor.scheduleWithFixedDelay(() -> {
+            updateCache();
+        }, expireTime, expireTime, TimeUnit.SECONDS);
+    }
+}
+```
+
+### 2. 如何优化数据库并发访问？
+
+数据库并发优化策略：
+
+1. 连接池管理
+```java
+public class DBPool {
+    private GenericObjectPool<Connection> connectionPool;
+
+    public void initPool() {
+        GenericObjectPoolConfig config = new GenericObjectPoolConfig();
+        config.setMaxTotal(100);
+        config.setMaxIdle(10);
+        config.setMinIdle(5);
+        connectionPool = new GenericObjectPool<>(new ConnectionFactory(), config);
+    }
+}
+```
+
+2. 分库分表策略
+```java
+public class ShardingService {
+    public Connection getConnection(String key) {
+        int shardingKey = key.hashCode() % shardingNum;
+        return getConnectionBySharding(shardingKey);
+    }
+
+    public void executeSharding(String sql, Object... params) {
+        // 并行执行分片查询
+        CompletableFuture<?>[] futures = new CompletableFuture[shardingNum];
+        for (int i = 0; i < shardingNum; i++) {
+            final int sharding = i;
+            futures[i] = CompletableFuture.runAsync(() -> {
+                executeInSharding(sql, sharding, params);
+            });
+        }
+        CompletableFuture.allOf(futures).join();
+    }
+}
+```
+
+## 面试重点
+
+1. 线程池的工作原理和使用场景
+2. synchronized的实现原理和优化
+3. volatile的实现原理和使用场景
+4. ConcurrentHashMap的实现原理和演进
+5. 线程安全的实现方式比较
+6. 死锁的产生原因和解决方案
+7. AQS（AbstractQueuedSynchronizer）的原理
+8. ThreadLocal的原理和使用场景
+9. 高并发系统的设计原则和实践经验
+10. 并发编程常见问题的分析和解决方案

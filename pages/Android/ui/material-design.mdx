@@ -1,0 +1,160 @@
+# Material Design
+
+## 概述
+Material Design是Google推出的设计语言，它提供了一套完整的设计规范和组件库，用于创建统一、美观的Android应用界面。Material Design强调层次感、动效和交互反馈，为用户提供直观的使用体验。
+
+## 核心概念
+
+### 1. 材料特性
+- **海拔与阴影**
+- **表面特性**
+- **响应式交互**
+
+### 2. 设计原则
+- **直观性**
+- **层次感**
+- **有意义的动画**
+- **适应性布局**
+
+## 实现方式
+
+### 1. Material主题
+```xml
+<!-- 在styles.xml中应用Material主题 -->
+<style name="AppTheme" parent="Theme.MaterialComponents.Light.DarkActionBar">
+    <item name="colorPrimary">@color/primary</item>
+    <item name="colorPrimaryDark">@color/primary_dark</item>
+    <item name="colorAccent">@color/accent</item>
+</style>
+```
+
+### 2. Material组件
+```xml
+<!-- Material按钮示例 -->
+<com.google.android.material.button.MaterialButton
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:text="确定"
+    style="@style/Widget.MaterialComponents.Button"
+    app:cornerRadius="8dp"
+    app:elevation="4dp" />
+
+<!-- Material卡片示例 -->
+<com.google.android.material.card.MaterialCardView
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    app:cardCornerRadius="8dp"
+    app:cardElevation="4dp">
+    <!-- 卡片内容 -->
+</com.google.android.material.card.MaterialCardView>
+```
+
+### 3. 动态主题
+```kotlin
+// 动态颜色主题
+class MainActivity : AppCompatActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        // 应用动态颜色
+        DynamicColors.applyToActivityIfAvailable(this)
+        setContentView(R.layout.activity_main)
+    }
+}
+```
+
+## Material Design 3
+
+### 1. 新特性
+- **动态颜色**
+- **主题构建器**
+- **组件更新**
+- **Material You个性化**
+
+### 2. 迁移指南
+```gradle
+// 在build.gradle中更新依赖
+dependencies {
+    implementation 'com.google.android.material:material:1.8.0'
+}
+```
+
+## 面试常见问题
+
+### 1. Material Design的核心原则是什么？
+
+1. **实体感**：
+   - 模拟现实世界的物理特性
+   - 使用光影表现层次
+   - 强调表面质感
+
+2. **响应性**：
+   - 即时的视觉反馈
+   - 自然的动画过渡
+   - 有意义的交互效果
+
+3. **层次性**：
+   - 清晰的视觉层级
+   - 合理的空间关系
+   - 一致的导航体验
+
+### 2. Material组件与传统View的区别？
+
+1. **外观特性**：
+   - 更现代的视觉风格
+   - 内置的动画效果
+   - 统一的设计语言
+
+2. **功能特性**：
+   - 更丰富的自定义属性
+   - 更好的交互体验
+   - 更完善的无障碍支持
+
+### 3. 如何实现Material Design的深色主题？
+
+```xml
+<!-- 在styles.xml中定义深色主题 -->
+<style name="AppTheme.Dark" parent="Theme.MaterialComponents.DayNight">
+    <item name="colorPrimary">@color/dark_primary</item>
+    <item name="colorSurface">@color/dark_surface</item>
+    <item name="android:windowBackground">@color/dark_background</item>
+</style>
+```
+
+```kotlin
+// 在代码中切换主题
+AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
+```
+
+## 最佳实践
+
+1. **主题定制**
+   - 合理使用颜色系统
+   - 保持视觉一致性
+   - 注意深色模式适配
+
+2. **组件使用**
+   - 选择合适的组件
+   - 遵循设计规范
+   - 保持交互统一
+
+3. **性能优化**
+   - 合理使用阴影效果
+   - 优化动画性能
+   - 控制视图层级
+
+## 注意事项
+
+1. **兼容性考虑**
+   - 版本适配
+   - 降级方案
+   - 设备兼容
+
+2. **性能影响**
+   - 控制阴影复杂度
+   - 优化动画效果
+   - 避免过度使用特效
+
+3. **无障碍支持**
+   - 合理的内容描述
+   - 适当的触摸目标
+   - 清晰的视觉对比

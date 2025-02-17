@@ -1,0 +1,145 @@
+# Clean架构
+
+## 概述
+Clean Architecture（简洁架构）是由Robert C. Martin（Uncle Bob）提出的一种软件架构模式，旨在创建独立于框架、UI、数据库等外部元素的应用程序。
+
+## 核心原则
+
+1. **依赖规则**
+   - 源代码依赖只能由外向内
+   - 内层不应该知道外层的任何信息
+
+2. **分层结构**
+   - Entities（实体）：核心业务规则
+   - Use Cases（用例）：应用程序特定的业务规则
+   - Interface Adapters（接口适配器）：转换数据格式
+   - Frameworks & Drivers（框架和驱动）：外部实现细节
+
+## Android中的实现
+
+### 1. 项目结构示例
+```kotlin
+app/
+  ├─ data/           // 数据层
+  │   ├─ repository/  // 仓库实现
+  │   ├─ remote/      // 远程数据源
+  │   └─ local/       // 本地数据源
+  ├─ domain/         // 领域层
+  │   ├─ model/       // 领域模型
+  │   ├─ repository/  // 仓库接口
+  │   └─ usecase/     // 用例
+  └─ presentation/   // 表现层
+      ├─ ui/          // UI组件
+      └─ viewmodel/   // ViewModel
+```
+
+### 2. 代码实现示例
+
+```kotlin
+// Domain Layer - Entity
+data class User(val id: String, val name: String)
+
+// Domain Layer - Repository Interface
+interface UserRepository {
+    suspend fun getUser(id: String): User
+}
+
+// Domain Layer - Use Case
+class GetUserUseCase(private val repository: UserRepository) {
+    suspend operator fun invoke(userId: String): User {
+        return repository.getUser(userId)
+    }
+}
+
+// Data Layer - Repository Implementation
+class UserRepositoryImpl(private val remoteDataSource: RemoteDataSource) : UserRepository {
+    override suspend fun getUser(id: String): User {
+        return remoteDataSource.getUser(id)
+    }
+}
+
+// Presentation Layer - ViewModel
+class UserViewModel(private val getUserUseCase: GetUserUseCase) : ViewModel() {
+    private val _user = MutableLiveData<User>()
+    val user: LiveData<User> = _user
+
+    fun loadUser(id: String) {
+        viewModelScope.launch {
+            _user.value = getUserUseCase(id)
+        }
+    }
+}
+```
+
+## 优势
+
+1. **高度可测试性**
+   - 业务规则可以在没有UI、数据库等外部元素的情况下进行测试
+   - 每一层都可以独立测试
+
+2. **独立于框架**
+   - 架构不依赖于任何外部库或框架
+   - 框架作为工具，而不是将应用程序塞入框架的约束中
+
+3. **UI独立**
+   - UI可以轻易改变，而不影响系统的其他部分
+   - 业务规则不依赖于UI的存在
+
+4. **数据库独立**
+   - 可以轻易替换数据库系统
+   - 业务规则不绑定到数据库
+
+## 面试常见问题
+
+### 1. Clean Architecture与其他架构模式的区别？
+
+Clean Architecture与MVC、MVP、MVVM等模式的主要区别在于：
+- 更注重依赖规则和边界
+- 更清晰的责任分离
+- 更好的可测试性
+- 更容易适应变化
+
+### 2. 为什么要使用Clean Architecture？
+
+主要优势包括：
+- 代码高度可测试
+- 独立于外部框架
+- 易于维护和扩展
+- 清晰的依赖关系
+- 更好的关注点分离
+
+### 3. Clean Architecture的实现成本是否值得？
+
+需要根据项目具体情况评估：
+- 对于大型项目：值得投入，可以获得更好的可维护性和可测试性
+- 对于小型项目：可能过度设计，增加不必要的复杂性
+- 需要团队成员都理解并遵循架构原则
+
+### 4. 如何处理跨层通信？
+
+- 使用接口定义边界
+- 依赖注入管理依赖关系
+- 使用UseCase封装业务逻辑
+- 数据映射器处理数据转换
+
+## 最佳实践
+
+1. **保持简单**
+   - 不要过度设计
+   - 根据实际需求选择合适的抽象级别
+
+2. **遵循依赖规则**
+   - 依赖始终指向内层
+   - 使用依赖注入管理依赖
+
+3. **合理使用映射器**
+   - 在层之间转换数据模型
+   - 避免数据模型泄露
+
+4. **编写测试**
+   - 为每一层编写单元测试
+   - 使用模拟对象隔离依赖
+
+5. **文档化**
+   - 清晰记录架构决策
+   - 维护架构图和依赖关系图

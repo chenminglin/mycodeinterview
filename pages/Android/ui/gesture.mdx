@@ -1,0 +1,229 @@
+# Android手势处理
+
+## 概述
+手势处理是Android应用交互中的重要组成部分，良好的手势处理可以提升用户体验。Android提供了多种手势处理机制，包括基础触摸事件、手势检测器和缩放手势等。
+
+## 基础触摸事件
+
+### 1. 事件类型
+- **ACTION_DOWN**：手指按下
+- **ACTION_MOVE**：手指移动
+- **ACTION_UP**：手指抬起
+- **ACTION_CANCEL**：事件取消
+
+### 2. 事件处理
+```kotlin
+class CustomView : View {
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        when (event.action) {
+            MotionEvent.ACTION_DOWN -> {
+                // 处理按下事件
+                return true
+            }
+            MotionEvent.ACTION_MOVE -> {
+                // 处理移动事件
+            }
+            MotionEvent.ACTION_UP -> {
+                // 处理抬起事件
+            }
+        }
+        return super.onTouchEvent(event)
+    }
+}
+```
+
+## 手势检测
+
+### 1. GestureDetector
+```kotlin
+class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener {
+    private lateinit var gestureDetector: GestureDetector
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        gestureDetector = GestureDetector(this, this)
+    }
+
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        return gestureDetector.onTouchEvent(event) || super.onTouchEvent(event)
+    }
+
+    override fun onDown(e: MotionEvent): Boolean {
+        return true
+    }
+
+    override fun onFling(e1: MotionEvent?, e2: MotionEvent, 
+                        velocityX: Float, velocityY: Float): Boolean {
+        // 处理快速滑动
+        return true
+    }
+}
+```
+
+### 2. ScaleGestureDetector
+```kotlin
+class ZoomableImageView : ImageView {
+    private val scaleGestureDetector = ScaleGestureDetector(context,
+        object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+            override fun onScale(detector: ScaleGestureDetector): Boolean {
+                val scaleFactor = detector.scaleFactor
+                scaleX *= scaleFactor
+                scaleY *= scaleFactor
+                return true
+            }
+        })
+
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        scaleGestureDetector.onTouchEvent(event)
+        return true
+    }
+}
+```
+
+## 多点触控
+
+### 1. 处理多指触摸
+```kotlin
+override fun onTouchEvent(event: MotionEvent): Boolean {
+    val pointerCount = event.pointerCount
+    when (event.actionMasked) {
+        MotionEvent.ACTION_POINTER_DOWN -> {
+            // 处理额外手指按下
+        }
+        MotionEvent.ACTION_POINTER_UP -> {
+            // 处理手指抬起
+        }
+    }
+    return true
+}
+```
+
+### 2. 获取触摸点信息
+```kotlin
+fun getTouchPoints(event: MotionEvent): List<PointF> {
+    return (0 until event.pointerCount).map { index ->
+        PointF(event.getX(index), event.getY(index))
+    }
+}
+```
+
+## 面试常见问题
+
+### 1. 事件分发机制是什么？
+
+1. **事件传递顺序**：
+   - Activity -> Window -> DecorView -> ViewGroup -> View
+   - dispatchTouchEvent -> onInterceptTouchEvent -> onTouchEvent
+
+2. **返回值含义**：
+   - true：事件已处理，终止传递
+   - false：事件未处理，继续传递
+   - super：调用父类默认实现
+
+### 2. 如何解决滑动冲突？
+
+1. **外部拦截法**：
+```kotlin
+class ParentView : ViewGroup {
+    override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
+        when (ev.action) {
+            MotionEvent.ACTION_DOWN -> {
+                return false
+            }
+            MotionEvent.ACTION_MOVE -> {
+                // 根据条件判断是否拦截
+                return shouldIntercept()
+            }
+        }
+        return super.onInterceptTouchEvent(ev)
+    }
+}
+```
+
+2. **内部拦截法**：
+```kotlin
+class ChildView : View {
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        when (ev.action) {
+            MotionEvent.ACTION_DOWN -> {
+                parent.requestDisallowInterceptTouchEvent(true)
+            }
+            MotionEvent.ACTION_MOVE -> {
+                // 根据条件决定是否允许父View拦截
+                parent.requestDisallowInterceptTouchEvent(!shouldParentIntercept())
+            }
+        }
+        return super.dispatchTouchEvent(ev)
+    }
+}
+```
+
+### 3. 如何实现自定义手势？
+
+1. **使用GestureDetector.SimpleOnGestureListener**：
+```kotlin
+val gestureListener = object : GestureDetector.SimpleOnGestureListener() {
+    override fun onDoubleTap(e: MotionEvent): Boolean {
+        // 处理双击
+        return true
+    }
+
+    override fun onLongPress(e: MotionEvent) {
+        // 处理长按
+    }
+}
+```
+
+2. **自定义手势识别**：
+```kotlin
+class CustomGestureDetector {
+    private var startPoint: PointF? = null
+    private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
+
+    fun onTouchEvent(event: MotionEvent): Boolean {
+        when (event.action) {
+            MotionEvent.ACTION_DOWN -> {
+                startPoint = PointF(event.x, event.y)
+            }
+            MotionEvent.ACTION_MOVE -> {
+                // 计算移动距离，判断手势
+            }
+        }
+        return true
+    }
+}
+```
+
+## 最佳实践
+
+1. **性能优化**
+   - 避免在事件处理中进行耗时操作
+   - 合理使用事件缓存
+   - 优化手势检测算法
+
+2. **用户体验**
+   - 提供适当的视觉反馈
+   - 保持手势的连续性
+   - 处理边界情况
+
+3. **代码组织**
+   - 分离手势逻辑
+   - 使用合适的设计模式
+   - 保持代码可维护性
+
+## 注意事项
+
+1. **事件处理**
+   - 正确处理事件返回值
+   - 避免事件丢失
+   - 处理取消事件
+
+2. **内存管理**
+   - 及时释放资源
+   - 避免内存泄漏
+   - 控制对象创建
+
+3. **兼容性**
+   - 适配不同屏幕尺寸
+   - 处理不同Android版本
+   - 考虑不同设备特性

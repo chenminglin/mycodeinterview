@@ -1,0 +1,205 @@
+# Kotlin 高级特性
+
+## 密封类（Sealed Class）
+
+### 概念和特点
+
+1. **定义**
+   - 限制类继承结构的类
+   - 所有子类必须在同一文件中声明
+   - 编译时类型安全
+
+2. **使用场景**
+   - 表示受限的类层次结构
+   - 状态管理
+   - 错误处理
+
+### 示例代码
+
+```kotlin
+sealed class Result<out T> {
+    data class Success<T>(val data: T) : Result<T>()
+    data class Error(val exception: Exception) : Result<Nothing>()
+    object Loading : Result<Nothing>()
+}
+
+fun handleResult(result: Result<String>) = when (result) {
+    is Result.Success -> println(result.data)
+    is Result.Error -> println(result.exception.message)
+    is Result.Loading -> println("Loading...")
+    // 不需要else分支，编译器能确保所有情况都被处理
+}
+```
+
+## 委托属性
+
+### 核心概念
+
+1. **属性委托**
+   - 将属性的getter/setter委托给另一个类
+   - 复用属性访问逻辑
+   - 支持懒加载
+
+2. **内置委托**
+   - lazy
+   - observable
+   - vetoable
+   - notNull
+
+### 实现示例
+
+```kotlin
+// 自定义委托
+class PreferenceDelegate<T>(
+    private val context: Context,
+    private val name: String,
+    private val default: T
+) {
+    private val prefs by lazy {
+        context.getSharedPreferences("default", Context.MODE_PRIVATE)
+    }
+
+    operator fun getValue(thisRef: Any?, property: KProperty<*>): T {
+        return findPreference(name, default)
+    }
+
+    operator fun setValue(thisRef: Any?, property: KProperty<*>, value: T) {
+        putPreference(name, value)
+    }
+}
+
+// 使用示例
+class UserSettings(context: Context) {
+    var username by PreferenceDelegate(context, "username", "")
+    var isFirstLaunch by PreferenceDelegate(context, "is_first_launch", true)
+}
+```
+
+## 协程作用域
+
+### 作用域类型
+
+1. **GlobalScope**
+   - 全局作用域
+   - 生命周期与应用程序同步
+   - 不推荐使用
+
+2. **CoroutineScope**
+   - 自定义作用域
+   - 可控制生命周期
+   - 推荐使用
+
+3. **ViewModelScope**
+   - ViewModel专用作用域
+   - 自动取消
+
+### 最佳实践
+
+```kotlin
+class MyViewModel : ViewModel() {
+    private val _data = MutableLiveData<String>()
+    val data: LiveData<String> = _data
+
+    fun loadData() {
+        viewModelScope.launch {
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    // 执行耗时操作
+                    repository.fetchData()
+                }
+                _data.value = result
+            } catch (e: Exception) {
+                // 错误处理
+            }
+        }
+    }
+}
+```
+
+## 面试常见问题
+
+### 1. Kotlin协程与线程的区别？
+
+- **协程**：
+  - 轻量级
+  - 非阻塞
+  - 支持挂起和恢复
+  - 更好的并发控制
+
+- **线程**：
+  - 系统级资源
+  - 阻塞式
+  - 切换开销大
+  - 并发控制复杂
+
+### 2. 什么是协程的结构化并发？
+
+- 父协程等待所有子协程完成
+- 子协程继承父协程的上下文
+- 父协程取消会级联取消子协程
+- 子协程异常会传播给父协程
+
+### 3. Kotlin中的委托模式有哪些应用场景？
+
+1. **属性委托**：
+   - 懒加载
+   - 观察者模式
+   - 数据持久化
+   - 线程安全访问
+
+2. **类委托**：
+   - 装饰器模式
+   - 适配器模式
+   - 代理模式
+
+### 4. 密封类与枚举类的区别？
+
+1. **密封类**：
+   - 可以包含状态
+   - 子类可以有多个实例
+   - 更灵活的继承结构
+   - 适合表示复杂状态
+
+2. **枚举类**：
+   - 固定实例数量
+   - 每个常量只有一个实例
+   - 简单的值集合
+   - 适合表示固定选项
+
+## 最佳实践
+
+1. **协程使用**
+   - 使用适当的作用域
+   - 正确处理异常
+   - 合理选择调度器
+   - 避免使用GlobalScope
+
+2. **密封类设计**
+   - 状态管理
+   - 错误处理
+   - UI状态表示
+   - 网络请求结果
+
+3. **委托属性**
+   - 封装SharedPreferences
+   - 实现懒加载
+   - 观察属性变化
+   - 线程安全处理
+
+## 注意事项
+
+1. **协程安全**
+   - 避免在GlobalScope中启动协程
+   - 正确处理异常
+   - 注意协程取消
+   - 使用适当的调度器
+
+2. **内存管理**
+   - 及时取消不需要的协程
+   - 避免内存泄漏
+   - 正确管理生命周期
+
+3. **性能优化**
+   - 合理使用挂起函数
+   - 避免过度使用协程
+   - 正确使用调度器

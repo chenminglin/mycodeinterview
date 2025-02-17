@@ -1,0 +1,274 @@
+# Android存储机制面试题
+
+本章节包含Android存储机制相关的面试题，涵盖内部存储、外部存储、数据库、SharedPreferences等核心知识点。
+
+## 基础概念
+
+### 🔥 选择题1：Android存储类型
+
+关于Android存储类型，以下说法错误的是：
+
+A. 内部存储空间是应用私有的，其他应用无法访问
+B. 外部存储空间在Android 10及以上版本默认采用分区存储
+C. SharedPreferences适合存储大量结构化数据
+D. SQLite数据库支持事务操作和SQL查询
+
+<details>
+<summary>答案与解析</summary>
+
+**答案：C**
+
+解析：
+1. 内部存储确实是应用私有的，其他应用在没有root权限的情况下无法访问
+2. Android 10引入了分区存储，限制了应用对外部存储的访问权限
+3. SharedPreferences适合存储轻量级的键值对数据，不适合存储大量结构化数据
+4. SQLite数据库确实支持事务操作和标准的SQL查询语句
+</details>
+
+### 🔥 问答题1：Android存储最佳实践
+
+**问题：请详细说明Android中各种存储方式的使用场景和最佳实践。**
+
+<details>
+<summary>参考答案</summary>
+
+1. **内部存储**
+   - 使用场景：
+     * 存储应用私有文件
+     * 缓存文件
+     * 临时文件
+   - 最佳实践：
+     * 及时清理缓存文件
+     * 注意存储空间大小限制
+     * 使用Context提供的文件操作方法
+
+2. **外部存储**
+   - 使用场景：
+     * 存储用户可见的文件
+     * 大文件存储
+     * 应用间共享文件
+   - 最佳实践：
+     * 适配Android 10的分区存储
+     * 使用MediaStore API
+     * 注意权限申请
+
+3. **SharedPreferences**
+   - 使用场景：
+     * 存储用户设置
+     * 存储登录状态
+     * 轻量级数据缓存
+   - 最佳实践：
+     * 避免存储大量数据
+     * 使用commit()还是apply()
+     * 注意多进程问题
+
+4. **SQLite数据库**
+   - 使用场景：
+     * 存储结构化数据
+     * 需要复杂查询
+     * 大量数据的CRUD操作
+   - 最佳实践：
+     * 使用事务提高性能
+     * 正确管理数据库连接
+     * 使用索引优化查询
+</details>
+
+### 🔥 编程题：存储工具类
+
+**问题：实现一个通用的存储工具类，支持文件存储、SharedPreferences和SQLite数据库操作。**
+
+<details>
+<summary>参考答案</summary>
+
+```java
+public class StorageHelper {
+    private Context context;
+    private SQLiteDatabase database;
+    private SharedPreferences preferences;
+    
+    public StorageHelper(Context context) {
+        this.context = context;
+        preferences = context.getSharedPreferences("app_settings", Context.MODE_PRIVATE);
+    }
+    
+    // 文件存储相关方法
+    public void saveFile(String fileName, String content) {
+        try {
+            FileOutputStream fos = context.openFileOutput(fileName, Context.MODE_PRIVATE);
+            fos.write(content.getBytes());
+            fos.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+    
+    public String readFile(String fileName) {
+        try {
+            FileInputStream fis = context.openFileInput(fileName);
+            BufferedReader reader = new BufferedReader(new InputStreamReader(fis));
+            StringBuilder sb = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                sb.append(line).append('\n');
+            }
+            reader.close();
+            fis.close();
+            return sb.toString();
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+    
+    // SharedPreferences相关方法
+    public void savePreference(String key, String value) {
+        preferences.edit().putString(key, value).apply();
+    }
+    
+    public String getPreference(String key, String defaultValue) {
+        return preferences.getString(key, defaultValue);
+    }
+    
+    public void clearPreferences() {
+        preferences.edit().clear().apply();
+    }
+    
+    // 数据库相关方法
+    private static class DatabaseHelper extends SQLiteOpenHelper {
+        private static final String DATABASE_NAME = "app_database";
+        private static final int DATABASE_VERSION = 1;
+        
+        public DatabaseHelper(Context context) {
+            super(context, DATABASE_NAME, null, DATABASE_VERSION);
+        }
+        
+        @Override
+        public void onCreate(SQLiteDatabase db) {
+            // 创建数据表
+            db.execSQL("CREATE TABLE IF NOT EXISTS users "
+                    + "(id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                    + "name TEXT, "
+                    + "email TEXT)");
+        }
+        
+        @Override
+        public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+            // 数据库升级逻辑
+        }
+    }
+    
+    public void openDatabase() {
+        DatabaseHelper helper = new DatabaseHelper(context);
+        database = helper.getWritableDatabase();
+    }
+    
+    public void closeDatabase() {
+        if (database != null && database.isOpen()) {
+            database.close();
+        }
+    }
+    
+    public long insertUser(String name, String email) {
+        ContentValues values = new ContentValues();
+        values.put("name", name);
+        values.put("email", email);
+        return database.insert("users", null, values);
+    }
+    
+    public List<User> queryUsers() {
+        List<User> users = new ArrayList<>();
+        Cursor cursor = database.query("users", null, null, null, null, null, null);
+        
+        if (cursor.moveToFirst()) {
+            do {
+                User user = new User();
+                user.id = cursor.getLong(cursor.getColumnIndex("id"));
+                user.name = cursor.getString(cursor.getColumnIndex("name"));
+                user.email = cursor.getString(cursor.getColumnIndex("email"));
+                users.add(user);
+            } while (cursor.moveToNext());
+        }
+        
+        cursor.close();
+        return users;
+    }
+    
+    // 缓存文件管理
+    public File getCacheFile(String fileName) {
+        return new File(context.getCacheDir(), fileName);
+    }
+    
+    public void clearCache() {
+        File cacheDir = context.getCacheDir();
+        if (cacheDir != null && cacheDir.exists()) {
+            File[] files = cacheDir.listFiles();
+            if (files != null) {
+                for (File file : files) {
+                    file.delete();
+                }
+            }
+        }
+    }
+    
+    // 外部存储操作
+    public boolean isExternalStorageWritable() {
+        return Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED);
+    }
+    
+    public File getExternalFile(String fileName) {
+        if (isExternalStorageWritable()) {
+            return new File(context.getExternalFilesDir(null), fileName);
+        }
+        return null;
+    }
+    
+    // 使用示例
+    public void exampleUsage() {
+        // 文件存储示例
+        saveFile("test.txt", "Hello, World!");
+        String content = readFile("test.txt");
+        
+        // SharedPreferences示例
+        savePreference("user_name", "John");
+        String userName = getPreference("user_name", "");
+        
+        // 数据库示例
+        openDatabase();
+        long userId = insertUser("John", "john@example.com");
+        List<User> users = queryUsers();
+        closeDatabase();
+        
+        // 缓存文件示例
+        File cacheFile = getCacheFile("temp.txt");
+        // 使用完后清理缓存
+        clearCache();
+        
+        // 外部存储示例
+        if (isExternalStorageWritable()) {
+            File externalFile = getExternalFile("external.txt");
+            // 进行文件操作
+        }
+    }
+    
+    // 数据模型
+    public static class User {
+        public long id;
+        public String name;
+        public String email;
+    }
+}
+```
+
+代码说明：
+1. 实现了完整的存储功能：
+   - 文件存储
+   - SharedPreferences
+   - SQLite数据库
+   - 缓存管理
+   - 外部存储
+2. 提供了简单易用的API
+3. 包含异常处理和资源管理
+4. 支持多种数据类型
+5. 遵循Android存储最佳实践
+6. 包含完整的使用示例
+</details>

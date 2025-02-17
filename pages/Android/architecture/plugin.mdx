@@ -1,0 +1,178 @@
+# 插件化技术
+
+## 概述
+插件化技术是一种将应用程序的部分功能模块独立成插件，可以动态加载和卸载的技术方案。它能够帮助应用突破安装包大小限制，实现功能的动态扩展和按需加载。
+
+## 核心原理
+
+1. **类加载机制**
+   - 自定义ClassLoader
+   - 动态加载dex文件
+   - 资源加载机制
+
+2. **插件生命周期管理**
+   - 插件加载
+   - 插件启动
+   - 插件卸载
+
+3. **四大组件支持**
+   - Activity代理
+   - Service代理
+   - BroadcastReceiver动态注册
+   - ContentProvider封装
+
+## 主流框架
+
+### 1. DroidPlugin
+- 360开源的插件化框架
+- 免安装运行APK文件
+- Hook系统服务实现
+
+### 2. VirtualAPK
+- 滴滴开源的插件化框架
+- 支持完整的四大组件
+- 支持PendingIntent
+
+### 3. Shadow
+- 腾讯开源的插件化框架
+- 零反射实现
+- 高兼容性设计
+
+## 实现方案
+
+### 1. Activity插件化
+```kotlin
+// 代理Activity
+class ProxyActivity : Activity() {
+    private var pluginActivity: Activity? = null
+    
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        // 加载插件Activity
+        loadPluginActivity()
+    }
+    
+    private fun loadPluginActivity() {
+        // 加载插件
+        val pluginPath = intent.getStringExtra("plugin_path")
+        val className = intent.getStringExtra("class_name")
+        
+        // 创建插件ClassLoader
+        val dexClassLoader = DexClassLoader(
+            pluginPath,
+            cacheDir.absolutePath,
+            null,
+            classLoader
+        )
+        
+        // 加载插件Activity
+        val pluginClass = dexClassLoader.loadClass(className)
+        pluginActivity = pluginClass.newInstance() as Activity
+    }
+}
+```
+
+### 2. 资源加载
+```kotlin
+// 创建插件Resources
+fun createPluginResources(pluginPath: String): Resources {
+    val assetManager = AssetManager::class.java.newInstance()
+    val addAssetPath = assetManager.javaClass.getMethod("addAssetPath", String::class.java)
+    addAssetPath.invoke(assetManager, pluginPath)
+    
+    return Resources(
+        assetManager,
+        resources.displayMetrics,
+        resources.configuration
+    )
+}
+```
+
+## 面试常见问题
+
+### 1. 插件化与组件化的区别？
+
+- **插件化**：
+  - 动态加载和卸载
+  - 独立安装包
+  - 运行时加载
+  - 适合功能扩展
+
+- **组件化**：
+  - 编译时集成
+  - 打包在主程序中
+  - 启动时加载
+  - 适合业务解耦
+
+### 2. 插件化的优缺点？
+
+优点：
+- 减小安装包体积
+- 动态更新功能
+- 功能按需加载
+- 模块解耦
+
+缺点：
+- 兼容性问题
+- 开发成本高
+- 维护难度大
+- 安全风险
+
+### 3. 如何处理插件化的兼容性问题？
+
+- 适配不同Android版本
+- 处理厂商定制系统
+- 解决资源访问问题
+- 处理跨进程通信
+
+### 4. 插件化框架的选择考虑因素？
+
+- 稳定性和兼容性
+- 功能完整性
+- 性能影响
+- 维护成本
+- 学习成本
+
+## 最佳实践
+
+1. **框架选择**
+   - 根据项目需求选择
+   - 考虑维护成本
+   - 评估兼容性要求
+
+2. **安全考虑**
+   - 插件签名验证
+   - 代码加密保护
+   - 数据安全传输
+
+3. **性能优化**
+   - 懒加载策略
+   - 资源复用
+   - 内存管理
+
+4. **开发规范**
+   - 统一的插件开发规范
+   - 完善的文档支持
+   - 规范的调试流程
+
+5. **监控方案**
+   - 插件加载监控
+   - 性能数据采集
+   - 异常信息上报
+
+## 注意事项
+
+1. **系统限制**
+   - 系统API限制
+   - 权限处理
+   - 进程通信
+
+2. **资源管理**
+   - 资源冲突处理
+   - 资源释放机制
+   - 内存优化
+
+3. **版本控制**
+   - 插件版本管理
+   - 更新机制
+   - 回滚策略

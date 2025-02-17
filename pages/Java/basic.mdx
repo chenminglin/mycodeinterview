@@ -1,0 +1,159 @@
+# Java基础
+
+## 1. Java语言特性
+
+### 1.1 面向对象的特性
+
+- **封装**：将数据和操作数据的方法绑定在一起，对外部隐藏对象的具体实现细节
+- **继承**：允许创建一个类作为另一个类的基础，继承父类的属性和方法
+- **多态**：同一个操作作用于不同的对象，可以有不同的解释和执行结果
+
+示例代码：
+```java
+// 封装示例
+public class Student {
+    private String name;    // 私有属性
+    private int age;
+    
+    // 公共方法访问私有属性
+    public String getName() {
+        return name;
+    }
+    
+    public void setName(String name) {
+        this.name = name;
+    }
+}
+
+// 继承示例
+public class Person {
+    protected String name;
+    
+    public void eat() {
+        System.out.println("Person eating");
+    }
+}
+
+public class Student extends Person {
+    private int studentId;
+    
+    @Override
+    public void eat() {
+        System.out.println("Student eating");
+    }
+}
+```
+
+### 1.2 Java平台特性
+
+- **跨平台性**：Write Once, Run Anywhere
+- **安全性**：沙箱安全机制、字节码验证
+- **简单性**：相比C++去除了指针、运算符重载等复杂特性
+
+## 2. 基本数据类型
+
+### 2.1 八种基本数据类型
+
+- **整型**：byte(8位)、short(16位)、int(32位)、long(64位)
+- **浮点型**：float(32位)、double(64位)
+- **字符型**：char(16位)
+- **布尔型**：boolean
+
+```java
+// 基本数据类型示例
+public class DataTypeDemo {
+    public static void main(String[] args) {
+        byte b = 127;
+        short s = 32767;
+        int i = 2147483647;
+        long l = 9223372036854775807L;
+        
+        float f = 3.14f;
+        double d = 3.14159265359;
+        
+        char c = 'A';
+        boolean bool = true;
+    }
+}
+```
+
+### 2.2 包装类型
+
+- 每个基本类型都有对应的包装类型
+- 自动装箱和拆箱机制
+
+```java
+Integer num = 100;    // 自动装箱
+int n = num;          // 自动拆箱
+```
+
+## 3. 面试常考题
+
+### 3.1 基本数据类型和包装类型的区别？
+
+1. **存储位置**
+   - 基本数据类型：存储在栈中
+   - 包装类型：存储在堆中
+
+2. **默认值**
+   - 基本数据类型：有默认值（如int为0）
+   - 包装类型：默认值为null
+
+3. **比较方式**
+   - 基本数据类型：使用==比较值
+   - 包装类型：使用equals()比较值，==比较引用
+
+### 3.2 String类的不可变性是什么？
+
+String类的不可变性体现在：
+
+1. String类被final修饰，不能被继承
+2. 内部的char数组被private final修饰
+3. 不提供修改内部数组的方法
+
+```java
+// String不可变性示例
+String str = "Hello";
+str = str + " World";    // 实际上创建了新的String对象
+```
+
+### 3.3 ==和equals的区别？
+
+1. **==**
+   - 比较基本数据类型：比较值
+   - 比较引用类型：比较引用（内存地址）
+
+2. **equals()**
+   - Object类的equals()方法默认与==相同
+   - String等类重写了equals()方法，比较内容
+
+```java
+String str1 = new String("Hello");
+String str2 = new String("Hello");
+
+System.out.println(str1 == str2);         // false
+System.out.println(str1.equals(str2));    // true
+```
+
+## 4. 最佳实践
+
+1. **合理使用基本类型和包装类型**
+   - 频繁使用的小数据，优先使用基本类型
+   - 需要存储null或使用泛型时，使用包装类型
+
+2. **String操作优化**
+   - 大量字符串拼接时使用StringBuilder
+   - 多线程环境下使用StringBuffer
+
+3. **避免可变性带来的问题**
+   - 重要的可变对象考虑深拷贝
+   - 注意对象作为HashMap键时的不可变性
+
+```java
+// 字符串拼接最佳实践
+StringBuilder sb = new StringBuilder();
+for (int i = 0; i < 1000; i++) {
+    sb.append("item").append(i);
+}
+String result = sb.toString();
+```
