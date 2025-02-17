@@ -1,0 +1,179 @@
+# Android内存优化
+
+内存优化是Android性能优化中最重要的环节之一，良好的内存管理可以提高应用的稳定性和用户体验。
+
+## 面试题
+
+### 1. 什么是内存泄漏？如何避免？
+
+内存泄漏是指程序在申请内存后，无法释放已申请的内存空间，导致系统内存不断减少。
+
+常见的内存泄漏场景：
+```java
+// 1. 静态变量持有Activity引用
+public class MainActivity extends Activity {
+    private static Context sContext; // 错误示例
+    
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        sContext = this; // 可能导致内存泄漏
+    }
+}
+
+// 2. 内部类持有外部类引用
+public class MainActivity extends Activity {
+    private Handler mHandler = new Handler() { // 错误示例
+        @Override
+        public void handleMessage(Message msg) {
+            // 处理消息
+        }
+    };
+}
+
+// 正确的做法：使用静态内部类和弱引用
+public class MainActivity extends Activity {
+    private static class MyHandler extends Handler {
+        private WeakReference<MainActivity> activityRef;
+        
+        MyHandler(MainActivity activity) {
+            activityRef = new WeakReference<>(activity);
+        }
+        
+        @Override
+        public void handleMessage(Message msg) {
+            MainActivity activity = activityRef.get();
+            if (activity != null) {
+                // 处理消息
+            }
+        }
+    }
+}
+```
+
+### 2. OOM（Out Of Memory）的原因和解决方案？
+
+常见的OOM原因：
+1. 加载大图片
+2. 内存泄漏积累
+3. 内存抖动
+4. 数据结构不合理
+
+解决方案：
+```java
+// 1. 图片优化
+public Bitmap decodeSampledBitmapFromResource(Resources res, int resId, int reqWidth, int reqHeight) {
+    final BitmapFactory.Options options = new BitmapFactory.Options();
+    options.inJustDecodeBounds = true;
+    BitmapFactory.decodeResource(res, resId, options);
+    
+    options.inSampleSize = calculateInSampleSize(options, reqWidth, reqHeight);
+    options.inJustDecodeBounds = false;
+    return BitmapFactory.decodeResource(res, resId, options);
+}
+
+// 2. 使用LruCache缓存
+private LruCache<String, Bitmap> mMemoryCache;
+
+public void initCache() {
+    final int maxMemory = (int) (Runtime.getRuntime().maxMemory() / 1024);
+    final int cacheSize = maxMemory / 8;
+    
+    mMemoryCache = new LruCache<String, Bitmap>(cacheSize) {
+        @Override
+        protected int sizeOf(String key, Bitmap bitmap) {
+            return bitmap.getByteCount() / 1024;
+        }
+    };
+}
+```
+
+### 3. 什么是内存抖动？如何解决？
+
+内存抖动是指程序在短时间内频繁地创建和销毁对象，导致内存波动剧烈。
+
+示例和解决方案：
+```java
+// 错误示例：在onDraw中创建对象
+@Override
+protected void onDraw(Canvas canvas) {
+    Paint paint = new Paint(); // 每次绘制都创建对象
+    // 绘制操作
+}
+
+// 正确示例：
+private Paint mPaint; // 类成员变量
+
+public void init() {
+    mPaint = new Paint(); // 初始化时创建
+}
+
+@Override
+protected void onDraw(Canvas canvas) {
+    // 使用已创建的对象
+    // 绘制操作
+}
+```
+
+### 4. Android中的内存管理机制是什么？
+
+主要包括以下几个方面：
+1. 分配机制
+   - 应用程序内存限制
+   - 堆内存和栈内存
+
+2. 回收机制
+   - GC（垃圾回收）
+   - 弱引用和软引用
+
+3. 监控方式
+```java
+// 获取内存信息
+ActivityManager.MemoryInfo memoryInfo = new ActivityManager.MemoryInfo();
+ActivityManager activityManager = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
+activityManager.getMemoryInfo(memoryInfo);
+
+// 打印内存信息
+Log.d("Memory", "系统剩余内存：" + memoryInfo.availMem / 1024 / 1024 + "MB");
+Log.d("Memory", "系统是否处于低内存运行：" + memoryInfo.lowMemory);
+```
+
+### 5. 如何优化Bitmap内存占用？
+
+主要优化方向：
+1. 图片压缩
+2. 内存缓存
+3. 及时回收
+
+示例代码：
+```java
+// 1. 图片压缩
+public static Bitmap compressBitmap(Bitmap bitmap) {
+    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+    bitmap.compress(Bitmap.CompressFormat.JPEG, 80, baos);
+    byte[] bytes = baos.toByteArray();
+    return BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+}
+
+// 2. 使用Glide加载图片
+Glide.with(context)
+    .load(url)
+    .diskCacheStrategy(DiskCacheStrategy.ALL)
+    .into(imageView);
+
+// 3. 及时回收
+public void recycleBitmap() {
+    if (bitmap != null && !bitmap.isRecycled()) {
+        bitmap.recycle();
+        bitmap = null;
+    }
+}
+```
+
+## 优化建议
+
+1. 使用内存检测工具
+2. 建立内存泄漏预警机制
+3. 制定内存优化规范
+4. 进行线上监控
+5. 定期进行代码Review

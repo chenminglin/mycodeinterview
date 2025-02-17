@@ -1,0 +1,11 @@
+{
+  "index": "架构概述",
+  "mvvm": "MVVM架构",
+  "clean-architecture": "Clean架构",
+  "component": "组件化开发",
+  "plugin": "插件化技术",
+  "hotfix": "热修复方案",
+  "dependency-injection": "依赖注入",
+  "modular": "模块化设计",
+  "design-patterns": "设计模式"
+}

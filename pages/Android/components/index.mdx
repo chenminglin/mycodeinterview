@@ -1,0 +1,687 @@
+# Android四大组件面试题
+
+本章节包含Android四大组件（Activity、Service、BroadcastReceiver、ContentProvider）相关的高频面试题。
+
+## Activity
+
+### 🔥 问答题1：Activity任务栈
+
+请解释Android中Activity任务栈（Task Stack）的概念，以及它与Activity启动模式的关系。
+
+<details>
+<summary>答案与解析</summary>
+
+**答案：**
+
+1. **任务栈基本概念**：
+   - 任务栈是一个后进先出（LIFO）的栈结构
+   - 用于存储当前运行的Activity实例
+   - 每个任务栈都有一个唯一的ID（taskId）
+   - 默认情况下，同一应用的Activity在同一个任务栈中
+
+2. **任务栈与启动模式的关系**：
+   - standard：每次都会创建新实例并压入当前任务栈
+   - singleTop：栈顶复用，其他情况创建新实例
+   - singleTask：在新任务栈中创建实例，并清空其上的Activity
+   - singleInstance：独占一个任务栈，不允许其他Activity进入
+
+3. **代码示例**：
+```kotlin
+// 在AndroidManifest.xml中配置任务栈
+<activity
+    android:name=".MainActivity"
+    android:taskAffinity="com.example.task"
+    android:launchMode="singleTask" />
+
+// 通过Intent标志位控制任务栈行为
+Intent(this, SecondActivity::class.java).apply {
+    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+    // 或者
+    flags = Intent.FLAG_ACTIVITY_CLEAR_TOP
+}
+```
+
+4. **使用场景**：
+   - 应用主页面返回时清空任务栈
+   - 特定页面需要在新任务栈中打开
+   - 多应用共享页面的任务栈管理
+</details>
+
+## Service
+
+### 🔥 问答题2：Service的两种启动方式
+
+请详细说明Service的两种启动方式（startService和bindService）的区别，以及它们的使用场景。
+
+<details>
+<summary>答案与解析</summary>
+
+**答案：**
+
+1. **startService方式**：
+   - 生命周期：onCreate() → onStartCommand() → onDestroy()
+   - 特点：
+     * Service会一直运行，直到调用stopService()
+     * 多次调用startService()只会触发多次onStartCommand()
+     * 与调用者无关联，调用者退出后Service仍然运行
+   - 使用场景：
+     * 后台音乐播放
+     * 文件下载
+     * 数据同步
+
+2. **bindService方式**：
+   - 生命周期：onCreate() → onBind() → onUnbind() → onDestroy()
+   - 特点：
+     * Service与调用者绑定，可以进行通信
+     * 当所有绑定者都解绑后，Service会自动销毁
+     * 可以同时被多个组件绑定
+   - 使用场景：
+     * 需要与Service交互的场景
+     * 需要获取Service运行状态
+     * 进程间通信（IPC）
+
+3. **代码示例**：
+```kotlin
+// Service定义
+class MyService : Service() {
+    private val binder = LocalBinder()
+
+    inner class LocalBinder : Binder() {
+        fun getService(): MyService = this@MyService
+    }
+
+    override fun onBind(intent: Intent): IBinder {
+        return binder
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // 处理startService()的任务
+        return START_STICKY
+    }
+}
+
+// Activity中使用
+class MainActivity : AppCompatActivity() {
+    private var myService: MyService? = null
+    
+    private val connection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+            val binder = service as MyService.LocalBinder
+            myService = binder.getService()
+        }
+
+        override fun onServiceDisconnected(name: ComponentName?) {
+            myService = null
+        }
+    }
+
+    private fun startMyService() {
+        // 方式1：启动服务
+        startService(Intent(this, MyService::class.java))
+
+        // 方式2：绑定服务
+        bindService(
+            Intent(this, MyService::class.java),
+            connection,
+            Context.BIND_AUTO_CREATE
+        )
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // 解绑服务
+        unbindService(connection)
+    }
+}
+```
+
+4. **注意事项**：
+   - 两种方式可以同时使用
+   - bindService需要在组件销毁时解绑
+   - Service默认运行在主线程，耗时操作需要放在子线程
+   - Android 8.0后台Service限制需要考虑
+</details>
+
+## BroadcastReceiver
+
+### 🔥 问答题3：广播的注册方式和类型
+
+请详细说明BroadcastReceiver的注册方式（动态注册和静态注册）以及广播的类型（有序广播和无序广播）。
+
+<details>
+<summary>答案与解析</summary>
+
+**答案：**
+
+1. **注册方式**：
+
+   a) **静态注册**：
+   ```xml
+   <!-- 在AndroidManifest.xml中注册 -->
+   <receiver
+       android:name=".MyReceiver"
+       android:exported="true">
+       <intent-filter>
+           <action android:name="android.intent.action.BOOT_COMPLETED" />
+       </intent-filter>
+   </receiver>
+   ```
+   - 特点：
+     * 应用未启动也能接收广播
+     * 适合接收系统广播
+     * Android 8.0后大部分系统广播无法静态注册
+
+   b) **动态注册**：
+   ```kotlin
+   class MainActivity : AppCompatActivity() {
+       private val receiver = object : BroadcastReceiver() {
+           override fun onReceive(context: Context?, intent: Intent?) {
+               // 处理广播
+           }
+       }
+
+       override fun onCreate(savedInstanceState: Bundle?) {
+           super.onCreate(savedInstanceState)
+           registerReceiver(receiver, IntentFilter("com.example.MY_ACTION"))
+       }
+
+       override fun onDestroy() {
+           super.onDestroy()
+           unregisterReceiver(receiver)
+       }
+   }
+   ```
+   - 特点：
+     * 需要在代码中注册和解注册
+     * 跟随组件生命周期
+     * 更灵活，可以动态控制
+
+2. **广播类型**：
+
+   a) **有序广播（Ordered Broadcast）**：
+   ```kotlin
+   // 发送有序广播
+   sendOrderedBroadcast(Intent("com.example.MY_ACTION"), null)
+
+   // 接收者可以修改广播或终止传递
+   override fun onReceive(context: Context?, intent: Intent?) {
+       // 修改广播内容
+       setResultData("新数据")
+       // 终止广播传递
+       abortBroadcast()
+   }
+   ```
+   - 特点：
+     * 按优先级顺序传递
+     * 可以被截断
+     * 前面的接收者可以修改广播内容
+
+   b) **无序广播（Normal Broadcast）**：
+   ```kotlin
+   // 发送无序广播
+   sendBroadcast(Intent("com.example.MY_ACTION"))
+   ```
+   - 特点：
+     * 同时发送给所有接收者
+     * 接收顺序不确定
+     * 无法被截断
+
+3. **最佳实践**：
+   - 优先使用LocalBroadcastManager发送应用内广播
+   - 动态注册记得及时解注册
+   - 广播接收者中避免耗时操作
+   - 注意广播安全性，合理使用权限
+</details>
+
+## ContentProvider
+
+### 🔥 编程题1：自定义ContentProvider
+
+请实现一个自定义ContentProvider，要求能够对数据进行增删改查操作，并说明如何在其他应用中访问该Provider。
+
+<details>
+<summary>答案与解析</summary>
+
+**答案：**
+
+1. **自定义ContentProvider**：
+```kotlin
+class MyContentProvider : ContentProvider() {
+    companion object {
+        private const val AUTHORITY = "com.example.provider"
+        private const val TABLE_NAME = "users"
+        val CONTENT_URI: Uri = Uri.parse("content://$AUTHORITY/$TABLE_NAME")
+        
+        private const val CODE_USERS = 1
+        private const val CODE_USER_ITEM = 2
+        
+        private val uriMatcher = UriMatcher(UriMatcher.NO_MATCH).apply {
+            addURI(AUTHORITY, TABLE_NAME, CODE_USERS)
+            addURI(AUTHORITY, "$TABLE_NAME/#", CODE_USER_ITEM)
+        }
+    }
+
+    private lateinit var dbHelper: DatabaseHelper
+
+    override fun onCreate(): Boolean {
+        dbHelper = DatabaseHelper(context!!)
+        return true
+    }
+
+    override fun query(
+        uri: Uri,
+        projection: Array<String>?,
+        selection: String?,
+        selectionArgs: Array<String>?,
+        sortOrder: String?
+    ): Cursor? {
+        val db = dbHelper.readableDatabase
+        val cursor = when (uriMatcher.match(uri)) {
+            CODE_USERS -> db.query(
+                TABLE_NAME,
+                projection,
+                selection,
+                selectionArgs,
+                null,
+                null,
+                sortOrder
+            )
+            CODE_USER_ITEM -> db.query(
+                TABLE_NAME,
+                projection,
+                "_id = ?",
+                arrayOf(uri.lastPathSegment),
+                null,
+                null,
+                sortOrder
+            )
+            else -> throw IllegalArgumentException("Unknown URI: $uri")
+        }
+        cursor.setNotificationUri(context!!.contentResolver, uri)
+        return cursor
+    }
+
+    override fun insert(uri: Uri, values: ContentValues?): Uri? {
+        val db = dbHelper.writableDatabase
+        val id = db.insert(TABLE_NAME, null, values)
+        if (id > 0) {
+            val newUri = ContentUris.withAppendedId(CONTENT_URI, id)
+            context!!.contentResolver.notifyChange(newUri, null)
+            return newUri
+        }
+        throw SQLException("Failed to insert row into $uri")
+    }
+
+    override fun update(
+        uri: Uri,
+        values: ContentValues?,
+        selection: String?,
+        selectionArgs: Array<String>?
+    ): Int {
+        val db = dbHelper.writableDatabase
+        val count = when (uriMatcher.match(uri)) {
+            CODE_USERS -> db.update(TABLE_NAME, values, selection, selectionArgs)
+            CODE_USER_ITEM -> db.update(
+                TABLE_NAME,
+                values,
+                "_id = ?",
+                arrayOf(uri.lastPathSegment)
+            )
+            else -> throw IllegalArgumentException("Unknown URI: $uri")
+        }
+        if (count > 0) {
+            context!!.contentResolver.notifyChange(uri, null)
+        }
+        return count
+    }
+
+    override fun delete(
+        uri: Uri,
+        selection: String?,
+        selectionArgs: Array<String>?
+    ): Int {
+        val db = dbHelper.writableDatabase
+        val count = when (uriMatcher.match(uri)) {
+            CODE_USERS -> db.delete(TABLE_NAME, selection, selectionArgs)
+            CODE_USER_ITEM -> db.delete(
+                TABLE_NAME,
+                "_id = ?",
+                arrayOf(uri.lastPathSegment)
+            )
+            else -> throw IllegalArgumentException("Unknown URI: $uri")
+        }
+        if (count > 0) {
+            context!!.contentResolver.notifyChange(uri, null)
+        }
+        return count
+    }
+
+    override fun getType(uri: Uri): String? {
+        return when (uriMatcher.match(uri)) {
+            CODE_USERS -> "vnd.android.cursor.dir/vnd.example.users"
+            CODE_USER_ITEM -> "vnd.android.cursor.item/vnd.example.users"
+            else -> throw IllegalArgumentException("Unknown URI: $uri")
+        }
+    }
+}
+```
+
+2. **在AndroidManifest.xml中注册**：
+```xml
+<provider
+    android:name=".MyContentProvider"
+    android:authorities="com.example.provider"
+    android:exported="true"
+    android:permission="com.example.permission.READ_WRITE_DATA" />
+```
+
+3. **在其他应用中访问**：
+```kotlin
+class OtherActivity : AppCompatActivity() {
+    private fun accessProvider() {
+        // 查询数据
+        val cursor = contentResolver.query(
+            MyContentProvider.CONTENT_URI,
+            null,
+            null,
+            null,
+            null
+        )
+
+        // 插入数据
+        val values = ContentValues().apply {
+            put("name", "张三")
+            put("age", 25)
+        }
+        contentResolver.insert(MyContentProvider.CONTENT_URI, values)
+
+        // 更新数据
+        val updateValues = ContentValues().apply {
+            put("age", 26)
+        }
+        contentResolver.update(
+            MyContentProvider.CONTENT_URI,
+            updateValues,
+            "name = ?",
+            arrayOf("张三")
+        )
+
+        // 删除数据
+        contentResolver.delete(
+            MyContentProvider.CONTENT_URI,
+            "name = ?",
+            arrayOf("张三")
+        )
+    }
+}
+```
+
+4. **注意事项**：
+   - 权限声明和检查
+   - 数据库操作要在工作线程中执行
+   - URI匹配规则要清晰明确
+   - 注意数据变化通知机制
+</details>
+
+### 🔥 问答题4：Activity生命周期
+
+请详细说明Activity的完整生命周期，以及各个生命周期方法的调用时机和使用场景。
+
+<details>
+<summary>答案与解析</summary>
+
+**答案：**
+
+1. **完整生命周期**：
+   - onCreate(): Activity创建时调用
+   - onStart(): Activity变为可见时调用
+   - onResume(): Activity获取焦点，可与用户交互
+   - onPause(): Activity失去焦点，但仍可见
+   - onStop(): Activity完全不可见
+   - onDestroy(): Activity被销毁
+   - onRestart(): Activity从停止状态重新启动
+
+2. **生命周期调用场景**：
+```kotlin
+class MainActivity : AppCompatActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
+        // 初始化工作：加载布局、绑定视图、初始化数据
+    }
+
+    override fun onStart() {
+        super.onStart()
+        // 准备与用户交互：注册广播接收器、启动动画
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // 开始与用户交互：开始游戏、播放视频
+    }
+
+    override fun onPause() {
+        super.onPause()
+        // 释放系统资源：暂停游戏、停止视频
+    }
+
+    override fun onStop() {
+        super.onStop()
+        // 释放重量级资源：注销广播、停止动画
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // 清理资源：解绑服务、关闭数据库
+    }
+
+    override fun onRestart() {
+        super.onRestart()
+        // 重新初始化数据
+    }
+}
+```
+
+3. **使用场景**：
+   - 数据持久化
+   - 动态权限申请
+   - 屏幕旋转处理
+   - 前后台切换处理
+
+4. **最佳实践**：
+   - 轻量级操作放在onStart/onStop
+   - 重量级操作放在onCreate/onDestroy
+   - 使用ViewModel管理UI数据
+   - 使用onSaveInstanceState保存状态
+</details>
+
+### 🔥 问答题5：Fragment使用与生命周期
+
+请详细说明Fragment的使用方式、生命周期以及与Activity的关系。
+
+<details>
+<summary>答案与解析</summary>
+
+**答案：**
+
+1. **Fragment使用方式**：
+```kotlin
+// 1. 定义Fragment
+class MyFragment : Fragment() {
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View? {
+        return inflater.inflate(R.layout.fragment_my, container, false)
+    }
+}
+
+// 2. 添加Fragment
+class MainActivity : AppCompatActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
+
+        supportFragmentManager.beginTransaction()
+            .add(R.id.container, MyFragment())
+            .commit()
+    }
+}
+```
+
+2. **生命周期方法**：
+   - onAttach(): Fragment和Activity建立关联
+   - onCreate(): Fragment创建
+   - onCreateView(): 创建Fragment的视图
+   - onViewCreated(): 视图创建完成
+   - onActivityCreated(): Activity的onCreate()完成
+   - onStart(): Fragment可见
+   - onResume(): Fragment可交互
+   - onPause(): Fragment不可交互
+   - onStop(): Fragment不可见
+   - onDestroyView(): Fragment视图销毁
+   - onDestroy(): Fragment实例销毁
+   - onDetach(): Fragment和Activity解除关联
+
+3. **Fragment通信**：
+```kotlin
+// 1. 定义接口
+interface OnFragmentInteractionListener {
+    fun onFragmentInteraction(data: String)
+}
+
+// 2. Fragment中
+class MyFragment : Fragment() {
+    private var listener: OnFragmentInteractionListener? = null
+
+    override fun onAttach(context: Context) {
+        super.onAttach(context)
+        if (context is OnFragmentInteractionListener) {
+            listener = context
+        }
+    }
+
+    private fun sendDataToActivity() {
+        listener?.onFragmentInteraction("数据")
+    }
+
+    override fun onDetach() {
+        super.onDetach()
+        listener = null
+    }
+}
+
+// 3. Activity中
+class MainActivity : AppCompatActivity(), OnFragmentInteractionListener {
+    override fun onFragmentInteraction(data: String) {
+        // 处理来自Fragment的数据
+    }
+}
+```
+
+4. **最佳实践**：
+   - 使用ViewModel共享数据
+   - 使用ViewPager2管理多个Fragment
+   - 使用Navigation组件管理Fragment导航
+   - 避免Fragment嵌套过深
+</details>
+
+### 🔥 问答题6：Service保活方案
+
+请详细说明Android中Service的保活方案以及各种方案的优缺点。
+
+<details>
+<summary>答案与解析</summary>
+
+**答案：**
+
+1. **前台Service**：
+```kotlin
+class ForegroundService : Service() {
+    override fun onCreate() {
+        super.onCreate()
+        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("服务运行中")
+            .setSmallIcon(R.drawable.ic_notification)
+            .build()
+
+        startForeground(1, notification)
+    }
+}
+```
+
+2. **双进程守护**：
+```kotlin
+// 本地Service
+class LocalService : Service() {
+    private val connection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+            // 建立连接
+        }
+
+        override fun onServiceDisconnected(name: ComponentName?) {
+            // 断开连接后重新绑定
+            bindService(Intent(this@LocalService, RemoteService::class.java),
+                this, Context.BIND_IMPORTANT)
+        }
+    }
+}
+
+// 远程Service
+class RemoteService : Service() {
+    // 类似实现
+}
+```
+
+3. **系统广播监听**：
+```kotlin
+class BootReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context?, intent: Intent?) {
+        if (intent?.action == Intent.ACTION_BOOT_COMPLETED) {
+            // 启动Service
+            context?.startService(Intent(context, MyService::class.java))
+        }
+    }
+}
+```
+
+4. **WorkManager定时任务**：
+```kotlin
+class MyWorker(context: Context, params: WorkerParameters) :
+    Worker(context, params) {
+
+    override fun doWork(): Result {
+        // 执行任务
+        return Result.success()
+    }
+}
+
+// 使用
+val workRequest = PeriodicWorkRequestBuilder<MyWorker>(
+    15, TimeUnit.MINUTES
+).build()
+
+WorkManager.getInstance(context).enqueue(workRequest)
+```
+
+5. **各方案优缺点**：
+   - 前台Service
+     * 优点：稳定性高，用户可感知
+     * 缺点：通知栏常驻，耗电
+   - 双进程守护
+     * 优点：相互唤醒，提高存活率
+     * 缺点：系统资源消耗大
+   - 系统广播
+     * 优点：开机自启动
+     * 缺点：不同系统版本限制多
+   - WorkManager
+     * 优点：系统调度，省电
+     * 缺点：执行时间不精确
+
+6. **注意事项**：
+   - 遵守系统规范，避免过度保活
+   - 考虑用户体验和电池消耗
+   - 适配不同Android版本
+   - 做好进程被杀的容错处理
+</details>

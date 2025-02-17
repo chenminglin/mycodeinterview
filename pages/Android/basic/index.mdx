@@ -1,0 +1,289 @@
+# Android基础面试题
+
+本章节包含Android基础知识相关的面试题，涵盖Activity生命周期、Fragment、Intent等核心概念。
+
+## Activity生命周期
+
+### 🔥 选择题1：Activity生命周期
+
+以下关于Activity生命周期的说法，错误的是：
+
+A. onCreate()方法在Activity第一次创建时调用
+B. onResume()方法在Activity变得可见时调用
+C. onPause()方法在Activity完全不可见之后调用
+D. onDestroy()方法在Activity被销毁前调用
+
+<details>
+<summary>答案与解析</summary>
+
+**答案：C**
+
+**解析：**
+- onPause()方法是在Activity部分不可见时调用，而不是完全不可见之后
+- Activity生命周期的正确顺序是：
+  1. onCreate(): Activity创建时调用
+  2. onStart(): Activity即将可见时调用
+  3. onResume(): Activity可见且可交互时调用
+  4. onPause(): Activity部分不可见时调用
+  5. onStop(): Activity完全不可见时调用
+  6. onDestroy(): Activity销毁前调用
+
+需要注意的是，onPause()方法执行时，Activity还未完全不可见，此时用户仍可能看到部分界面。完全不可见是在onStop()方法执行时的状态。
+</details>
+
+### 🔥 问答题1：Activity的启动模式
+
+请详细说明Android中Activity的四种启动模式（LaunchMode）的特点和使用场景。
+
+<details>
+<summary>答案与解析</summary>
+
+**答案：**
+
+Android中Activity有四种启动模式：
+
+1. **standard（标准模式）**
+   - 特点：每次启动都会创建新的实例
+   - 使用场景：大多数Activity的默认模式
+   - 示例：新闻详情页面
+
+2. **singleTop（栈顶复用模式）**
+   - 特点：如果要启动的Activity已经在栈顶，则复用该实例，否则创建新实例
+   - 使用场景：避免重复创建页面，如搜索页面
+   - 示例：接收推送消息的页面
+
+3. **singleTask（栈内复用模式）**
+   - 特点：在当前任务栈中查找是否存在该Activity实例，如果存在则将其上面的Activity全部出栈
+   - 使用场景：应用程序的主页面
+   - 示例：App的首页、购物车页面
+
+4. **singleInstance（单实例模式）**
+   - 特点：Activity会单独位于一个任务栈中
+   - 使用场景：需要与其他应用共享的页面
+   - 示例：拨号页面、闹钟提醒页面
+
+**代码示例：**
+```xml
+<!-- 在AndroidManifest.xml中设置启动模式 -->
+<activity
+    android:name=".MainActivity"
+    android:launchMode="singleTask" />
+```
+
+**注意事项：**
+1. 启动模式可以在AndroidManifest中通过android:launchMode属性设置
+2. 也可以通过Intent的flags动态设置
+3. Intent的flags优先级高于AndroidManifest中的设置
+</details>
+
+### 填空题1：Activity状态保存
+
+当Activity因系统内存不足被回收时，可以通过______方法保存状态，并在Activity重建时通过______方法恢复状态。
+
+<details>
+<summary>答案与解析</summary>
+
+**答案：** onSaveInstanceState、onRestoreInstanceState
+
+**解析：**
+1. onSaveInstanceState()方法用于保存Activity的状态，它会在以下情况被调用：
+   - 系统内存不足，Activity可能被回收
+   - 用户按下Home键
+   - 屏幕旋转等配置变化
+
+2. 使用示例：
+```kotlin
+override fun onSaveInstanceState(outState: Bundle) {
+    super.onSaveInstanceState(outState)
+    // 保存数据
+    outState.putString("key", "value")
+    outState.putInt("position", currentPosition)
+}
+
+override fun onRestoreInstanceState(savedInstanceState: Bundle) {
+    super.onRestoreInstanceState(savedInstanceState)
+    // 恢复数据
+    val value = savedInstanceState.getString("key")
+    val position = savedInstanceState.getInt("position")
+}
+```
+
+3. 最佳实践：
+   - 只保存必要的数据，避免保存大量数据
+   - 考虑使用ViewModel来管理UI相关的数据
+   - 持久化的数据应该存储在数据库或SharedPreferences中
+</details>
+
+## Intent使用
+
+### 🔥 编程题1：实现Activity跳转
+
+请编写代码实现带参数的Activity跳转，并在目标Activity中接收参数。要求：
+1. 传递用户信息（包含id、name、age）
+2. 使用显式Intent和隐式Intent两种方式
+
+<details>
+<summary>答案与解析</summary>
+
+**答案：**
+
+1. 首先定义一个数据类：
+```kotlin
+data class User(
+    val id: Long,
+    val name: String,
+    val age: Int
+) : Parcelable {
+    constructor(parcel: Parcel) : this(
+        parcel.readLong(),
+        parcel.readString() ?: "",
+        parcel.readInt()
+    )
+
+    override fun writeToParcel(parcel: Parcel, flags: Int) {
+        parcel.writeLong(id)
+        parcel.writeString(name)
+        parcel.writeInt(age)
+    }
+
+    override fun describeContents(): Int = 0
+
+    companion object CREATOR : Parcelable.Creator<User> {
+        override fun createFromParcel(parcel: Parcel): User = User(parcel)
+        override fun newArray(size: Int): Array<User?> = arrayOfNulls(size)
+    }
+}
+```
+
+2. 显式Intent跳转：
+```kotlin
+// 在源Activity中
+class SourceActivity : AppCompatActivity() {
+    private fun startDetailActivity() {
+        val user = User(1, "张三", 25)
+        val intent = Intent(this, DetailActivity::class.java).apply {
+            putExtra("user", user)
+        }
+        startActivity(intent)
+    }
+}
+
+// 在目标Activity中
+class DetailActivity : AppCompatActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        
+        intent.getParcelableExtra<User>("user")?.let { user ->
+            // 使用user数据
+            Log.d("DetailActivity", "用户信息：${user.name}, ${user.age}岁")
+        }
+    }
+}
+```
+
+3. 隐式Intent跳转：
+```kotlin
+// 在AndroidManifest.xml中配置
+<activity android:name=".DetailActivity">
+    <intent-filter>
+        <action android:name="com.example.action.VIEW_USER" />
+        <category android:name="android.intent.category.DEFAULT" />
+    </intent-filter>
+</activity>
+
+// 在源Activity中
+class SourceActivity : AppCompatActivity() {
+    private fun startDetailActivity() {
+        val user = User(1, "张三", 25)
+        val intent = Intent("com.example.action.VIEW_USER").apply {
+            putExtra("user", user)
+        }
+        startActivity(intent)
+    }
+}
+```
+
+**注意事项：**
+1. 传递大量数据时考虑使用Bundle
+2. 对象传递建议实现Parcelable而不是Serializable
+3. 隐式Intent需要注意安全性，可能被其他应用接收
+4. 建议使用常量定义Action和Extra的key
+</details>
+
+## Fragment
+
+### 🔥 问答题2：Fragment生命周期
+
+请详细描述Fragment的生命周期，以及Fragment与Activity生命周期的关系。
+
+<details>
+<summary>答案与解析</summary>
+
+**答案：**
+
+1. **Fragment生命周期方法**：
+   - onAttach(): Fragment和Activity建立关联
+   - onCreate(): Fragment创建
+   - onCreateView(): 创建Fragment的视图
+   - onViewCreated(): Fragment的视图创建完成
+   - onStart(): Fragment可见
+   - onResume(): Fragment可交互
+   - onPause(): Fragment不可交互
+   - onStop(): Fragment不可见
+   - onDestroyView(): Fragment视图被移除
+   - onDestroy(): Fragment实例被销毁
+   - onDetach(): Fragment和Activity解除关联
+
+2. **与Activity生命周期的关系**：
+   - Activity onCreate() → Fragment onAttach() → Fragment onCreate()
+   - Activity onStart() → Fragment onStart()
+   - Activity onResume() → Fragment onResume()
+   - Activity onPause() → Fragment onPause()
+   - Activity onStop() → Fragment onStop()
+   - Activity onDestroy() → Fragment onDetach()
+
+3. **生命周期最佳实践**：
+```kotlin
+class MyFragment : Fragment() {
+    private var _binding: FragmentMyBinding? = null
+    private val binding get() = _binding!!
+
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        _binding = FragmentMyBinding.inflate(inflater, container, false)
+        return binding.root
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        // 初始化视图
+        setupViews()
+        // 观察ViewModel
+        observeViewModel()
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null // 避免内存泄漏
+    }
+
+    private fun setupViews() {
+        // 初始化视图组件
+    }
+
+    private fun observeViewModel() {
+        // 设置ViewModel观察者
+    }
+}
+```
+
+4. **注意事项**：
+   - Fragment生命周期比Activity更复杂
+   - 使用ViewBinding时注意在onDestroyView中释放
+   - 避免在Fragment构造函数中传参，使用newInstance静态方法
+   - 使用FragmentManager时注意Fragment重叠问题
+   - 建议使用Navigation组件管理Fragment
+</details>

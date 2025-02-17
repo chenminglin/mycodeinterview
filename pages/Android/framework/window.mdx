@@ -1,0 +1,99 @@
+# Window机制
+
+本章节将详细介绍Android中的Window机制，包括Window的创建、管理和使用过程。
+
+## 核心问题
+
+1. Window是什么？它的作用是什么？
+2. Window、WindowManager和WMS三者的关系是什么？
+3. Activity、Dialog、Toast的Window创建过程有什么区别？
+
+## Window基础
+
+### Window的类型
+
+1. 应用Window（TYPE_APPLICATION）
+   - Activity的Window
+   - 层级范围：1-99
+
+2. 子Window（TYPE_APPLICATION_PANEL）
+   - Dialog的Window
+   - 层级范围：1000-1999
+
+3. 系统Window（TYPE_SYSTEM_ALERT）
+   - Toast和系统状态栏的Window
+   - 层级范围：2000-2999
+
+## 源码分析
+
+### Window的添加过程
+
+```java
+public void addView(View view, ViewGroup.LayoutParams params) {
+    try {
+        if (mGlobal == null)
+            mGlobal = WindowManagerGlobal.getInstance();
+        mGlobal.addView(view, params, mContext.getDisplay(), mParentWindow);
+    } catch (WindowManager.BadTokenException e) {
+        throw new WindowManager.BadTokenException(
+            "Unable to add window -- token null is not valid");
+    }
+}
+```
+
+### Window的更新过程
+
+```java
+public void updateViewLayout(View view, ViewGroup.LayoutParams params) {
+    if (mGlobal == null)
+        mGlobal = WindowManagerGlobal.getInstance();
+    mGlobal.updateViewLayout(view, params);
+}
+```
+
+## 实践应用
+
+### 自定义Window示例
+
+```java
+private void showCustomWindow() {
+    View view = LayoutInflater.from(this).inflate(R.layout.custom_window, null);
+    WindowManager.LayoutParams params = new WindowManager.LayoutParams(
+        WindowManager.LayoutParams.WRAP_CONTENT,
+        WindowManager.LayoutParams.WRAP_CONTENT,
+        WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+        PixelFormat.TRANSLUCENT
+    );
+    WindowManager windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
+    windowManager.addView(view, params);
+}
+```
+
+## 面试题解析
+
+### Q1：如何在Activity外部显示一个Window？
+
+1. 获取WindowManager系统服务
+2. 设置合适的WindowManager.LayoutParams
+3. 注意申请必要的权限（如SYSTEM_ALERT_WINDOW）
+
+### Q2：为什么Dialog不能在Activity的onStop之后显示？
+
+- Dialog是依附于Activity的Window显示的
+- Activity停止时，其Window被移除，Dialog也无法显示
+- 可以使用WindowManager直接添加View来实现类似效果
+
+### Q3：Window的token是什么？
+
+- token是Window的唯一标识
+- Activity的Window token由AMS在启动Activity时创建
+- 系统Window一般使用null token
+
+## 最佳实践
+
+1. 正确选择Window类型
+2. 合理设置Window参数
+3. 注意内存泄漏问题
+4. 处理好生命周期
+5. 权限管理

@@ -1,0 +1,191 @@
+# Android 数据存储
+
+本章节将介绍Android中的各种数据存储方式，包括SharedPreferences、SQLite、Room、文件存储等。
+
+## SharedPreferences
+
+### 核心特性
+
+1. 轻量级键值对存储
+2. 适用于小规模数据
+3. 支持多种数据类型
+
+### 最佳实践
+
+```kotlin
+// 使用委托属性
+class PreferenceManager(context: Context) {
+    private val prefs = context.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
+    
+    var username: String by Delegates.observable(prefs.getString("username", "")!!) { _, _, new ->
+        prefs.edit().putString("username", new).apply()
+    }
+    
+    var isFirstLaunch: Boolean
+        get() = prefs.getBoolean("is_first_launch", true)
+        set(value) = prefs.edit().putBoolean("is_first_launch", value).apply()
+}
+```
+
+## Room数据库
+
+### 核心组件
+
+1. Entity：数据表实体
+2. DAO：数据访问对象
+3. Database：数据库类
+
+### 实现示例
+
+```kotlin
+// Entity定义
+@Entity(tableName = "users")
+data class User(
+    @PrimaryKey val id: Long,
+    @ColumnInfo(name = "name") val name: String,
+    @ColumnInfo(name = "email") val email: String
+)
+
+// DAO接口
+@Dao
+interface UserDao {
+    @Query("SELECT * FROM users")
+    suspend fun getAllUsers(): List<User>
+    
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertUser(user: User)
+    
+    @Delete
+    suspend fun deleteUser(user: User)
+}
+
+// Database类
+@Database(entities = [User::class], version = 1)
+abstract class AppDatabase : RoomDatabase() {
+    abstract fun userDao(): UserDao
+    
+    companion object {
+        @Volatile
+        private var INSTANCE: AppDatabase? = null
+        
+        fun getInstance(context: Context): AppDatabase {
+            return INSTANCE ?: synchronized(this) {
+                Room.databaseBuilder(
+                    context.applicationContext,
+                    AppDatabase::class.java,
+                    "app_database"
+                ).build().also { INSTANCE = it }
+            }
+        }
+    }
+}
+```
+
+## 文件存储
+
+### 存储类型
+
+1. 内部存储
+2. 外部存储
+3. 缓存目录
+
+### 使用示例
+
+```kotlin
+// 文件操作工具类
+class FileManager(private val context: Context) {
+    // 写入内部存储
+    fun writeToInternal(fileName: String, content: String) {
+        context.openFileOutput(fileName, Context.MODE_PRIVATE).use {
+            it.write(content.toByteArray())
+        }
+    }
+    
+    // 读取内部存储
+    fun readFromInternal(fileName: String): String {
+        return context.openFileInput(fileName).bufferedReader().useLines { lines ->
+            lines.joinToString("\n")
+        }
+    }
+    
+    // 写入外部存储
+    fun writeToExternal(fileName: String, content: String) {
+        if (isExternalStorageWritable()) {
+            val file = File(context.getExternalFilesDir(null), fileName)
+            file.writeText(content)
+        }
+    }
+}
+```
+
+## ContentProvider
+
+### 使用场景
+
+1. 跨应用数据共享
+2. 统一数据访问接口
+3. 数据访问权限控制
+
+### 实现示例
+
+```kotlin
+class UserProvider : ContentProvider() {
+    private lateinit var dbHelper: DatabaseHelper
+    
+    override fun onCreate(): Boolean {
+        dbHelper = DatabaseHelper(context!!)
+        return true
+    }
+    
+    override fun query(
+        uri: Uri,
+        projection: Array<String>?,
+        selection: String?,
+        selectionArgs: Array<String>?,
+        sortOrder: String?
+    ): Cursor? {
+        val db = dbHelper.readableDatabase
+        return db.query(
+            "users",
+            projection,
+            selection,
+            selectionArgs,
+            null,
+            null,
+            sortOrder
+        )
+    }
+    
+    // 其他CRUD操作实现...
+}
+```
+
+## 数据加密
+
+### 加密方式
+
+1. SharedPreferences加密
+2. 数据库加密
+3. 文件加密
+
+### 安全最佳实践
+
+```kotlin
+// 使用EncryptedSharedPreferences
+val masterKey = MasterKey.Builder(context)
+    .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+    .build()
+
+val encryptedPrefs = EncryptedSharedPreferences.create(
+    context,
+    "secret_prefs",
+    masterKey,
+    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+)
+
+// 使用加密数据库
+Room.databaseBuilder(context, AppDatabase::class.java, "encrypted_db")
+    .openHelperFactory(SupportFactory(SQLiteDatabase.getBytes("password".toCharArray())))
+    .build()
+```

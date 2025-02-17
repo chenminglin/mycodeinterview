@@ -1,0 +1,168 @@
+# BroadcastReceiver相关面试题
+
+本章节包含Android BroadcastReceiver组件相关的面试题，涵盖广播的注册方式、类型、应用场景等重要概念。
+
+## BroadcastReceiver基础
+
+### 🔥 选择题1：广播注册方式
+
+关于BroadcastReceiver的注册方式，以下说法正确的是：
+
+A. 动态注册的广播接收器在Activity销毁时会自动注销
+B. 静态注册的广播接收器需要在AndroidManifest.xml中声明
+C. 动态注册的广播接收器优先级总是高于静态注册
+D. 应用安装时系统会自动注册所有的广播接收器
+
+<details>
+<summary>答案与解析</summary>
+
+**答案：B**
+
+解析：
+1. 动态注册的广播接收器需要手动注销，否则会造成内存泄漏
+2. 静态注册确实需要在AndroidManifest.xml中声明
+3. 广播接收器的优先级由priority决定，与注册方式无关
+4. 静态广播接收器需要应用安装后由系统解析AndroidManifest.xml才能注册
+</details>
+
+### 🔥 问答题1：广播的分类
+
+**问题：请详细说明Android中广播的分类，以及各种类型广播的特点和使用场景。**
+
+<details>
+<summary>参考答案</summary>
+
+1. **普通广播（Normal Broadcast）**
+   - 通过Context.sendBroadcast()发送
+   - 完全异步执行
+   - 所有接收器几乎同时接收到广播
+   - 无法被截断和中止
+   - 使用场景：通知应用更新、消息推送等
+
+2. **有序广播（Ordered Broadcast）**
+   - 通过Context.sendOrderedBroadcast()发送
+   - 按照优先级顺序执行
+   - 前面的接收器可以截断广播
+   - 可以修改广播内容
+   - 使用场景：短信拦截、电话拦截等
+
+3. **本地广播（Local Broadcast）**
+   - 通过LocalBroadcastManager发送
+   - 只能在应用内部传递
+   - 更高效和安全
+   - 不受系统广播限制
+   - 使用场景：应用内部通信
+
+4. **粘性广播（Sticky Broadcast）**
+   - 已在Android 8.0中被移除
+   - 发送后一直存在于系统中
+   - 新注册的接收器也能收到
+</details>
+
+### 🔥 问答题2：广播的使用限制
+
+**问题：Android系统对广播机制做了哪些限制？如何在实际开发中合理使用广播？**
+
+<details>
+<summary>参考答案</summary>
+
+1. **系统限制：**
+   - Android 8.0以上大多数隐式广播无法静态注册
+   - 后台应用接收广播受限
+   - 广播可能被系统延迟发送
+   - 有些系统广播需要特定权限
+
+2. **最佳实践：**
+   - 优先使用LocalBroadcastManager
+   - 动态注册时注意及时注销
+   - 避免在广播接收器中执行耗时操作
+   - 合理设置优先级
+   - 注意电量优化
+
+3. **替代方案：**
+   - 考虑使用WorkManager
+   - 使用JobScheduler
+   - 采用EventBus等消息总线
+   - 使用ContentProvider
+</details>
+
+### 🔥 编程题：自定义广播实现
+
+**问题：实现一个自定义广播系统，要求包含发送者和接收者，并实现有序广播的优先级控制。**
+
+<details>
+<summary>参考答案</summary>
+
+```java
+// 广播接收器1（高优先级）
+public class HighPriorityReceiver extends BroadcastReceiver {
+    @Override
+    public void onReceive(Context context, Intent intent) {
+        String message = intent.getStringExtra("message");
+        Log.d("HighPriorityReceiver", "Received: " + message);
+        
+        // 修改广播内容
+        Bundle bundle = new Bundle();
+        bundle.putString("message", message + " [Modified by High]");
+        setResultExtras(bundle);
+    }
+}
+
+// 广播接收器2（低优先级）
+public class LowPriorityReceiver extends BroadcastReceiver {
+    @Override
+    public void onReceive(Context context, Intent intent) {
+        Bundle bundle = getResultExtras(true);
+        String message = bundle.getString("message");
+        Log.d("LowPriorityReceiver", "Received: " + message);
+    }
+}
+
+// 在Activity中使用
+public class MainActivity extends AppCompatActivity {
+    private HighPriorityReceiver highPriorityReceiver;
+    private LowPriorityReceiver lowPriorityReceiver;
+    private static final String ACTION_CUSTOM = "com.example.CUSTOM_ACTION";
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        // 注册高优先级接收器
+        highPriorityReceiver = new HighPriorityReceiver();
+        IntentFilter highFilter = new IntentFilter(ACTION_CUSTOM);
+        highFilter.setPriority(100);
+        registerReceiver(highPriorityReceiver, highFilter);
+
+        // 注册低优先级接收器
+        lowPriorityReceiver = new LowPriorityReceiver();
+        IntentFilter lowFilter = new IntentFilter(ACTION_CUSTOM);
+        lowFilter.setPriority(50);
+        registerReceiver(lowPriorityReceiver, lowFilter);
+
+        // 发送有序广播
+        findViewById(R.id.btnSend).setOnClickListener(v -> {
+            Intent intent = new Intent(ACTION_CUSTOM);
+            intent.putExtra("message", "Hello, Ordered Broadcast!");
+            sendOrderedBroadcast(intent, null);
+        });
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        unregisterReceiver(highPriorityReceiver);
+        unregisterReceiver(lowPriorityReceiver);
+    }
+}
+```
+
+代码说明：
+1. 创建两个不同优先级的广播接收器
+2. 高优先级接收器可以修改广播内容
+3. 低优先级接收器接收修改后的内容
+4. 使用setPriority()设置优先级
+5. 使用sendOrderedBroadcast()发送有序广播
+6. 注意在Activity销毁时注销接收器
+</details>

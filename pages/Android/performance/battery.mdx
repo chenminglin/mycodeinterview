@@ -1,0 +1,181 @@
+# Android电池优化
+
+电池优化是提升应用用户体验的关键因素之一，良好的电池优化可以延长设备使用时间，提高用户满意度。
+
+## 面试题
+
+### 1. Android中如何监控应用的电量消耗？
+
+主要监控方法：
+```java
+// 1. 使用BatteryManager
+public void getBatteryInfo(Context context) {
+    IntentFilter ifilter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
+    Intent batteryStatus = context.registerReceiver(null, ifilter);
+    
+    // 获取电池状态
+    int status = batteryStatus.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
+    boolean isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING;
+    
+    // 获取电池电量
+    int level = batteryStatus.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
+    int scale = batteryStatus.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
+    float batteryPct = level * 100 / (float)scale;
+}
+
+// 2. 使用Battery Historian工具分析
+// 需要通过adb命令收集电池信息
+adb bugreport > bugreport.zip
+```
+
+### 2. 如何优化应用的后台任务以节省电量？
+
+主要优化方向：
+1. 使用WorkManager
+2. 合理设置任务执行时机
+3. 避免频繁唤醒设备
+
+示例代码：
+```java
+// 1. 使用WorkManager执行后台任务
+public void scheduleWork() {
+    Constraints constraints = new Constraints.Builder()
+        .setRequiresCharging(true)
+        .setRequiredNetworkType(NetworkType.UNMETERED)
+        .build();
+    
+    PeriodicWorkRequest workRequest =
+        new PeriodicWorkRequest.Builder(MyWorker.class, 15, TimeUnit.MINUTES)
+            .setConstraints(constraints)
+            .build();
+    
+    WorkManager.getInstance(context).enqueue(workRequest);
+}
+
+// 2. 实现Worker类
+public class MyWorker extends Worker {
+    public MyWorker(@NonNull Context context, @NonNull WorkerParameters params) {
+        super(context, params);
+    }
+    
+    @NonNull
+    @Override
+    public Result doWork() {
+        // 执行后台任务
+        return Result.success();
+    }
+}
+```
+
+### 3. Doze模式和应用待机如何影响应用运行？
+
+主要影响：
+1. 网络访问受限
+2. 后台任务延迟执行
+3. 定时任务可能被推迟
+
+应对策略：
+```java
+// 1. 检查Doze模式状态
+public boolean isIgnoringBatteryOptimizations(Context context) {
+    PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+    String packageName = context.getPackageName();
+    return pm.isIgnoringBatteryOptimizations(packageName);
+}
+
+// 2. 请求忽略电池优化（需要谨慎使用）
+public void requestIgnoreBatteryOptimizations(Context context) {
+    Intent intent = new Intent();
+    String packageName = context.getPackageName();
+    intent.setAction(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+    intent.setData(Uri.parse("package:" + packageName));
+    context.startActivity(intent);
+}
+```
+
+### 4. 如何优化网络请求以节省电量？
+
+主要优化方向：
+1. 批量处理请求
+2. 避免频繁请求
+3. 使用缓存策略
+
+示例代码：
+```java
+// 1. 使用OkHttp缓存
+public OkHttpClient createOkHttpClient(Context context) {
+    File cacheDir = new File(context.getCacheDir(), "http_cache");
+    Cache cache = new Cache(cacheDir, 10 * 1024 * 1024); // 10MB
+    
+    return new OkHttpClient.Builder()
+        .cache(cache)
+        .addInterceptor(new CacheInterceptor())
+        .build();
+}
+
+// 2. 实现缓存拦截器
+public class CacheInterceptor implements Interceptor {
+    @Override
+    public Response intercept(Chain chain) throws IOException {
+        Request request = chain.request();
+        if (!isNetworkAvailable()) {
+            request = request.newBuilder()
+                .cacheControl(CacheControl.FORCE_CACHE)
+                .build();
+        }
+        
+        Response response = chain.proceed(request);
+        if (isNetworkAvailable()) {
+            return response.newBuilder()
+                .header("Cache-Control", "public, max-age=60")
+                .build();
+        }
+        return response;
+    }
+}
+```
+
+### 5. JobScheduler如何帮助优化电池消耗？
+
+JobScheduler的优势：
+1. 智能调度任务
+2. 考虑系统状态
+3. 批量执行任务
+
+示例代码：
+```java
+// 使用JobScheduler调度任务
+public void scheduleJob(Context context) {
+    ComponentName serviceComponent = new ComponentName(context, MyJobService.class);
+    JobInfo.Builder builder = new JobInfo.Builder(JOB_ID, serviceComponent)
+        .setRequiresCharging(true)
+        .setRequiredNetworkType(JobInfo.NETWORK_TYPE_UNMETERED)
+        .setPeriodic(15 * 60 * 1000); // 15分钟
+    
+    JobScheduler jobScheduler = context.getSystemService(JobScheduler.class);
+    jobScheduler.schedule(builder.build());
+}
+
+// 实现JobService
+public class MyJobService extends JobService {
+    @Override
+    public boolean onStartJob(JobParameters params) {
+        // 执行后台任务
+        return true; // 任务是否正在后台执行
+    }
+    
+    @Override
+    public boolean onStopJob(JobParameters params) {
+        // 任务被终止时调用
+        return false; // 是否需要重新调度
+    }
+}
+```
+
+## 优化建议
+
+1. 使用Battery Historian分析耗电情况
+2. 合理使用WakeLock
+3. 优化网络请求策略
+4. 遵循Android省电模式的最佳实践
+5. 定期进行电量消耗测试

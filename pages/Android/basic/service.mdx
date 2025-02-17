@@ -1,0 +1,170 @@
+# Service相关面试题
+
+本章节包含Android Service组件相关的面试题，涵盖Service的生命周期、启动方式、前台Service等重要概念。
+
+## Service基础
+
+### 🔥 选择题1：Service的启动方式
+
+关于Service的启动方式，以下说法正确的是：
+
+A. startService()启动的Service与调用者生命周期绑定
+B. bindService()启动的Service在所有绑定组件解绑后会自动停止
+C. 同一个Service可以既被startService()启动又被bindService()绑定
+D. bindService()方法会立即返回Service实例
+
+<details>
+<summary>答案与解析</summary>
+
+**答案：B、C**
+
+解析：
+1. startService()启动的Service独立于启动它的组件，即使启动它的组件被销毁，Service仍然会继续运行，直到调用stopService()或自身调用stopSelf()
+2. bindService()启动的Service确实会在所有绑定组件都解绑（unbindService）后自动停止
+3. 一个Service可以同时支持两种启动方式
+4. bindService()是异步的，Service实例通过ServiceConnection回调获取
+</details>
+
+### 🔥 问答题1：Service生命周期
+
+**问题：请详细描述Service的完整生命周期，包括两种启动方式下的生命周期方法调用顺序。**
+
+<details>
+<summary>参考答案</summary>
+
+Service的生命周期方法主要包括：
+
+1. **startService()方式：**
+   - onCreate() → onStartCommand() → onDestroy()
+   - onCreate()只在第一次创建Service时调用
+   - 多次调用startService()只会触发onStartCommand()
+   - stopService()时直接调用onDestroy()
+
+2. **bindService()方式：**
+   - onCreate() → onBind() → onUnbind() → onDestroy()
+   - onCreate()只在第一次创建Service时调用
+   - onBind()只在第一次绑定时调用
+   - onUnbind()在所有组件都解绑时调用
+
+3. **特殊情况：**
+   - 如果Service同时被start和bind，则需要同时调用stopService()和unbindService()才会销毁
+   - 系统资源不足时可能会销毁Service，此时会调用onTrimMemory()
+</details>
+
+### 🔥 问答题2：前台Service
+
+**问题：什么是前台Service？如何创建前台Service？为什么要使用前台Service？**
+
+<details>
+<summary>参考答案</summary>
+
+1. **前台Service定义：**
+   - 前台Service是一种特殊的Service，它会在通知栏显示一个持续的通知
+   - 它具有较高的优先级，不容易被系统回收
+
+2. **创建方法：**
+```java
+Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
+    .setContentTitle("前台服务运行中")
+    .setContentText("点击查看详情")
+    .setSmallIcon(R.drawable.ic_notification)
+    .build();
+
+startForeground(NOTIFICATION_ID, notification);
+```
+
+3. **使用场景：**
+   - 音乐播放器
+   - 文件下载
+   - 位置追踪
+   - 即时通讯
+
+4. **使用原因：**
+   - 防止Service被系统回收
+   - 告知用户后台任务正在运行
+   - 符合Android 8.0+对后台服务的限制要求
+   - 提供更好的用户体验
+</details>
+
+### 🔥 编程题：IntentService的实现
+
+**问题：请实现一个使用IntentService处理异步任务的示例，要求包含任务队列处理和结果回调。**
+
+<details>
+<summary>参考答案</summary>
+
+```java
+public class DownloadService extends IntentService {
+    public static final String ACTION_DOWNLOAD = "com.example.action.DOWNLOAD";
+    public static final String EXTRA_URL = "com.example.extra.URL";
+    public static final String BROADCAST_ACTION = "com.example.broadcast.DOWNLOAD_RESULT";
+
+    public DownloadService() {
+        super("DownloadService");
+    }
+
+    @Override
+    protected void onHandleIntent(Intent intent) {
+        if (intent != null) {
+            final String action = intent.getAction();
+            if (ACTION_DOWNLOAD.equals(action)) {
+                final String url = intent.getStringExtra(EXTRA_URL);
+                handleDownload(url);
+            }
+        }
+    }
+
+    private void handleDownload(String url) {
+        // 模拟下载过程
+        try {
+            Thread.sleep(2000); // 模拟耗时操作
+            // 发送广播通知下载完成
+            Intent broadcastIntent = new Intent(BROADCAST_ACTION);
+            broadcastIntent.putExtra("result", "Download completed: " + url);
+            sendBroadcast(broadcastIntent);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+}
+
+// 使用示例
+public class MainActivity extends AppCompatActivity {
+    private BroadcastReceiver receiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String result = intent.getStringExtra("result");
+            Toast.makeText(context, result, Toast.LENGTH_SHORT).show();
+        }
+    };
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+        
+        // 注册广播接收器
+        registerReceiver(receiver, new IntentFilter(DownloadService.BROADCAST_ACTION));
+        
+        // 启动服务
+        Intent intent = new Intent(this, DownloadService.class);
+        intent.setAction(DownloadService.ACTION_DOWNLOAD);
+        intent.putExtra(DownloadService.EXTRA_URL, "https://example.com/file.pdf");
+        startService(intent);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        unregisterReceiver(receiver);
+    }
+}
+```
+
+代码说明：
+1. 创建自定义IntentService类处理下载任务
+2. 使用广播通知下载结果
+3. 在Activity中注册广播接收器接收结果
+4. 通过Intent传递下载参数
+5. 确保在Activity销毁时注销广播接收器
+</details>

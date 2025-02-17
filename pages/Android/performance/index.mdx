@@ -1,0 +1,102 @@
+# Android性能优化概述
+
+性能优化是Android开发中的重要环节，直接影响用户体验和应用的市场竞争力。本章将介绍Android性能优化的主要方向和常见问题。
+
+## 面试题
+
+### 1. 为什么需要进行性能优化？
+
+性能优化的重要性体现在以下几个方面：
+- 提升用户体验
+- 降低资源消耗
+- 提高应用稳定性
+- 减少电量消耗
+- 提升市场竞争力
+
+### 2. Android性能优化的主要方向有哪些？
+
+主要优化方向包括：
+1. 内存优化
+   - 内存泄漏
+   - OOM问题
+   - 内存抖动
+
+2. 启动优化
+   - 冷启动优化
+   - 热启动优化
+   - 页面打开速度优化
+
+3. UI性能优化
+   - 布局优化
+   - 绘制优化
+   - 动画优化
+
+4. 电池优化
+   - 耗电优化
+   - 后台任务优化
+   - 网络请求优化
+
+### 3. 如何进行性能监控？
+
+常用的性能监控方法：
+
+```java
+// 1. 使用Android Profiler
+Android Studio的性能分析工具，可以监控：
+- CPU使用情况
+- 内存分配
+- 网络活动
+- 电池消耗
+
+// 2. 使用StrictMode检测主线程IO
+StrictMode.setThreadPolicy(new StrictMode.ThreadPolicy.Builder()
+    .detectDiskReads()
+    .detectDiskWrites()
+    .detectNetwork()
+    .penaltyLog()
+    .build());
+
+// 3. 使用LeakCanary检测内存泄漏
+// 在build.gradle中添加依赖
+dependencies {
+    debugImplementation 'com.squareup.leakcanary:leakcanary-android:2.10.0'
+}
+```
+
+### 4. 性能优化的工具有哪些？
+
+常用工具包括：
+- Android Profiler：官方性能分析工具
+- LeakCanary：内存泄漏检测工具
+- Systrace：系统跟踪工具
+- MAT：内存分析工具
+- Battery Historian：电池分析工具
+- Layout Inspector：布局检查工具
+
+### 5. 如何建立性能优化指标？
+
+性能优化指标应该包括：
+
+1. 启动时间指标
+   - 冷启动时间 < 2s
+   - 热启动时间 < 1s
+
+2. 页面性能指标
+   - FPS保持60fps
+   - 页面切换时间 < 300ms
+
+3. 内存指标
+   - 内存泄漏为0
+   - 低内存设备运行流畅
+
+4. 电池消耗指标
+   - 后台耗电量最小化
+   - 网络请求优化
+
+## 优化建议
+
+1. 建立性能监控体系
+2. 制定性能优化指标
+3. 进行持续的性能优化
+4. 关注用户反馈
+5. 定期进行性能评估

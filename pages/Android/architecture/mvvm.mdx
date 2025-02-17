@@ -1,0 +1,203 @@
+# MVVM架构面试题
+
+## 基础概念
+
+### 什么是MVVM架构？
+MVVM（Model-View-ViewModel）是一种架构模式，它将应用程序的逻辑分为三个主要部分：
+- Model：数据模型层，负责处理数据的业务逻辑
+- View：视图层，负责界面的展示
+- ViewModel：视图模型层，作为View和Model之间的桥梁，处理View的业务逻辑
+
+### MVVM相比MVP有什么优势？
+1. 更好的解耦：View和ViewModel之间通过数据绑定自动更新，无需手动操作
+2. 更少的代码：不需要编写接口来实现View和Presenter的通信
+3. 更好的可测试性：ViewModel不持有View的引用，更容易进行单元测试
+4. 生命周期管理：结合Jetpack组件，可以更好地处理生命周期问题
+
+## 实践要点
+
+### 如何在Android中实现MVVM架构？
+1. 使用Android Architecture Components：
+```kotlin
+class UserViewModel : ViewModel() {
+    private val _user = MutableLiveData<User>()
+    val user: LiveData<User> = _user
+
+    fun loadUser(userId: String) {
+        viewModelScope.launch {
+            val result = repository.getUser(userId)
+            _user.value = result
+        }
+    }
+}
+```
+
+2. 在Activity/Fragment中观察数据：
+```kotlin
+class UserActivity : AppCompatActivity() {
+    private val viewModel: UserViewModel by viewModels()
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        viewModel.user.observe(this) { user ->
+            // 更新UI
+        }
+    }
+}
+```
+
+### MVVM中如何处理数据绑定？
+1. 使用DataBinding：
+```xml
+<layout>
+    <data>
+        <variable
+            name="viewModel"
+            type="com.example.UserViewModel" />
+    </data>
+    <TextView
+        android:text="@{viewModel.user.name}"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" />
+</layout>
+```
+
+2. 使用ViewBinding：
+```kotlin
+class UserActivity : AppCompatActivity() {
+    private lateinit var binding: ActivityUserBinding
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        binding = ActivityUserBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+    }
+}
+```
+
+## 进阶主题
+
+### ViewModel的生命周期管理
+1. ViewModel的生命周期比Activity/Fragment更长，如何正确管理？
+- 使用viewModelScope处理协程
+- 在onCleared()中清理资源
+- 使用SavedStateHandle保存状态
+
+2. 示例代码：
+```kotlin
+class UserViewModel : ViewModel() {
+    private val job = SupervisorJob()
+    private val scope = CoroutineScope(Dispatchers.Main + job)
+
+    override fun onCleared() {
+        super.onCleared()
+        job.cancel()
+    }
+}
+```
+
+### MVVM架构中的依赖注入
+1. 使用Hilt进行依赖注入：
+```kotlin
+@HiltViewModel
+class UserViewModel @Inject constructor(
+    private val repository: UserRepository
+) : ViewModel() {
+    // ViewModel implementation
+}
+```
+
+2. 在Activity中使用：
+```kotlin
+@AndroidEntryPoint
+class UserActivity : AppCompatActivity() {
+    private val viewModel: UserViewModel by viewModels()
+}
+```
+
+## 常见问题
+
+### 如何避免ViewModel中的内存泄漏？
+1. 不要在ViewModel中持有View或Context的引用
+2. 使用AndroidX的LifecycleScope或viewModelScope管理协程
+3. 在onCleared()中及时清理资源
+4. 使用弱引用处理必要的Context引用
+
+### MVVM架构中如何处理事件？
+1. 使用SingleLiveEvent或Event包装器：
+```kotlin
+class Event<T>(private val content: T) {
+    private var hasBeenHandled = false
+
+    fun getContentIfNotHandled(): T? {
+        return if (hasBeenHandled) {
+            null
+        } else {
+            hasBeenHandled = true
+            content
+        }
+    }
+}
+```
+
+2. 使用SharedFlow/StateFlow：
+```kotlin
+class UserViewModel : ViewModel() {
+    private val _events = MutableSharedFlow<UserEvent>()
+    val events = _events.asSharedFlow()
+
+    fun handleAction() {
+        viewModelScope.launch {
+            _events.emit(UserEvent.ShowToast("Action handled"))
+        }
+    }
+}
+```
+
+## 最佳实践
+
+### MVVM架构设计的注意事项
+1. 保持ViewModel的简单性，避免过度封装
+2. 正确处理配置变更
+3. 使用Repository模式处理数据操作
+4. 合理使用LiveData/Flow进行数据流处理
+5. 遵循单一职责原则
+
+### 如何进行MVVM架构的单元测试？
+1. ViewModel测试示例：
+```kotlin
+@Test
+fun `test user loading`() = runTest {
+    val repository = mockk<UserRepository>()
+    coEvery { repository.getUser(any()) } returns User("test")
+    
+    val viewModel = UserViewModel(repository)
+    viewModel.loadUser("123")
+    
+    assertEquals("test", viewModel.user.value?.name)
+}
+```
+
+2. 使用测试规则：
+```kotlin
+@get:Rule
+val instantExecutorRule = InstantTaskExecutorRule()
+
+@get:Rule
+val mainDispatcherRule = MainDispatcherRule()
+```
+
+## 性能优化
+
+### MVVM架构下的性能优化策略
+1. 合理使用LiveData/StateFlow
+2. 避免在ViewModel中进行耗时操作
+3. 使用协程处理异步任务
+4. 正确处理大量数据的情况
+5. 使用分页加载优化列表性能
+
+### 调试和监控
+1. 使用Android Studio的Layout Inspector
+2. 使用Memory Profiler监控内存使用
+3. 使用CPU Profiler分析性能瓶颈
+4. 实现自定义的性能监控

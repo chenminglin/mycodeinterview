@@ -1,0 +1,180 @@
+# Android 网络编程
+
+本章节将介绍Android网络编程的核心知识点，包括常用网络库、协议解析、安全性等方面。
+
+## HTTP/HTTPS基础
+
+### 核心概念
+
+1. HTTP请求方法（GET、POST、PUT、DELETE等）
+2. HTTP状态码
+3. HTTP请求/响应头
+4. HTTPS的工作原理
+
+### 安全机制
+
+```kotlin
+// 配置SSL证书
+val sslContext = SSLContext.getInstance("TLS")
+val trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm())
+trustManagerFactory.init(keyStore)
+sslContext.init(null, trustManagerFactory.trustManagers, null)
+```
+
+## OkHttp使用
+
+### 基本配置
+
+```kotlin
+// OkHttpClient配置
+val client = OkHttpClient.Builder()
+    .connectTimeout(10, TimeUnit.SECONDS)
+    .readTimeout(10, TimeUnit.SECONDS)
+    .writeTimeout(10, TimeUnit.SECONDS)
+    .addInterceptor(HttpLoggingInterceptor().apply {
+        level = HttpLoggingInterceptor.Level.BODY
+    })
+    .build()
+```
+
+### 拦截器
+
+1. 应用拦截器
+2. 网络拦截器
+3. 自定义拦截器
+
+```kotlin
+// 自定义拦截器
+class TokenInterceptor : Interceptor {
+    override fun intercept(chain: Interceptor.Chain): Response {
+        val original = chain.request()
+        val request = original.newBuilder()
+            .header("Authorization", "Bearer $token")
+            .build()
+        return chain.proceed(request)
+    }
+}
+```
+
+## Retrofit使用
+
+### 接口定义
+
+```kotlin
+interface ApiService {
+    @GET("users/{id}")
+    suspend fun getUser(
+        @Path("id") userId: String
+    ): Response<User>
+
+    @POST("users")
+    suspend fun createUser(
+        @Body user: User
+    ): Response<User>
+}
+```
+
+### 配置示例
+
+```kotlin
+// Retrofit构建
+val retrofit = Retrofit.Builder()
+    .baseUrl(BASE_URL)
+    .client(okHttpClient)
+    .addConverterFactory(GsonConverterFactory.create())
+    .build()
+
+val apiService = retrofit.create(ApiService::class.java)
+```
+
+## 缓存策略
+
+### 网络缓存
+
+```kotlin
+// 配置缓存
+val cacheDir = File(context.cacheDir, "http_cache")
+val cache = Cache(cacheDir, 10 * 1024 * 1024) // 10MB
+
+val client = OkHttpClient.Builder()
+    .cache(cache)
+    .addNetworkInterceptor { chain ->
+        val response = chain.proceed(chain.request())
+        response.newBuilder()
+            .header("Cache-Control", "public, max-age=60")
+            .build()
+    }
+    .build()
+```
+
+### 离线缓存
+
+```kotlin
+// 离线缓存拦截器
+class OfflineCacheInterceptor(private val context: Context) : Interceptor {
+    override fun intercept(chain: Interceptor.Chain): Response {
+        var request = chain.request()
+        if (!isNetworkAvailable(context)) {
+            request = request.newBuilder()
+                .header("Cache-Control", "public, only-if-cached, max-stale=2419200")
+                .build()
+        }
+        return chain.proceed(request)
+    }
+}
+```
+
+## 性能优化
+
+1. 连接池复用
+2. 请求合并
+3. 图片压缩
+4. 断点续传
+
+### 示例代码
+
+```kotlin
+// 连接池配置
+val connectionPool = ConnectionPool(
+    maxIdleConnections = 5,
+    keepAliveDuration = 5,
+    timeUnit = TimeUnit.MINUTES
+)
+
+val client = OkHttpClient.Builder()
+    .connectionPool(connectionPool)
+    .build()
+```
+
+## 错误处理
+
+### 网络异常
+
+1. 超时处理
+2. 重试机制
+3. 错误统一处理
+
+```kotlin
+// 统一错误处理
+sealed class NetworkResult<T> {
+    data class Success<T>(val data: T) : NetworkResult<T>()
+    data class Error<T>(val code: Int, val message: String) : NetworkResult<T>()
+    class Loading<T> : NetworkResult<T>()
+}
+
+// 网络请求封装
+suspend fun <T> safeApiCall(
+    apiCall: suspend () -> Response<T>
+): NetworkResult<T> {
+    return try {
+        val response = apiCall()
+        if (response.isSuccessful) {
+            NetworkResult.Success(response.body()!!)
+        } else {
+            NetworkResult.Error(response.code(), response.message())
+        }
+    } catch (e: Exception) {
+        NetworkResult.Error(-1, e.message ?: "Unknown error")
+    }
+}
+```

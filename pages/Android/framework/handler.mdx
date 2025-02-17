@@ -1,0 +1,186 @@
+# Handler机制详解
+
+## 基础概念
+
+### 什么是Handler机制？
+
+Handler是Android提供的一种在不同线程间进行消息传递和处理的机制，主要用于线程间通信。它是Android消息机制的核心组件之一，与Looper和MessageQueue一起构成了完整的消息机制。
+
+### 核心组件
+
+- **Handler**：消息处理器，负责发送和处理消息
+- **Message**：消息对象，包含要传递的信息
+- **MessageQueue**：消息队列，按时序存储消息
+- **Looper**：消息循环器，不断从MessageQueue中取出消息并分发给Handler
+
+## 源码分析
+
+### Handler的创建
+
+```java
+public Handler(@Nullable Callback callback, boolean async) {
+    // 获取当前线程的Looper
+    mLooper = Looper.myLooper();
+    if (mLooper == null) {
+        throw new RuntimeException(
+            "Can't create handler inside thread that has not called Looper.prepare()");
+    }
+    mQueue = mLooper.mQueue;
+    mCallback = callback;
+    mAsynchronous = async;
+}
+```
+
+### 消息发送流程
+
+```java
+public boolean sendMessageAtTime(@NonNull Message msg, long uptimeMillis) {
+    MessageQueue queue = mQueue;
+    if (queue == null) {
+        return false;
+    }
+    return enqueueMessage(queue, msg, uptimeMillis);
+}
+
+private boolean enqueueMessage(@NonNull MessageQueue queue, @NonNull Message msg,
+        long uptimeMillis) {
+    msg.target = this;
+    msg.workSourceUid = ThreadLocalWorkSource.getUid();
+
+    if (mAsynchronous) {
+        msg.setAsynchronous(true);
+    }
+    return queue.enqueueMessage(msg, uptimeMillis);
+}
+```
+
+## 实践案例
+
+### 1. 基本使用
+
+```java
+public class MainActivity extends AppCompatActivity {
+    private Handler mHandler = new Handler(Looper.getMainLooper()) {
+        @Override
+        public void handleMessage(@NonNull Message msg) {
+            switch (msg.what) {
+                case 1:
+                    // 处理消息
+                    break;
+            }
+        }
+    };
+
+    private void sendMessage() {
+        Message message = Message.obtain();
+        message.what = 1;
+        message.obj = "Hello Handler";
+        mHandler.sendMessage(message);
+    }
+}
+```
+
+### 2. 延时消息
+
+```java
+// 发送延时消息
+mHandler.sendMessageDelayed(msg, 1000); // 延时1秒
+
+// 或者使用postDelayed
+mHandler.postDelayed(new Runnable() {
+    @Override
+    public void run() {
+        // 要执行的代码
+    }
+}, 1000);
+```
+
+## 面试题解析
+
+### 1. Handler的内存泄漏问题
+
+**问题**：为什么Handler容易造成内存泄漏？如何避免？
+
+**答案**：
+- 原因：非静态内部类持有外部类的引用，当发送延时消息时，消息队列会持有Handler的引用，而Handler又持有Activity的引用，导致Activity无法被及时回收
+- 解决方案：
+  1. 使用静态内部类+弱引用
+  2. 在Activity销毁时移除消息队列中的消息
+
+### 2. 同步屏障机制
+
+**问题**：什么是同步屏障？它的作用是什么？
+
+**答案**：
+- 同步屏障是一种特殊的Message，没有target，用于拦截同步消息的执行
+- 主要用于优先处理异步消息，提高UI绘制的优先级
+- ViewRootImpl中就使用了同步屏障来保证UI绘制消息的优先处理
+
+### 3. IdleHandler机制
+
+**问题**：IdleHandler是什么？有什么用？
+
+**答案**：
+- IdleHandler是MessageQueue提供的一种在消息队列空闲时执行任务的机制
+- 常用于处理优先级不高的任务，或者需要在主线程空闲时才执行的操作
+- 使用场景：延迟加载、资源回收等
+
+## 性能优化
+
+### 1. Message复用
+
+```java
+// 推荐使用Message.obtain()而不是new Message()
+Message message = Message.obtain();
+// Message会在使用完后被回收到消息池中复用
+```
+
+### 2. 避免重复发送消息
+
+```java
+// 移除特定的消息
+mHandler.removeMessages(MESSAGE_CODE);
+
+// 移除所有消息和回调
+@Override
+protected void onDestroy() {
+    super.onDestroy();
+    mHandler.removeCallbacksAndMessages(null);
+}
+```
+
+## 最佳实践
+
+1. 使用静态内部类和弱引用
+```java
+private static class MyHandler extends Handler {
+    private final WeakReference<MainActivity> activityRef;
+
+    MyHandler(MainActivity activity) {
+        activityRef = new WeakReference<>(activity);
+    }
+
+    @Override
+    public void handleMessage(@NonNull Message msg) {
+        MainActivity activity = activityRef.get();
+        if (activity == null) return;
+        // 处理消息
+    }
+}
+```
+
+2. 合理使用HandlerThread
+```java
+HandlerThread handlerThread = new HandlerThread("background");
+handlerThread.start();
+Handler handler = new Handler(handlerThread.getLooper());
+```
+
+## 总结
+
+Handler机制是Android中非常重要的线程通信机制，掌握其原理和使用方法对于开发高质量的Android应用至关重要。在使用时要注意：
+
+1. 防止内存泄漏
+2. 合理使用Message复用
+3. 及时清理消息队列
+4. 选择合适的消息处理方式

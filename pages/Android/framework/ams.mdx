@@ -1,0 +1,109 @@
+# Activity Manager Service
+
+本章节将详细介绍Android中的Activity Manager Service（AMS）机制，包括其工作原理、生命周期管理和进程管理等核心功能。
+
+## 核心问题
+
+1. AMS的主要职责是什么？
+2. Activity的启动流程是怎样的？
+3. AMS是如何管理应用进程的？
+
+## AMS基础
+
+### 主要功能
+
+1. 组件管理
+   - Activity的启动、切换和调度
+   - Service的启动和绑定
+   - Broadcast的分发
+   - ContentProvider的发布
+
+2. 进程管理
+   - 进程的创建和死亡管理
+   - 进程优先级调度
+   - 进程状态监控
+
+## 源码分析
+
+### Activity启动流程
+
+```java
+// Activity.startActivity的核心流程
+public void startActivity(Intent intent) {
+    startActivity(intent, null);
+}
+
+public void startActivity(Intent intent, Bundle options) {
+    if (options != null) {
+        startActivityForResult(intent, -1, options);
+    } else {
+        startActivityForResult(intent, -1);
+    }
+}
+```
+
+### 进程创建流程
+
+```java
+private final boolean attachApplicationLocked(IApplicationThread thread,
+        int pid, int callingUid, long startSeq) {
+    // 查找进程记录
+    ProcessRecord app = mPidsSelfLocked.get(pid);
+    
+    // 绑定应用进程
+    thread.bindApplication(processName, appInfo, providers,
+            app.instrumentationClass,
+            profilerInfo, app.instrumentationArguments,
+            app.instrumentationWatcher, app.instrumentationUiAutomationConnection,
+            testMode, enableOpenGlTrace, isRestrictedBackupMode, enableTrackAllocation,
+            isAutoFillCompatibilityEnabled, app.mBoundClientUid, null,
+            new Configuration());
+}
+```
+
+## 实践应用
+
+### Activity启动模式的使用
+
+```java
+// AndroidManifest.xml配置
+<activity
+    android:name=".MainActivity"
+    android:launchMode="singleTask"
+    android:taskAffinity="com.example.task"/>
+
+// 代码中启动
+Intent intent = new Intent(this, SecondActivity.class);
+intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+startActivity(intent);
+```
+
+## 面试题解析
+
+### Q1：ActivityThread是什么？和AMS的关系是什么？
+
+- ActivityThread是应用程序的主线程
+- 负责执行主线程的消息循环
+- 通过Binder与AMS通信
+
+### Q2：Activity的Task和TaskRecord是什么？
+
+- Task是Activity的栈，用于管理Activity
+- TaskRecord是系统中对应Task的数据结构
+- 通过taskAffinity属性可以指定Activity所属的Task
+
+### Q3：进程优先级是如何划分的？
+
+1. 前台进程（Foreground Process）
+2. 可见进程（Visible Process）
+3. 服务进程（Service Process）
+4. 后台进程（Background Process）
+5. 空进程（Empty Process）
+
+## 最佳实践
+
+1. 合理使用Activity启动模式
+2. 注意Activity的内存泄漏
+3. 避免滥用Service
+4. 合理处理进程优先级
+5. 正确使用Intent标志位

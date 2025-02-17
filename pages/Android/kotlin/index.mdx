@@ -1,0 +1,128 @@
+# Kotlin 核心特性
+
+本章节将介绍Kotlin语言的核心特性及其在Android开发中的最佳实践。
+
+## 空安全机制
+
+### 核心特性
+
+1. 可空类型和非空类型
+2. 安全调用操作符 `?.`
+3. Elvis操作符 `?:`
+4. 非空断言操作符 `!!`
+
+### 最佳实践
+
+```kotlin
+// 推荐写法
+fun processUser(user: User?) {
+    // 使用安全调用
+    val name = user?.name ?: "Unknown"
+    
+    // 使用作用域函数
+    user?.let { 
+        println("User name: ${it.name}")
+    }
+}
+```
+
+## 协程
+
+### 核心概念
+
+1. 什么是协程？为什么要使用协程？
+2. 协程作用域和上下文
+3. 挂起函数的工作原理
+4. 协程调度器的类型和使用场景
+
+### 实践示例
+
+```kotlin
+viewModelScope.launch {
+    try {
+        // 在IO线程执行网络请求
+        val result = withContext(Dispatchers.IO) {
+            api.fetchData()
+        }
+        // 在主线程更新UI
+        updateUI(result)
+    } catch (e: Exception) {
+        handleError(e)
+    }
+}
+```
+
+## 扩展函数
+
+### 使用场景
+
+1. 为已有类添加新功能
+2. 优化代码可读性
+3. 实现链式调用
+
+### 示例
+
+```kotlin
+// String扩展函数
+fun String.toValidEmail(): Boolean {
+    return android.util.Patterns.EMAIL_ADDRESS.matcher(this).matches()
+}
+
+// View扩展函数
+fun View.visible() {
+    visibility = View.VISIBLE
+}
+```
+
+## 数据类
+
+### 特点
+
+1. 自动生成equals()/hashCode()
+2. toString()方法
+3. copy()方法
+4. 解构声明
+
+### 使用示例
+
+```kotlin
+data class User(
+    val id: Long,
+    val name: String,
+    val email: String
+) {
+    fun toUserDto() = UserDto(id, name)
+}
+
+// 解构声明
+val user = User(1, "John", "john@example.com")
+val (id, name) = user
+```
+
+## 高阶函数
+
+### 核心概念
+
+1. 函数类型
+2. Lambda表达式
+3. 内联函数
+4. 作用域函数（let, run, with, apply, also）
+
+### 实践建议
+
+```kotlin
+// 使用高阶函数简化代码
+inline fun <T> measureTimeMillis(block: () -> T): Pair<T, Long> {
+    val start = System.currentTimeMillis()
+    val result = block()
+    val end = System.currentTimeMillis()
+    return result to (end - start)
+}
+
+// 使用作用域函数优化代码结构
+view.apply {
+    alpha = 0.5f
+    visibility = View.VISIBLE
+    setOnClickListener { /* 处理点击事件 */ }
+}
+```

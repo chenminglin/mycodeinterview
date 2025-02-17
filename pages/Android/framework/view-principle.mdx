@@ -1,0 +1,124 @@
+# View的工作原理与渲染机制
+
+## View的工作原理
+
+### 1. View的测量流程（Measure）
+
+- MeasureSpec的作用和三种模式
+- measure过程的传递机制
+- 自定义View时需要注意的测量细节
+
+### 2. View的布局流程（Layout）
+
+- layout方法的执行流程
+- View的定位机制
+- 父View和子View的关系处理
+
+### 3. View的绘制流程（Draw）
+
+- draw方法的完整流程
+- Canvas的使用和优化
+- 硬件加速的原理和使用
+
+## Android渲染机制
+
+### 1. 渲染基础
+
+- Surface和SurfaceFlinger
+- VSync机制
+- 双缓冲和三缓冲
+
+### 2. 渲染优化
+
+- 避免过度绘制
+- 布局优化
+- 减少嵌套层级
+
+### 3. 性能监测
+
+- GPU过度绘制检测
+- 布局边界检测
+- Systrace使用
+
+## 面试重点
+
+### 1. View绘制流程相关
+
+Q: 详细描述View的绘制流程？
+
+A: View的绘制流程主要包含三个步骤：
+
+1. Measure（测量）：
+   - 从顶层ViewRoot开始，递归地完成整个视图树的测量
+   - 通过MeasureSpec来决定View的大小
+   - 父View和子View的尺寸协商过程
+
+2. Layout（布局）：
+   - 确定View的位置
+   - 计算left、top、right、bottom四个位置值
+   - 根据测量结果和布局参数进行定位
+
+3. Draw（绘制）：
+   - 绘制背景
+   - 绘制内容
+   - 绘制子View
+   - 绘制装饰（如滚动条等）
+
+### 2. 渲染机制相关
+
+Q: Android中的屏幕刷新机制是怎样的？
+
+A: Android的屏幕刷新机制主要涉及以下几个方面：
+
+1. VSync信号：
+   - 由SurfaceFlinger负责发送
+   - 用于同步CPU、GPU和显示器
+   - 通常以16.6ms（60fps）的频率发送
+
+2. 双缓冲机制：
+   - Back Buffer：CPU/GPU绘制的缓冲区
+   - Front Buffer：显示器当前显示的缓冲区
+   - 在VSync信号到来时进行缓冲区交换
+
+3. Choreographer：
+   - 接收VSync信号
+   - 调度UI渲染
+   - 确保帧的执行时机
+
+### 3. 性能优化相关
+
+Q: 如何优化View的性能？
+
+A: View的性能优化可以从以下几个方面入手：
+
+1. 布局优化：
+   - 使用约束布局（ConstraintLayout）
+   - 减少布局层级
+   - 避免过度绘制
+
+2. 绘制优化：
+   - 合理使用硬件加速
+   - 避免在onDraw中创建对象
+   - 使用ViewStub延迟加载
+
+3. 刷新优化：
+   - 正确使用invalidate()和requestLayout()
+   - 合理使用clipRect()和quickReject()
+   - 适当使用缓存机制
+
+## 实践建议
+
+1. 自定义View时：
+   - 注意处理wrap_content和padding
+   - 考虑View的状态保存
+   - 处理好滑动冲突
+
+2. 性能监测：
+   - 使用Layout Inspector分析视图层级
+   - 使用GPU呈现模式分析性能
+   - 善用Systrace定位问题
+
+3. 开发规范：
+   - 遵循单一职责原则
+   - 做好异常处理
+   - 注意内存泄漏问题

@@ -1,0 +1,384 @@
+# Android UI开发面试题
+
+本章节包含Android UI开发相关的高频面试题，涵盖View的绘制流程、事件分发机制和自定义View的开发等核心知识点。
+
+## View绘制流程
+
+### 🔥 问答题1：View的绘制流程
+
+请详细说明Android中View的绘制流程（measure、layout、draw），以及每个过程的主要作用。
+
+<details>
+<summary>答案与解析</summary>
+
+**答案：**
+
+1. **Measure过程**：
+   - 作用：测量View的宽高
+   - 主要方法：
+     * onMeasure()
+     * measureChild()
+     * measureChildren()
+   - 测量模式：
+     * EXACTLY：精确值
+     * AT_MOST：最大值
+     * UNSPECIFIED：不限制
+
+2. **Layout过程**：
+   - 作用：确定View的位置
+   - 主要方法：
+     * onLayout()
+     * layout()
+     * setFrame()
+   - 确定四个顶点的位置：
+     * left、top、right、bottom
+
+3. **Draw过程**：
+   - 作用：将View绘制到屏幕上
+   - 绘制顺序：
+     1. 绘制背景 drawBackground()
+     2. 绘制内容 onDraw()
+     3. 绘制子View dispatchDraw()
+     4. 绘制装饰 onDrawForeground()
+
+4. **代码示例**：
+```kotlin
+class CustomView @JvmOverloads constructor(
+    context: Context,
+    attrs: AttributeSet? = null,
+    defStyleAttr: Int = 0
+) : View(context, attrs, defStyleAttr) {
+
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+        // 获取测量模式和大小
+        val widthMode = MeasureSpec.getMode(widthMeasureSpec)
+        val widthSize = MeasureSpec.getSize(widthMeasureSpec)
+        val heightMode = MeasureSpec.getMode(heightMeasureSpec)
+        val heightSize = MeasureSpec.getSize(heightMeasureSpec)
+
+        // 设置测量后的宽高
+        setMeasuredDimension(widthSize, heightSize)
+    }
+
+    override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+        super.onLayout(changed, left, top, right, bottom)
+        // 确定View的位置
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+        // 绘制View的内容
+    }
+}
+```
+
+5. **性能优化建议**：
+   - 避免在onDraw中创建对象
+   - 使用ViewStub延迟加载
+   - 合理使用硬件加速
+   - 避免过度绘制
+</details>
+
+## 事件分发机制
+
+### 🔥 问答题2：事件分发流程
+
+请详细说明Android的事件分发机制，包括事件分发的流程和相关方法的作用。
+
+<details>
+<summary>答案与解析</summary>
+
+**答案：**
+
+1. **事件分发流程**：
+   - Activity → PhoneWindow → DecorView → ViewGroup → View
+   - 主要方法：
+     * dispatchTouchEvent(): 分发事件
+     * onInterceptTouchEvent(): 拦截事件（ViewGroup特有）
+     * onTouchEvent(): 处理事件
+
+2. **事件分发过程**：
+```kotlin
+// ViewGroup的事件分发
+override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+    var handled = false
+    
+    // 1. 判断是否拦截
+    if (onInterceptTouchEvent(ev)) {
+        // 2. 自己处理
+        handled = onTouchEvent(ev)
+    } else {
+        // 3. 传递给子View
+        handled = child.dispatchTouchEvent(ev)
+    }
+    
+    return handled
+}
+
+// View的事件处理
+override fun onTouchEvent(event: MotionEvent): Boolean {
+    when (event.action) {
+        MotionEvent.ACTION_DOWN -> {
+            // 按下
+            return true
+        }
+        MotionEvent.ACTION_MOVE -> {
+            // 移动
+        }
+        MotionEvent.ACTION_UP -> {
+            // 抬起
+        }
+        MotionEvent.ACTION_CANCEL -> {
+            // 取消
+        }
+    }
+    return super.onTouchEvent(event)
+}
+```
+
+3. **事件序列**：
+   - DOWN → MOVE → ... → MOVE → UP
+   - 或 DOWN → MOVE → ... → MOVE → CANCEL
+
+4. **返回值的含义**：
+   - true: 事件被消费，不再往下传递
+   - false: 事件未被消费，继续传递
+
+5. **实际应用示例**：
+```kotlin
+class CustomViewGroup : ViewGroup {
+    private var lastX = 0f
+    private var lastY = 0f
+
+    override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
+        when (ev.action) {
+            MotionEvent.ACTION_DOWN -> {
+                lastX = ev.x
+                lastY = ev.y
+                // 不拦截DOWN事件
+                return false
+            }
+            MotionEvent.ACTION_MOVE -> {
+                val deltaX = ev.x - lastX
+                val deltaY = ev.y - lastY
+                // 根据移动距离判断是否拦截
+                return abs(deltaX) > abs(deltaY)
+            }
+        }
+        return super.onInterceptTouchEvent(ev)
+    }
+
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        when (event.action) {
+            MotionEvent.ACTION_MOVE -> {
+                // 处理滑动
+                val deltaX = event.x - lastX
+                scrollBy(-deltaX.toInt(), 0)
+            }
+        }
+        lastX = event.x
+        lastY = event.y
+        return true
+    }
+}
+```
+
+6. **常见问题**：
+   - 事件冲突处理
+   - 滑动冲突解决
+   - 多点触控处理
+</details>
+
+## 自定义View
+
+### 🔥 编程题1：自定义进度条
+
+请实现一个自定义圆形进度条，要求：
+1. 可以显示当前进度百分比
+2. 支持设置进度条颜色和宽度
+3. 有动画效果
+
+<details>
+<summary>答案与解析</summary>
+
+**答案：**
+
+```kotlin
+class CircleProgressView @JvmOverloads constructor(
+    context: Context,
+    attrs: AttributeSet? = null,
+    defStyleAttr: Int = 0
+) : View(context, attrs, defStyleAttr) {
+
+    private var progress = 0f
+    private var maxProgress = 100f
+    private var progressColor = Color.BLUE
+    private var progressWidth = 10f
+    private var animator: ValueAnimator? = null
+
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+    }
+
+    private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.BLACK
+        textAlign = Paint.Align.CENTER
+        textSize = 40f
+    }
+
+    init {
+        // 获取自定义属性
+        val typedArray = context.obtainStyledAttributes(
+            attrs,
+            R.styleable.CircleProgressView
+        )
+        progressColor = typedArray.getColor(
+            R.styleable.CircleProgressView_progressColor,
+            progressColor
+        )
+        progressWidth = typedArray.getDimension(
+            R.styleable.CircleProgressView_progressWidth,
+            progressWidth
+        )
+        typedArray.recycle()
+
+        // 初始化画笔
+        paint.color = progressColor
+        paint.strokeWidth = progressWidth
+    }
+
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val width = MeasureSpec.getSize(widthMeasureSpec)
+        val height = MeasureSpec.getSize(heightMeasureSpec)
+        val size = min(width, height)
+        setMeasuredDimension(size, size)
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+
+        val centerX = width / 2f
+        val centerY = height / 2f
+        val radius = (min(width, height) - progressWidth) / 2f
+
+        // 绘制背景圆环
+        paint.alpha = 50
+        canvas.drawCircle(centerX, centerY, radius, paint)
+
+        // 绘制进度圆环
+        paint.alpha = 255
+        val sweepAngle = progress / maxProgress * 360
+        canvas.drawArc(
+            progressWidth / 2,
+            progressWidth / 2,
+            width - progressWidth / 2,
+            height - progressWidth / 2,
+            -90f,
+            sweepAngle,
+            false,
+            paint
+        )
+
+        // 绘制进度文字
+        val text = "${(progress / maxProgress * 100).toInt()}%"
+        val textBounds = Rect()
+        textPaint.getTextBounds(text, 0, text.length, textBounds)
+        canvas.drawText(
+            text,
+            centerX,
+            centerY + textBounds.height() / 2f,
+            textPaint
+        )
+    }
+
+    fun setProgress(progress: Float) {
+        animator?.cancel()
+        animator = ValueAnimator.ofFloat(this.progress, progress).apply {
+            duration = 300
+            interpolator = FastOutSlowInInterpolator()
+            addUpdateListener { animation ->
+                this@CircleProgressView.progress = animation.animatedValue as Float
+                invalidate()
+            }
+            start()
+        }
+    }
+
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        animator?.cancel()
+    }
+}
+```
+
+**使用方式**：
+
+1. 在values/attrs.xml中定义属性：
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="CircleProgressView">
+        <attr name="progressColor" format="color" />
+        <attr name="progressWidth" format="dimension" />
+    </declare-styleable>
+</resources>
+```
+
+2. 在布局文件中使用：
+```xml
+<com.example.CircleProgressView
+    android:id="@+id/circleProgress"
+    android:layout_width="200dp"
+    android:layout_height="200dp"
+    app:progressColor="@color/colorPrimary"
+    app:progressWidth="10dp" />
+```
+
+3. 在代码中设置进度：
+```kotlin
+circleProgress.setProgress(75f)
+```
+
+**实现要点**：
+1. 使用Paint的ANTI_ALIAS_FLAG开启抗锯齿
+2. 使用ValueAnimator实现动画效果
+3. 注意在View销毁时取消动画
+4. 使用自定义属性提供样式配置
+5. 合理处理View的测量和绘制
+</details>
+
+### 填空题1：View的MeasureSpec
+
+View的MeasureSpec由______和______组成，其中______表示测量模式，______表示测量大小。
+
+<details>
+<summary>答案与解析</summary>
+
+**答案：** 测量模式、测量大小、高2位、低30位
+
+**解析：**
+1. MeasureSpec是一个32位的int值：
+   - 高2位表示测量模式（SpecMode）
+   - 低30位表示测量大小（SpecSize）
+
+2. 三种测量模式：
+   - EXACTLY（精确模式）：match_parent或具体数值
+   - AT_MOST（最大模式）：wrap_content
+   - UNSPECIFIED（不限制）：ScrollView等
+
+3. 代码示例：
+```kotlin
+val widthMode = MeasureSpec.getMode(widthMeasureSpec)
+val widthSize = MeasureSpec.getSize(widthMeasureSpec)
+
+// 创建MeasureSpec
+val measureSpec = MeasureSpec.makeMeasureSpec(size, mode)
+```
+
+4. 最佳实践：
+   - 自定义View时正确处理wrap_content
+   - 考虑父View的padding和子View的margin
+   - 注意测量模式的转换规则
+</details>

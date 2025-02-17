@@ -1,0 +1,223 @@
+# ContentProvider相关面试题
+
+本章节包含Android ContentProvider组件相关的面试题，涵盖数据共享机制、权限控制、CRUD操作等重要概念。
+
+## ContentProvider基础
+
+### 🔥 选择题1：ContentProvider特性
+
+关于ContentProvider的特性，以下说法正确的是：
+
+A. ContentProvider的数据只能是关系型数据库
+B. 不同应用程序之间可以通过ContentProvider共享数据
+C. ContentProvider的query方法必须在主线程中调用
+D. ContentProvider不需要在AndroidManifest.xml中注册
+
+<details>
+<summary>答案与解析</summary>
+
+**答案：B**
+
+解析：
+1. ContentProvider可以用于多种数据存储方式，包括SQLite、文件、网络等
+2. ContentProvider的主要作用就是实现跨应用数据共享
+3. ContentProvider的CRUD操作都应该在工作线程中执行
+4. ContentProvider必须在AndroidManifest.xml中注册才能使用
+</details>
+
+### 🔥 问答题1：ContentProvider的作用
+
+**问题：请详细说明ContentProvider的作用和应用场景，以及与其他数据共享方式的比较。**
+
+<details>
+<summary>参考答案</summary>
+
+1. **主要作用：**
+   - 提供跨进程数据共享机制
+   - 统一数据访问接口
+   - 提供数据访问安全性
+   - 支持CRUD操作
+
+2. **应用场景：**
+   - 系统数据访问（通讯录、日历等）
+   - 应用间数据共享
+   - 封装数据访问细节
+   - 数据源切换
+
+3. **优势对比：**
+   - 相比File：提供统一接口，支持并发访问
+   - 相比SharedPreferences：支持复杂数据类型，支持跨进程
+   - 相比SQLite：提供安全访问机制，无需关心底层实现
+   - 相比Socket：更适合数据共享场景，使用更简单
+</details>
+
+### 🔥 问答题2：ContentProvider的实现原理
+
+**问题：ContentProvider的工作原理是什么？如何保证数据访问的安全性？**
+
+<details>
+<summary>参考答案</summary>
+
+1. **工作原理：**
+   - 基于Binder机制实现跨进程通信
+   - 通过URI标识不同数据集
+   - 采用CRUD统一接口规范
+   - 支持批量操作和事务
+
+2. **数据访问流程：**
+   - 应用通过ContentResolver发起请求
+   - 系统通过URI找到目标Provider
+   - Provider执行实际的数据操作
+   - 通过Binder返回结果
+
+3. **安全机制：**
+   - 声明权限控制访问
+   - URI权限控制
+   - 数据验证和过滤
+   - 临时权限授予
+</details>
+
+### 🔥 编程题：自定义ContentProvider
+
+**问题：实现一个自定义ContentProvider，要求支持基本的CRUD操作，并实现权限控制。**
+
+<details>
+<summary>参考答案</summary>
+
+```java
+public class BookProvider extends ContentProvider {
+    private static final String AUTHORITY = "com.example.provider.books";
+    private static final String TABLE_BOOKS = "books";
+    private static final int BOOKS = 1;
+    private static final int BOOK_ID = 2;
+    
+    private static final UriMatcher sUriMatcher;
+    private DatabaseHelper mDbHelper;
+    
+    static {
+        sUriMatcher = new UriMatcher(UriMatcher.NO_MATCH);
+        sUriMatcher.addURI(AUTHORITY, TABLE_BOOKS, BOOKS);
+        sUriMatcher.addURI(AUTHORITY, TABLE_BOOKS + "/#", BOOK_ID);
+    }
+    
+    @Override
+    public boolean onCreate() {
+        mDbHelper = new DatabaseHelper(getContext());
+        return true;
+    }
+    
+    @Override
+    public Cursor query(Uri uri, String[] projection, String selection,
+                       String[] selectionArgs, String sortOrder) {
+        SQLiteDatabase db = mDbHelper.getReadableDatabase();
+        Cursor cursor;
+        
+        switch (sUriMatcher.match(uri)) {
+            case BOOKS:
+                cursor = db.query(TABLE_BOOKS, projection, selection,
+                    selectionArgs, null, null, sortOrder);
+                break;
+            case BOOK_ID:
+                String id = uri.getLastPathSegment();
+                cursor = db.query(TABLE_BOOKS, projection,
+                    "_id=?", new String[]{id}, null, null, sortOrder);
+                break;
+            default:
+                throw new IllegalArgumentException("Unknown URI: " + uri);
+        }
+        
+        cursor.setNotificationUri(getContext().getContentResolver(), uri);
+        return cursor;
+    }
+    
+    @Override
+    public Uri insert(Uri uri, ContentValues values) {
+        if (sUriMatcher.match(uri) != BOOKS) {
+            throw new IllegalArgumentException("Invalid URI for insert");
+        }
+        
+        SQLiteDatabase db = mDbHelper.getWritableDatabase();
+        long id = db.insert(TABLE_BOOKS, null, values);
+        
+        if (id > 0) {
+            Uri newUri = ContentUris.withAppendedId(uri, id);
+            getContext().getContentResolver().notifyChange(newUri, null);
+            return newUri;
+        }
+        throw new SQLException("Failed to insert row into " + uri);
+    }
+    
+    @Override
+    public int update(Uri uri, ContentValues values, String selection,
+                     String[] selectionArgs) {
+        SQLiteDatabase db = mDbHelper.getWritableDatabase();
+        int count;
+        
+        switch (sUriMatcher.match(uri)) {
+            case BOOKS:
+                count = db.update(TABLE_BOOKS, values, selection, selectionArgs);
+                break;
+            case BOOK_ID:
+                String id = uri.getLastPathSegment();
+                count = db.update(TABLE_BOOKS, values,
+                    "_id=?", new String[]{id});
+                break;
+            default:
+                throw new IllegalArgumentException("Unknown URI: " + uri);
+        }
+        
+        getContext().getContentResolver().notifyChange(uri, null);
+        return count;
+    }
+    
+    @Override
+    public int delete(Uri uri, String selection, String[] selectionArgs) {
+        SQLiteDatabase db = mDbHelper.getWritableDatabase();
+        int count;
+        
+        switch (sUriMatcher.match(uri)) {
+            case BOOKS:
+                count = db.delete(TABLE_BOOKS, selection, selectionArgs);
+                break;
+            case BOOK_ID:
+                String id = uri.getLastPathSegment();
+                count = db.delete(TABLE_BOOKS,
+                    "_id=?", new String[]{id});
+                break;
+            default:
+                throw new IllegalArgumentException("Unknown URI: " + uri);
+        }
+        
+        getContext().getContentResolver().notifyChange(uri, null);
+        return count;
+    }
+    
+    @Override
+    public String getType(Uri uri) {
+        switch (sUriMatcher.match(uri)) {
+            case BOOKS:
+                return "vnd.android.cursor.dir/vnd.example.books";
+            case BOOK_ID:
+                return "vnd.android.cursor.item/vnd.example.books";
+            default:
+                throw new IllegalArgumentException("Unknown URI: " + uri);
+        }
+    }
+}
+
+// AndroidManifest.xml配置
+<provider
+    android:name=".BookProvider"
+    android:authorities="com.example.provider.books"
+    android:exported="true"
+    android:permission="com.example.permission.ACCESS_BOOK_PROVIDER"/>
+```
+
+代码说明：
+1. 实现基本的CRUD操作接口
+2. 使用UriMatcher处理不同URI请求
+3. 实现数据变化通知机制
+4. 添加权限控制
+5. 支持单条和多条数据操作
+6. 在Manifest中正确配置Provider
+</details>

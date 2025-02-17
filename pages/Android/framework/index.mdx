@@ -1,0 +1,66 @@
+# Android Framework 源码分析
+
+本章节将深入探讨Android Framework层的核心源码实现，帮助你更好地理解Android系统的运作机制。
+
+## Handler消息机制
+
+### 核心问题
+
+1. Handler的工作原理是什么？
+2. 为什么主线程可以直接使用Handler，而子线程需要先创建Looper？
+3. MessageQueue的数据结构是什么？如何保证消息按时序处理？
+
+### 源码分析
+
+#### Handler创建流程
+
+- Handler构造方法中会获取当前线程的Looper对象
+- 主线程在ActivityThread中已经初始化了Looper
+- 子线程需要手动调用Looper.prepare()创建Looper
+
+#### 消息分发机制
+
+```java
+public void dispatchMessage(@NonNull Message msg) {
+    if (msg.callback != null) {
+        handleCallback(msg);
+    } else {
+        if (mCallback != null) {
+            if (mCallback.handleMessage(msg)) {
+                return;
+            }
+        }
+        handleMessage(msg);
+    }
+}
+```
+
+## Binder机制
+
+### 核心问题
+
+1. 为什么Android要使用Binder作为主要的IPC机制？
+2. Binder的一次完整通信流程是怎样的？
+3. AIDL的实现原理是什么？
+
+### 优势分析
+
+- 性能：只需一次数据拷贝
+- 安全：可以携带调用者的UID和PID
+- 实现：基于C/S架构，职责明确
+
+## Activity启动流程
+
+### 核心流程
+
+1. 应用进程向AMS发起启动请求
+2. AMS校验Activity信息
+3. 创建或复用进程
+4. 创建ActivityThread
+5. 创建Activity实例
+
+### 源码分析要点
+
+- Instrumentation的作用
+- ActivityThread的工作原理
+- Activity生命周期管理

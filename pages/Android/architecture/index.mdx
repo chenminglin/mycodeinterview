@@ -1,0 +1,175 @@
+# Android 架构设计模式
+
+本章节将介绍Android开发中常用的架构设计模式，帮助你构建可维护、可测试的应用程序。
+
+## MVC架构
+
+### 核心组成
+
+1. Model：数据层，负责数据的获取和处理
+2. View：视图层，负责界面展示
+3. Controller：控制层，负责业务逻辑
+
+### 优缺点分析
+
+优点：
+- 结构简单，容易理解
+- 分工明确，职责清晰
+
+缺点：
+- Controller容易过重
+- View和Controller耦合度高
+- 测试性差
+
+## MVP架构
+
+### 核心组成
+
+1. Model：数据层
+2. View：视图层，通常由Activity/Fragment实现
+3. Presenter：展示层，处理业务逻辑
+
+### 实现示例
+
+```kotlin
+// Contract接口定义
+interface UserContract {
+    interface View {
+        fun showLoading()
+        fun hideLoading()
+        fun showUserInfo(user: User)
+        fun showError(message: String)
+    }
+    
+    interface Presenter {
+        fun loadUserInfo(userId: String)
+        fun onDestroy()
+    }
+}
+
+// Presenter实现
+class UserPresenter(private val view: UserContract.View) : UserContract.Presenter {
+    private val userRepository = UserRepository()
+    
+    override fun loadUserInfo(userId: String) {
+        view.showLoading()
+        userRepository.getUser(userId,
+            onSuccess = { user ->
+                view.hideLoading()
+                view.showUserInfo(user)
+            },
+            onError = { error ->
+                view.hideLoading()
+                view.showError(error.message)
+            }
+        )
+    }
+    
+    override fun onDestroy() {
+        // 清理资源
+    }
+}
+```
+
+## MVVM架构
+
+### 核心组成
+
+1. Model：数据层
+2. View：视图层
+3. ViewModel：视图模型层
+4. DataBinding：数据绑定
+
+### 实现示例
+
+```kotlin
+// ViewModel实现
+class UserViewModel : ViewModel() {
+    private val _userLiveData = MutableLiveData<User>()
+    val userLiveData: LiveData<User> = _userLiveData
+    
+    private val _loading = MutableLiveData<Boolean>()
+    val loading: LiveData<Boolean> = _loading
+    
+    fun loadUserInfo(userId: String) {
+        viewModelScope.launch {
+            _loading.value = true
+            try {
+                val user = userRepository.getUser(userId)
+                _userLiveData.value = user
+            } catch (e: Exception) {
+                // 处理错误
+            } finally {
+                _loading.value = false
+            }
+        }
+    }
+}
+```
+
+## Clean Architecture
+
+### 分层设计
+
+1. 表现层（Presentation Layer）
+2. 领域层（Domain Layer）
+3. 数据层（Data Layer）
+
+### 依赖规则
+
+- 外层依赖内层
+- 内层不知道外层的存在
+- 依赖倒置原则的应用
+
+### 实现示例
+
+```kotlin
+// Domain Layer - Use Case
+class GetUserUseCase @Inject constructor(
+    private val userRepository: UserRepository
+) {
+    suspend operator fun invoke(userId: String): Result<User> {
+        return userRepository.getUser(userId)
+    }
+}
+
+// Data Layer - Repository
+class UserRepositoryImpl @Inject constructor(
+    private val remoteDataSource: UserRemoteDataSource,
+    private val localDataSource: UserLocalDataSource
+) : UserRepository {
+    override suspend fun getUser(userId: String): Result<User> {
+        return try {
+            val localUser = localDataSource.getUser(userId)
+            if (localUser != null) {
+                Result.success(localUser)
+            } else {
+                val remoteUser = remoteDataSource.getUser(userId)
+                localDataSource.saveUser(remoteUser)
+                Result.success(remoteUser)
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+}
+```
+
+## 最佳实践
+
+1. 选择合适的架构模式
+   - 项目规模
+   - 团队规模
+   - 维护成本
+   - 测试需求
+
+2. 遵循设计原则
+   - 单一职责原则
+   - 开闭原则
+   - 依赖倒置原则
+   - 接口隔离原则
+
+3. 使用依赖注入
+   - Hilt/Dagger2
+   - 提高代码可测试性
+   - 降低组件间耦合

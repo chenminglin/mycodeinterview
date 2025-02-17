@@ -1,0 +1,162 @@
+# Android启动优化
+
+应用的启动速度直接影响用户的第一印象，是应用性能优化中最重要的环节之一。本章将介绍Android应用启动优化的关键知识点。
+
+## 面试题
+
+### 1. Android应用的启动方式有哪些？
+
+主要包括三种启动方式：
+1. 冷启动（Cold Start）
+   - 应用进程不存在
+   - 系统需要创建新进程
+   - 耗时最长
+
+2. 热启动（Hot Start）
+   - 应用进程存在
+   - Activity在内存中
+   - 启动最快
+
+3. 温启动（Warm Start）
+   - 进程存在但Activity已被销毁
+   - 介于冷启动和热启动之间
+
+### 2. 如何测量应用的启动时间？
+
+主要测量方法：
+```java
+// 1. 使用adb命令
+adb shell am start -W packagename/activityname
+
+// 2. 在代码中打点统计
+public class MyApplication extends Application {
+    private long startTime;
+    
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        startTime = System.currentTimeMillis();
+    }
+}
+
+public class MainActivity extends Activity {
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        long launchTime = System.currentTimeMillis() - MyApplication.startTime;
+        Log.d("Launch", "启动耗时：" + launchTime + "ms");
+    }
+}
+
+// 3. 使用Android Studio的CPU Profiler
+```
+
+### 3. 有哪些启动优化的方法？
+
+主要优化方向：
+
+1. Application优化
+```java
+// 1. 使用ContentProvider延迟初始化
+public class InitProvider extends ContentProvider {
+    @Override
+    public boolean onCreate() {
+        Context context = getContext();
+        // 延迟初始化操作
+        InitTask.schedule();
+        return true;
+    }
+}
+
+// 2. 异步初始化
+public class MyApplication extends Application {
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        AsyncTask.execute(() -> {
+            // 执行耗时初始化
+            initSdk();
+        });
+    }
+}
+```
+
+2. 布局优化
+```xml
+<!-- 使用ViewStub延迟加载 -->
+<ViewStub
+    android:id="@+id/stub_import"
+    android:inflatedId="@+id/panel_import"
+    android:layout="@layout/progress_overlay"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content" />
+```
+
+### 4. 如何处理启动页白屏/黑屏问题？
+
+解决方案：
+```xml
+<!-- 1. 在themes.xml中设置启动主题 -->
+<style name="AppTheme.Launch">
+    <item name="android:windowBackground">@drawable/launch_screen</item>
+    <item name="android:windowFullscreen">true</item>
+    <item name="android:windowContentOverlay">@null</item>
+</style>
+
+<!-- 2. 在AndroidManifest.xml中应用主题 -->
+<activity
+    android:name=".MainActivity"
+    android:theme="@style/AppTheme.Launch">
+    <intent-filter>
+        <action android:name="android.intent.action.MAIN" />
+        <category android:name="android.intent.category.LAUNCHER" />
+    </intent-filter>
+</activity>
+```
+
+### 5. IdleHandler在启动优化中的应用？
+
+使用场景和示例：
+```java
+// 使用IdleHandler延迟初始化
+public class MainActivity extends Activity {
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+        
+        Looper.myQueue().addIdleHandler(new MessageQueue.IdleHandler() {
+            @Override
+            public boolean queueIdle() {
+                // 在空闲时执行初始化
+                initNonEssentialFeatures();
+                return false; // 返回false表示只执行一次
+            }
+        });
+    }
+    
+    private void initNonEssentialFeatures() {
+        // 初始化非必需功能
+        // 例如：统计、推送等SDK初始化
+    }
+}
+```
+
+## 优化建议
+
+1. 启动时间指标
+   - 冷启动时间控制在2秒以内
+   - 热启动时间控制在1秒以内
+
+2. 优化方向
+   - 减少Application中的初始化操作
+   - 使用懒加载
+   - 异步初始化非必需组件
+   - 优化布局层级
+   - 及时显示首屏内容
+
+3. 监控方案
+   - 建立启动耗时监控体系
+   - 监控不同机型的启动表现
+   - 定期进行启动优化
+   - 设置启动时间阈值告警

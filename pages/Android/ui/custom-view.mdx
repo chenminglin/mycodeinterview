@@ -1,0 +1,250 @@
+# 自定义View面试题
+
+## 基础概念
+
+### 为什么要自定义View？
+1. 实现特殊的UI效果
+2. 提高复用性
+3. 优化性能
+4. 实现特定的交互需求
+
+### 自定义View的基本流程是什么？
+1. 继承View或其子类
+2. 重写构造方法
+3. 重写onMeasure()方法处理测量
+4. 重写onLayout()方法处理布局（ViewGroup）
+5. 重写onDraw()方法处理绘制
+
+## 核心方法
+
+### onMeasure方法的作用和实现
+1. 基本实现：
+```kotlin
+override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+    val width = MeasureSpec.getSize(widthMeasureSpec)
+    val height = MeasureSpec.getSize(heightMeasureSpec)
+    val widthMode = MeasureSpec.getMode(widthMeasureSpec)
+    val heightMode = MeasureSpec.getMode(heightMeasureSpec)
+    
+    // 计算实际大小
+    val actualWidth = calculateWidth(width, widthMode)
+    val actualHeight = calculateHeight(height, heightMode)
+    
+    setMeasuredDimension(actualWidth, actualHeight)
+}
+```
+
+### onDraw方法的实现要点
+1. Canvas的使用：
+```kotlin
+override fun onDraw(canvas: Canvas) {
+    super.onDraw(canvas)
+    // 绘制基本图形
+    canvas.drawCircle(centerX, centerY, radius, paint)
+    
+    // 绘制文字
+    canvas.drawText(text, x, y, textPaint)
+    
+    // 绘制路径
+    canvas.drawPath(path, paint)
+}
+```
+
+2. Paint的配置：
+```kotlin
+private val paint = Paint().apply {
+    color = Color.BLACK
+    style = Paint.Style.FILL
+    strokeWidth = 5f
+    isAntiAlias = true
+}
+```
+
+## 事件处理
+
+### 如何处理触摸事件？
+1. 基本实现：
+```kotlin
+override fun onTouchEvent(event: MotionEvent): Boolean {
+    when (event.action) {
+        MotionEvent.ACTION_DOWN -> {
+            // 处理按下事件
+            return true
+        }
+        MotionEvent.ACTION_MOVE -> {
+            // 处理移动事件
+        }
+        MotionEvent.ACTION_UP -> {
+            // 处理抬起事件
+        }
+    }
+    return super.onTouchEvent(event)
+}
+```
+
+### 如何实现手势检测？
+```kotlin
+private val gestureDetector = GestureDetector(context,
+    object : GestureDetector.SimpleOnGestureListener() {
+        override fun onFling(e1: MotionEvent?, e2: MotionEvent,
+                            velocityX: Float, velocityY: Float): Boolean {
+            // 处理滑动手势
+            return true
+        }
+        
+        override fun onLongPress(e: MotionEvent) {
+            // 处理长按事件
+        }
+    })
+
+override fun onTouchEvent(event: MotionEvent): Boolean {
+    return gestureDetector.onTouchEvent(event)
+}
+```
+
+## 性能优化
+
+### 如何优化自定义View的性能？
+1. 避免在onDraw中创建对象
+2. 使用硬件加速
+3. 合理使用clipRect()和quickReject()
+4. 使用缓存机制
+
+### 示例：使用缓存优化绘制
+```kotlin
+private var cacheBitmap: Bitmap? = null
+private var cacheCanvas: Canvas? = null
+
+private fun initCache() {
+    cacheBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    cacheCanvas = Canvas(cacheBitmap!!)
+}
+
+override fun onDraw(canvas: Canvas) {
+    if (cacheBitmap == null || cacheCanvas == null) {
+        initCache()
+    }
+    // 绘制到缓存
+    drawContent(cacheCanvas!!)
+    // 将缓存绘制到画布
+    canvas.drawBitmap(cacheBitmap!!, 0f, 0f, null)
+}
+```
+
+## 实践案例
+
+### 如何实现一个圆形进度条？
+```kotlin
+class CircleProgressView @JvmOverloads constructor(
+    context: Context,
+    attrs: AttributeSet? = null,
+    defStyleAttr: Int = 0
+) : View(context, attrs, defStyleAttr) {
+    
+    private var progress = 0f
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+        
+        // 绘制背景圆
+        paint.color = Color.GRAY
+        canvas.drawCircle(width/2f, height/2f, width/2f, paint)
+        
+        // 绘制进度
+        paint.color = Color.BLUE
+        val rect = RectF(0f, 0f, width.toFloat(), height.toFloat())
+        canvas.drawArc(rect, -90f, progress * 360f, true, paint)
+    }
+    
+    fun setProgress(value: Float) {
+        progress = value.coerceIn(0f, 1f)
+        invalidate()
+    }
+}
+```
+
+## 常见问题
+
+### 如何处理滑动冲突？
+1. 外部拦截法：
+```kotlin
+override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
+    when (ev.action) {
+        MotionEvent.ACTION_DOWN -> {
+            lastX = ev.x
+            lastY = ev.y
+            return false
+        }
+        MotionEvent.ACTION_MOVE -> {
+            val deltaX = ev.x - lastX
+            val deltaY = ev.y - lastY
+            return abs(deltaX) > abs(deltaY)
+        }
+    }
+    return super.onInterceptTouchEvent(ev)
+}
+```
+
+2. 内部拦截法：
+```kotlin
+override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+    when (ev.action) {
+        MotionEvent.ACTION_DOWN -> {
+            parent.requestDisallowInterceptTouchEvent(true)
+        }
+        MotionEvent.ACTION_MOVE -> {
+            // 根据条件决定是否允许父View拦截
+            if (shouldParentIntercept()) {
+                parent.requestDisallowInterceptTouchEvent(false)
+            }
+        }
+    }
+    return super.dispatchTouchEvent(ev)
+}
+```
+
+### 如何保存和恢复状态？
+```kotlin
+override fun onSaveInstanceState(): Parcelable {
+    val superState = super.onSaveInstanceState()
+    val savedState = SavedState(superState)
+    savedState.progress = progress
+    return savedState
+}
+
+override fun onRestoreInstanceState(state: Parcelable?) {
+    if (state is SavedState) {
+        super.onRestoreInstanceState(state.superState)
+        progress = state.progress
+        invalidate()
+    } else {
+        super.onRestoreInstanceState(state)
+    }
+}
+
+private class SavedState : BaseSavedState {
+    var progress: Float = 0f
+    
+    constructor(superState: Parcelable?) : super(superState)
+    
+    constructor(parcel: Parcel) : super(parcel) {
+        progress = parcel.readFloat()
+    }
+    
+    override fun writeToParcel(out: Parcel, flags: Int) {
+        super.writeToParcel(out, flags)
+        out.writeFloat(progress)
+    }
+    
+    companion object CREATOR : Parcelable.Creator<SavedState> {
+        override fun createFromParcel(parcel: Parcel): SavedState {
+            return SavedState(parcel)
+        }
+        
+        override fun newArray(size: Int): Array<SavedState?> {
+            return arrayOfNulls(size)
+        }
+    }
+}
+```
