@@ -1,0 +1,189 @@
+# Android系统启动流程
+
+## 1. 基础知识
+
+### 1.1 系统启动的主要阶段
+
+1. **Boot ROM**
+   - 加载引导程序
+   - 初始化硬件设备
+   - 将Bootloader加载到RAM
+
+2. **Bootloader**
+   - 初始化内存
+   - 建立内存空间映射
+   - 加载Android内核
+
+3. **Linux Kernel**
+   - 启动内核
+   - 挂载根文件系统
+   - 启动init进程
+
+4. **Init进程**
+   - 系统第一个进程
+   - 解析init.rc配置文件
+   - 启动关键服务
+
+5. **Zygote进程**
+   - 所有应用进程的父进程
+   - 预加载系统资源
+   - 等待AMS请求创建应用进程
+
+## 2. 核心问题
+
+### 2.1 Init进程做了什么？
+
+**答案：**
+
+1. **配置文件解析**
+   ```c
+   // init.rc文件示例
+   service zygote /system/bin/app_process -Xzygote /system/bin --zygote --start-system-server
+       class main
+       socket zygote stream 660 root system
+       onrestart write /sys/android_power/request_state wake
+       onrestart write /sys/power/state on
+   ```
+
+2. **属性服务**
+   - 启动property_service
+   - 加载系统属性
+   - 提供属性访问接口
+
+3. **启动关键服务**
+   - 启动servicemanager
+   - 启动zygote
+   - 启动surfaceflinger
+
+### 2.2 Zygote进程的作用是什么？
+
+1. **资源预加载**
+   ```java
+   public static void preloadResources() {
+       // 预加载drawable和color资源
+       preloadDrawables();
+       preloadColorStateLists();
+       
+       // 预加载系统字体
+       preloadFonts();
+       
+       // 预加载系统配置
+       preloadSystemProperties();
+   }
+   ```
+
+2. **Socket通信**
+   ```java
+   private static void runSelectLoop(String abiList) {
+       ZygoteConnection[] peers = new ZygoteConnection[connections.size()];
+       
+       while (true) {
+           // 等待AMS的请求
+           StructPollfd[] pollFds = new StructPollfd[peers.length];
+           
+           // 处理连接请求
+           for (int i = 0; i < peers.length; i++) {
+               ZygoteConnection connection = peers[i];
+               if (connection != null) {
+                   connection.runOnce();
+               }
+           }
+       }
+   }
+   ```
+
+### 2.3 System Server的职责是什么？
+
+1. **启动系统服务**
+   ```java
+   private void startBootstrapServices() {
+       // 启动服务管理器
+       ServiceManager.startService("package");
+       
+       // 启动Activity管理服务
+       mActivityManagerService = mSystemServiceManager.startService(
+           ActivityManagerService.Lifecycle.class).getService();
+       
+       // 启动电源管理服务
+       mPowerManagerService = mSystemServiceManager.startService(
+           PowerManagerService.class);
+   }
+   ```
+
+2. **管理系统服务生命周期**
+   - 启动顺序管理
+   - 依赖关系处理
+   - 服务状态监控
+
+## 3. 实战应用
+
+### 3.1 自定义系统启动服务
+
+```java
+public class CustomSystemService extends SystemService {
+    private final Context mContext;
+    
+    public CustomSystemService(Context context) {
+        super(context);
+        mContext = context;
+    }
+    
+    @Override
+    public void onStart() {
+        // 服务启动时的初始化
+        publishBinderService("custom_service", new CustomServiceImpl());
+    }
+    
+    @Override
+    public void onBootPhase(int phase) {
+        if (phase == PHASE_SYSTEM_SERVICES_READY) {
+            // 系统服务就绪
+            registerForSystemEvents();
+        } else if (phase == PHASE_BOOT_COMPLETED) {
+            // 系统启动完成
+            startBackgroundTasks();
+        }
+    }
+    
+    private class CustomServiceImpl extends ICustomService.Stub {
+        @Override
+        public void doSomething() {
+            // 实现服务功能
+        }
+    }
+}
+```
+
+### 3.2 注册系统服务
+
+```java
+public class SystemServer {
+    private void startOtherServices() {
+        // 注册自定义服务
+        mSystemServiceManager.startService(CustomSystemService.class);
+        
+        // 等待服务就绪
+        mSystemServiceManager.startBootPhase(SystemService.PHASE_SYSTEM_SERVICES_READY);
+        
+        // 启动完成
+        mSystemServiceManager.startBootPhase(SystemService.PHASE_BOOT_COMPLETED);
+    }
+}
+```
+
+## 4. 性能优化
+
+1. **启动速度优化**
+   - 延迟加载非关键服务
+   - 优化服务依赖关系
+   - 并行启动无依赖服务
+
+2. **内存优化**
+   - 合理设置进程优先级
+   - 控制后台服务数量
+   - 及时释放不需要的资源
+
+3. **稳定性优化**
+   - 添加服务监控机制
+   - 实现服务自动恢复
+   - 完善异常处理机制

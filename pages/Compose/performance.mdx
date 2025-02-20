@@ -1,0 +1,159 @@
+# Compose性能优化
+
+## 重组优化
+
+### 1. 使用remember和rememberSaveable
+
+```kotlin
+// 使用remember缓存计算结果
+val expensiveValue = remember {
+    calculateExpensiveValue()
+}
+
+// 使用rememberSaveable在配置更改时保持状态
+var counter by rememberSaveable { mutableStateOf(0) }
+```
+
+### 2. 合理使用key
+
+```kotlin
+LazyColumn {
+    items(items = items, key = { item -> item.id }) { item ->
+        ItemRow(item = item)
+    }
+}
+```
+
+### 3. 避免不必要的重组
+
+```kotlin
+// 不好的做法
+@Composable
+fun BadExample() {
+    var counter by remember { mutableStateOf(0) }
+    Column {
+        Text("Counter: $counter")
+        ExpensiveComposable() // 每次counter改变都会重组
+    }
+}
+
+// 好的做法
+@Composable
+fun GoodExample() {
+    var counter by remember { mutableStateOf(0) }
+    Column {
+        Text("Counter: $counter")
+        key(Unit) { // 使用key避免不必要的重组
+            ExpensiveComposable()
+        }
+    }
+}
+```
+
+## 内存优化
+
+### 1. 使用derivedStateOf
+
+```kotlin
+val items = remember { mutableStateListOf<Item>() }
+val sortedItems = remember(items) {
+    derivedStateOf { items.sortedBy { it.priority } }
+}
+```
+
+### 2. 合理使用LaunchedEffect
+
+```kotlin
+LaunchedEffect(key1) {
+    // 在这里执行副作用
+    // 当key1改变时，会取消之前的协程并重新启动
+}
+```
+
+### 3. 避免在Composable中创建对象
+
+```kotlin
+// 不好的做法
+@Composable
+fun BadExample() {
+    val padding = PaddingValues(16.dp) // 每次重组都创建新对象
+    Box(modifier = Modifier.padding(padding))
+}
+
+// 好的做法
+@Composable
+fun GoodExample() {
+    val padding = remember { PaddingValues(16.dp) }
+    Box(modifier = Modifier.padding(padding))
+}
+```
+
+## 布局优化
+
+### 1. 使用constraintLayout优化复杂布局
+
+```kotlin
+ConstraintLayout {
+    val (image, title, description) = createRefs()
+    
+    Image(
+        modifier = Modifier.constrainAs(image) {
+            top.linkTo(parent.top)
+            start.linkTo(parent.start)
+        }
+    )
+}
+```
+
+### 2. 延迟加载
+
+```kotlin
+var showContent by remember { mutableStateOf(false) }
+
+LazyColumn {
+    items(1000) { index ->
+        key(index) {
+            if (isVisible(index)) {
+                ItemContent(index)
+            }
+        }
+    }
+}
+```
+
+## 工具和调试
+
+### 1. 使用Layout Inspector
+
+- 使用Android Studio的Layout Inspector查看Compose层级
+- 分析重组情况和性能瓶颈
+
+### 2. 使用Compose编译器报告
+
+```gradle
+android {
+    buildFeatures {
+        compose true
+    }
+    composeOptions {
+        kotlinCompilerExtensionVersion "1.4.0"
+    }
+}
+```
+
+### 3. 性能追踪
+
+```kotlin
+compose.runtime.trace {
+    // 需要追踪的代码
+}
+```
+
+## 最佳实践总结
+
+1. 合理使用remember和rememberSaveable缓存数据
+2. 正确使用key管理列表项的重组
+3. 避免不必要的对象创建和重组
+4. 使用derivedStateOf处理派生状态
+5. 合理组织布局结构，避免过深的嵌套
+6. 使用性能分析工具定位和解决性能问题

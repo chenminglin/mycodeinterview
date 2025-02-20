@@ -1,0 +1,177 @@
+# Kotlin DSL（领域特定语言）
+
+## DSL基础
+
+### 概念和特点
+
+1. **什么是DSL**
+   - 面向特定领域的语言
+   - 提供更直观的API
+   - 利用Kotlin语法特性
+   - 提高代码可读性
+
+2. **DSL的优势**
+   - 代码更加声明式
+   - 更好的类型安全
+   - 更好的IDE支持
+   - 减少样板代码
+
+## DSL构建
+
+### 基本语法
+
+1. **函数类型接收者**
+   ```kotlin
+   fun buildString(block: StringBuilder.() -> Unit): String {
+       return StringBuilder().apply(block).toString()
+   }
+   ```
+
+2. **使用示例**
+   ```kotlin
+   val result = buildString {
+       append("Hello")
+       append(" ")
+       append("World")
+   }
+   ```
+
+## 实战案例
+
+### 1. HTML DSL
+
+```kotlin
+class HTML {
+    fun head(init: Head.() -> Unit) = Head().apply(init)
+    fun body(init: Body.() -> Unit) = Body().apply(init)
+}
+
+fun html(init: HTML.() -> Unit): HTML = HTML().apply(init)
+
+// 使用示例
+val page = html {
+    head {
+        title("DSL Demo")
+    }
+    body {
+        div {
+            p("Hello, DSL!")
+        }
+    }
+}
+```
+
+### 2. 测试DSL
+
+```kotlin
+class TestBuilder {
+    fun given(block: () -> Unit) = block()
+    fun when_(block: () -> Unit) = block()
+    fun then(block: () -> Unit) = block()
+}
+
+fun test(name: String, block: TestBuilder.() -> Unit) {
+    println("Test: $name")
+    TestBuilder().apply(block)
+}
+
+// 使用示例
+test("user login") {
+    given {
+        // 设置测试环境
+    }
+    when_ {
+        // 执行测试操作
+    }
+    then {
+        // 验证结果
+    }
+}
+```
+
+## 面试常见问题
+
+### 1. Kotlin DSL的优势是什么？
+
+```kotlin
+答案：
+- 提供更直观的API设计
+- 更好的类型安全性
+- 减少代码重复
+- 提高代码可读性和维护性
+```
+
+### 2. 如何设计好的DSL？
+
+```kotlin
+答案：
+- 保持简单和直观
+- 提供清晰的作用域
+- 利用类型系统保证安全
+- 提供良好的错误提示
+```
+
+## 最佳实践
+
+### 1. DSL设计原则
+
+```kotlin
+// 清晰的作用域
+class TableBuilder {
+    fun row(init: RowBuilder.() -> Unit) {
+        RowBuilder().apply(init)
+    }
+}
+
+// 类型安全
+fun table(init: TableBuilder.() -> Unit): Table {
+    return TableBuilder().apply(init).build()
+}
+```
+
+### 2. 错误处理
+
+```kotlin
+class FormBuilder {
+    fun validate(block: () -> Boolean) {
+        require(block()) { "Validation failed" }
+    }
+}
+```
+
+## 高级特性
+
+### 1. 接收者类型
+
+```kotlin
+// 多重接收者
+class MultiReceiver {
+    fun with(receiver1: Receiver1, receiver2: Receiver2, block: Receiver1.(Receiver2) -> Unit) {
+        receiver1.block(receiver2)
+    }
+}
+```
+
+### 2. 上下文接收者
+
+```kotlin
+context(LogContext)
+fun log(message: String) {
+    // 使用上下文中的logger
+    logger.log(message)
+}
+```
+
+## 总结
+
+1. **核心优势**
+   - 代码更加声明式
+   - 类型安全
+   - IDE支持
+   - 可读性强
+
+2. **使用场景**
+   - 配置文件
+   - UI构建
+   - 测试框架
+   - 依赖注入

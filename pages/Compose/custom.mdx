@@ -1,0 +1,192 @@
+# Compose 自定义组件
+
+## 基础概念
+
+### 组件封装
+```kotlin
+@Composable
+fun CustomButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Button(
+        onClick = onClick,
+        modifier = modifier,
+        colors = ButtonDefaults.buttonColors(
+            backgroundColor = MaterialTheme.colors.primary
+        )
+    ) {
+        Text(text)
+    }
+}
+```
+
+### 状态管理
+```kotlin
+class CustomComponentState(
+    initialValue: String = ""
+) {
+    var text by mutableStateOf(initialValue)
+    var isEnabled by mutableStateOf(true)
+}
+
+@Composable
+fun rememberCustomComponentState(
+    initialValue: String = ""
+) = remember { CustomComponentState(initialValue) }
+```
+
+## 高级特性
+
+### 生命周期管理
+```kotlin
+@Composable
+fun CustomComponent(
+    onDispose: () -> Unit
+) {
+    DisposableEffect(Unit) {
+        onDispose {
+            onDispose()
+        }
+    }
+    
+    // 组件内容
+}
+```
+
+### 副作用处理
+```kotlin
+@Composable
+fun CustomDataComponent(
+    data: Flow<String>
+) {
+    var text by remember { mutableStateOf("") }
+    
+    LaunchedEffect(Unit) {
+        data.collect { newData ->
+            text = newData
+        }
+    }
+    
+    Text(text)
+}
+```
+
+## 布局定制
+
+### 自定义布局
+```kotlin
+@Composable
+fun CustomLayout(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    Layout(
+        content = content,
+        modifier = modifier
+    ) { measurables, constraints ->
+        // 测量子元素
+        val placeables = measurables.map { measurable ->
+            measurable.measure(constraints)
+        }
+
+        // 确定布局大小
+        val width = placeables.maxOf { it.width }
+        val height = placeables.sumOf { it.height }
+
+        // 放置子元素
+        layout(width, height) {
+            var yPosition = 0
+            placeables.forEach { placeable ->
+                placeable.placeRelative(x = 0, y = yPosition)
+                yPosition += placeable.height
+            }
+        }
+    }
+}
+```
+
+### 手势处理
+```kotlin
+@Composable
+fun CustomGestureComponent(
+    onDrag: (Offset) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(modifier = modifier
+        .pointerInput(Unit) {
+            detectDragGestures { change, dragAmount ->
+                change.consume()
+                onDrag(dragAmount)
+            }
+        }
+    )
+}
+```
+
+## 实用技巧
+
+### 组合模式
+```kotlin
+@Composable
+fun CustomCard(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    Card(
+        modifier = modifier,
+        elevation = 4.dp
+    ) {
+        content()
+    }
+}
+
+// 使用示例
+CustomCard {
+    Column {
+        Text("标题")
+        Text("内容")
+    }
+}
+```
+
+### 性能优化
+```kotlin
+@Composable
+fun OptimizedList(
+    items: List<Item>,
+    modifier: Modifier = Modifier
+) {
+    LazyColumn(modifier = modifier) {
+        items(
+            items = items,
+            key = { it.id }
+        ) { item ->
+            key(item.id) {
+                ItemRow(item)
+            }
+        }
+    }
+}
+```
+
+### 可访问性支持
+```kotlin
+@Composable
+fun AccessibleCustomComponent(
+    onClick: () -> Unit,
+    contentDescription: String
+) {
+    Box(
+        modifier = Modifier
+            .clickable(onClick = onClick)
+            .semantics {
+                this.contentDescription = contentDescription
+                this.role = Role.Button
+            }
+    ) {
+        // 组件内容
+    }
+}
+```

@@ -1,0 +1,231 @@
+# Android系统启动流程
+
+## 选择题
+
+### 1. Android系统启动顺序正确的是：
+
+A. Bootloader -> Kernel -> Init进程 -> Zygote -> SystemServer
+B. Kernel -> Bootloader -> Init进程 -> SystemServer -> Zygote
+C. Bootloader -> Init进程 -> Kernel -> Zygote -> SystemServer
+D. Kernel -> Init进程 -> Bootloader -> SystemServer -> Zygote
+
+**答案：A**
+
+解析：Android系统的启动顺序为：
+1. Bootloader：引导程序加载
+2. Kernel：Linux内核启动
+3. Init进程：第一个用户空间进程
+4. Zygote：所有Android应用程序的父进程
+5. SystemServer：系统服务进程
+
+### 2. 关于Zygote进程，以下说法正确的是：
+
+A. Zygote进程是由Init进程创建的
+B. Zygote进程只负责创建应用进程
+C. Zygote进程不会预加载任何资源
+D. Zygote进程在系统中是可以有多个的
+
+**答案：A**
+
+解析：
+- Zygote进程由Init进程通过解析init.rc文件创建
+- Zygote不仅创建应用进程，还负责创建SystemServer进程
+- Zygote会预加载常用的类、资源和共享库
+- 系统中只有一个Zygote进程（某些设备可能有64位和32位两个）
+
+## 问答题
+
+### 1. 详细描述SystemServer的作用和启动流程
+
+**答案：**
+
+SystemServer的作用：
+1. 创建和管理系统核心服务
+2. 管理Android框架层的各种Service
+3. 是Android系统的核心进程之一
+
+启动流程：
+1. **Zygote fork SystemServer进程**
+   - 继承Zygote进程的资源
+   - 创建独立的进程空间
+
+2. **创建SystemServiceManager**
+   - 负责管理所有系统服务
+   - 控制系统服务的生命周期
+
+3. **启动引导服务**
+   - ActivityManagerService
+   - PackageManagerService
+   - PowerManagerService等
+
+4. **启动核心服务**
+   - BatteryService
+   - WebViewUpdateService等
+
+5. **启动其他服务**
+   - BluetoothService
+   - LocationManagerService等
+
+### 2. Init进程的职责有哪些？
+
+**答案：**
+
+Init进程作为Android系统的第一个用户空间进程，主要职责包括：
+
+1. **解析配置文件**
+   - 解析init.rc
+   - 解析设备特定的init配置
+
+2. **创建文件系统**
+   - 挂载文件系统
+   - 创建基本的文件目录
+
+3. **启动守护进程**
+   - 启动adbd
+   - 启动logd等系统守护进程
+
+4. **属性服务**
+   - 管理系统属性
+   - 提供属性修改和查询接口
+
+5. **启动关键进程**
+   - 启动Zygote进程
+   - 启动ServiceManager
+
+## 编程实践
+
+### 1. 实现一个简单的进程监控服务
+
+```java
+public class ProcessMonitorService extends Service {
+    private static final String TAG = "ProcessMonitor";
+    private Handler mHandler = new Handler();
+    private static final long CHECK_INTERVAL = 5000; // 5秒检查一次
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        startMonitor();
+    }
+
+    private void startMonitor() {
+        mHandler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                checkProcesses();
+                mHandler.postDelayed(this, CHECK_INTERVAL);
+            }
+        }, CHECK_INTERVAL);
+    }
+
+    private void checkProcesses() {
+        ActivityManager am = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
+        List<ActivityManager.RunningAppProcessInfo> processes = am.getRunningAppProcesses();
+        
+        for (ActivityManager.RunningAppProcessInfo process : processes) {
+            // 检查进程状态
+            Debug.MemoryInfo[] memInfo = am.getProcessMemoryInfo(
+                    new int[]{process.pid});
+            if (memInfo != null && memInfo.length > 0) {
+                int totalPss = memInfo[0].getTotalPss();
+                Log.d(TAG, "Process: " + process.processName +
+                        " Memory: " + totalPss + "KB");
+            }
+        }
+    }
+
+    @Override
+    public IBinder onBind(Intent intent) {
+        return null;
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        mHandler.removeCallbacksAndMessages(null);
+    }
+}
+```
+
+### 2. 实现应用冷启动性能监控
+
+```java
+public class ColdStartMonitor {
+    private static final String TAG = "ColdStartMonitor";
+    private static long sStartTime;
+    private static final List<TimeRecord> sTimeRecords = new ArrayList<>();
+
+    public static void markStartTime() {
+        sStartTime = System.currentTimeMillis();
+    }
+
+    public static void markStage(String stageName) {
+        long currentTime = System.currentTimeMillis();
+        long duration = currentTime - sStartTime;
+        sTimeRecords.add(new TimeRecord(stageName, duration));
+        Log.d(TAG, stageName + " cost: " + duration + "ms");
+    }
+
+    public static void printSummary() {
+        StringBuilder sb = new StringBuilder("Cold Start Summary:\n");
+        long totalTime = 0;
+        for (TimeRecord record : sTimeRecords) {
+            sb.append(record.stageName)
+              .append(": ")
+              .append(record.timeCost)
+              .append("ms\n");
+            totalTime += record.timeCost;
+        }
+        sb.append("Total time: ").append(totalTime).append("ms");
+        Log.i(TAG, sb.toString());
+    }
+
+    private static class TimeRecord {
+        String stageName;
+        long timeCost;
+
+        TimeRecord(String stageName, long timeCost) {
+            this.stageName = stageName;
+            this.timeCost = timeCost;
+        }
+    }
+}
+
+// 使用示例
+public class MyApplication extends Application {
+    @Override
+    public void onCreate() {
+        ColdStartMonitor.markStartTime();
+        super.onCreate();
+        
+        // 初始化各种SDK
+        initSDKs();
+        ColdStartMonitor.markStage("Init SDKs");
+        
+        // 预加载数据
+        preloadData();
+        ColdStartMonitor.markStage("Preload Data");
+        
+        // 应用启动完成
+        ColdStartMonitor.markStage("Application Created");
+        ColdStartMonitor.printSummary();
+    }
+}
+```
+
+## 实践建议
+
+1. **启动优化**
+   - 使用启动器Activity
+   - 延迟初始化非必要组件
+   - 采用多进程优化
+
+2. **进程管理**
+   - 合理设置进程优先级
+   - 及时回收不需要的进程
+   - 监控进程内存使用
+
+3. **性能监控**
+   - 监控关键节点耗时
+   - 收集启动数据分析
+   - 建立性能监控体系

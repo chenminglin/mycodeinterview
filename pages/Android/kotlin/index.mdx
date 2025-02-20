@@ -126,3 +126,241 @@ view.apply {
     setOnClickListener { /* 处理点击事件 */ }
 }
 ```
+
+## 密封类（Sealed Class）
+
+### 特点
+
+1. 限制类继承体系
+2. 编译时类型安全
+3. when表达式无需else分支
+4. 适合表示受限的类层次结构
+
+### 示例
+
+```kotlin
+sealed class Result<out T> {
+    data class Success<out T>(val data: T) : Result<T>()
+    data class Error(val exception: Exception) : Result<Nothing>()
+    object Loading : Result<Nothing>()
+}
+
+fun handleResult(result: Result<String>) = when(result) {
+    is Result.Success -> println("Success: ${result.data}")
+    is Result.Error -> println("Error: ${result.exception.message}")
+    is Result.Loading -> println("Loading...")
+    // 不需要else分支
+}
+```
+
+## 委托属性
+
+### 核心概念
+
+1. 属性委托的基本原理
+2. 内置委托（lazy, observable等）
+3. 自定义委托属性
+4. 委托属性的应用场景
+
+### 实践示例
+
+```kotlin
+class User {
+    // 懒加载
+    val heavyResource: String by lazy {
+        // 复杂计算
+        "Heavy Resource"
+    }
+    
+    // 观察属性变化
+    var name: String by Delegates.observable("initial") { 
+        prop, old, new -> println("$old -> $new")
+    }
+    
+    // 自定义委托
+    var lastLoginDate: Date by PreferenceDelegate("last_login")
+}
+
+// 自定义属性委托
+class PreferenceDelegate<T>(private val key: String) {
+    operator fun getValue(thisRef: Any?, property: KProperty<*>): T {
+        // 从SharedPreferences获取值
+        return getPreference(key)
+    }
+    
+    operator fun setValue(thisRef: Any?, property: KProperty<*>, value: T) {
+        // 保存值到SharedPreferences
+        savePreference(key, value)
+    }
+}
+```
+
+## 泛型和类型系统
+
+### 核心特性
+
+1. 型变（Variance）
+   - 协变（out）
+   - 逆变（in）
+   - 不变（invariant）
+2. 类型投影（Type Projection）
+3. 星投影（Star Projection）
+4. 泛型约束
+
+### 实践示例
+
+```kotlin
+// 协变示例
+interface Source<out T> {
+    fun nextT(): T
+}
+
+// 逆变示例
+interface Comparable<in T> {
+    operator fun compareTo(other: T): Int
+}
+
+// 泛型约束
+fun <T : Comparable<T>> sort(list: List<T>) {
+    // 实现排序逻辑
+}
+
+// 类型投影示例
+fun copy(from: Array<out Any>, to: Array<Any>) {
+    // 可以安全地复制元素
+}
+```
+
+## 反射机制
+
+### 核心功能
+
+1. 类引用和类型引用
+2. 属性和函数的反射
+3. 注解的反射
+4. 运行时类型检查
+
+### 使用示例
+
+```kotlin
+class Sample {
+    var name: String = "Kotlin"
+    fun process() { /* ... */ }
+}
+
+fun reflectionExample() {
+    // 获取类引用
+    val clazz = Sample::class
+    
+    // 获取属性
+    val property = clazz.memberProperties.first { it.name == "name" }
+    
+    // 获取函数
+    val function = clazz.memberFunctions.first { it.name == "process" }
+    
+    // 创建实例
+    val instance = clazz.createInstance()
+    
+    // 调用属性和函数
+    property.set(instance, "New Value")
+    function.call(instance)
+}
+```
+
+## 注解处理
+
+### 核心概念
+
+1. 注解声明
+2. 注解目标
+3. 注解参数
+4. 注解处理器
+
+### 实践示例
+
+```kotlin
+// 自定义注解
+@Target(AnnotationTarget.CLASS)
+@Retention(AnnotationRetention.RUNTIME)
+annotation class JsonSerializable(val name: String = "")
+
+// 使用注解
+@JsonSerializable("user")
+data class User(val name: String)
+
+// 注解处理
+fun processAnnotations(clazz: KClass<*>) {
+    val annotation = clazz.findAnnotation<JsonSerializable>()
+    annotation?.let {
+        println("Found JsonSerializable: ${it.name}")
+    }
+}
+```
+
+## Kotlin与Java互操作性
+
+### 核心特性
+
+1. @JvmStatic和@JvmField
+2. @JvmOverloads
+3. @Throws注解
+4. Java调用Kotlin
+5. Kotlin调用Java
+
+### 最佳实践
+
+```kotlin
+class KotlinJavaInterop {
+    companion object {
+        @JvmStatic
+        fun staticMethod() {
+            // 可以作为Java静态方法调用
+        }
+        
+        @JvmField
+        val CONSTANT = "Value"
+    }
+    
+    @JvmOverloads
+    fun overloadedMethod(
+        param1: String,
+        param2: Int = 0,
+        param3: Boolean = false
+    ) {
+        // Java可以调用任意参数组合
+    }
+    
+    @Throws(IOException::class)
+    fun methodWithException() {
+        // Java需要捕获异常
+    }
+}
+```
+
+### Java中使用Kotlin示例
+
+```java
+// Java代码
+public class JavaClass {
+    public void useKotlin() {
+        // 调用Kotlin伴生对象的静态方法
+        KotlinJavaInterop.staticMethod();
+        
+        // 访问Kotlin属性
+        String constant = KotlinJavaInterop.CONSTANT;
+        
+        // 创建Kotlin类实例
+        KotlinJavaInterop interop = new KotlinJavaInterop();
+        
+        // 调用Kotlin方法
+        interop.overloadedMethod("test");
+        interop.overloadedMethod("test", 1);
+        
+        try {
+            interop.methodWithException();
+        } catch (IOException e) {
+            // 处理异常
+        }
+    }
+}
+```

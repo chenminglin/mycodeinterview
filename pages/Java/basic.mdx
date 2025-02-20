@@ -157,3 +157,144 @@ for (int i = 0; i < 1000; i++) {
 }
 String result = sb.toString();
 ```
+
+## 5. 反射机制
+
+### 5.1 什么是反射？
+
+反射机制允许程序在运行时获取任何类的内部信息，并能直接操作任意对象的内部属性及方法。
+
+```java
+// 反射示例
+public class ReflectionDemo {
+    public static void main(String[] args) throws Exception {
+        // 获取类的Class对象
+        Class<?> clazz = Class.forName("com.example.Student");
+        
+        // 创建实例
+        Object obj = clazz.newInstance();
+        
+        // 获取方法并调用
+        Method method = clazz.getMethod("setName", String.class);
+        method.invoke(obj, "张三");
+    }
+}
+```
+
+### 5.2 反射的应用场景
+
+1. **框架开发**
+   - Spring的依赖注入
+   - MyBatis的对象映射
+   - JUnit的测试用例加载
+
+2. **动态代理**
+   - AOP面向切面编程
+   - RPC远程调用
+
+## 6. 注解
+
+### 6.1 什么是注解？
+
+注解是一种代码级别的说明，可以对程序做出解释或者指示。
+
+```java
+// 自定义注解示例
+@Target(ElementType.METHOD)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface Test {
+    String value() default "";
+}
+
+// 使用注解
+public class TestDemo {
+    @Test("测试方法")
+    public void testMethod() {
+        // 测试代码
+    }
+}
+```
+
+### 6.2 元注解有哪些？
+
+1. **@Target**：注解的作用目标
+2. **@Retention**：注解的生命周期
+3. **@Documented**：注解是否包含在JavaDoc中
+4. **@Inherited**：注解是否可以被继承
+
+## 7. 泛型
+
+### 7.1 什么是泛型？为什么要使用泛型？
+
+泛型提供了编译时类型安全检测机制，可以在编译时检测到非法的类型。
+
+```java
+// 泛型类示例
+public class Box&lt;T&gt; {
+    private T t;
+    
+    public void set(T t) {
+        this.t = t;
+    }
+    
+    public T get() {
+        return t;
+    }
+}
+
+// 使用泛型类
+Box&lt;String&gt; stringBox = new Box&lt;&gt;();
+stringBox.set("Hello World");
+```
+
+### 7.2 泛型通配符
+
+1. **上界通配符 &lt;? extends Type&gt;**
+   - 用于限制泛型类型的上界
+   - 只能读取，不能写入
+
+2. **下界通配符 &lt;? super Type&gt;**
+   - 用于限制泛型类型的下界
+   - 可以写入，读取时只能用Object接收
+
+## 8. 异常处理
+
+### 8.1 异常体系结构
+
+1. **Throwable**
+   - Error：严重错误，程序无法处理
+   - Exception：可以被程序处理的异常
+
+```java
+// 异常处理示例
+public class ExceptionDemo {
+    public static void main(String[] args) {
+        try {
+            // 可能抛出异常的代码
+            int result = divide(10, 0);
+        } catch (ArithmeticException e) {
+            // 处理异常
+            System.out.println("除数不能为0");
+        } finally {
+            // 清理资源
+            System.out.println("finally块总是执行");
+        }
+    }
+    
+    public static int divide(int a, int b) {
+        return a / b;
+    }
+}
+```
+
+### 8.2 受检异常和非受检异常的区别？
+
+1. **受检异常（Checked Exception）**
+   - 必须显式处理或声明抛出
+   - 代表可以恢复的异常情况
+   - 如：IOException、SQLException
+
+2. **非受检异常（Unchecked Exception）**
+   - 不需要显式处理或声明
+   - 代表编程错误
+   - 如：NullPointerException、ArrayIndexOutOfBoundsException

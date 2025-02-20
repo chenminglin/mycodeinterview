@@ -1,0 +1,169 @@
+# Compose 动画效果
+
+## 基础动画
+
+### animate*AsState
+```kotlin
+var visible by remember { mutableStateOf(true) }
+val alpha by animateFloatAsState(if (visible) 1f else 0f)
+
+Box(
+    modifier = Modifier
+        .alpha(alpha)
+        .clickable { visible = !visible }
+) {
+    Text("点击切换透明度")
+}
+```
+
+### AnimatedVisibility
+```kotlin
+var visible by remember { mutableStateOf(true) }
+
+AnimatedVisibility(
+    visible = visible,
+    enter = fadeIn() + slideInHorizontally(),
+    exit = fadeOut() + slideOutHorizontally()
+) {
+    Text("动画显示/隐藏")
+}
+```
+
+## 状态动画
+
+### Animatable
+```kotlin
+val color = remember { Animatable(Color.Red) }
+
+LaunchedEffect(Unit) {
+    color.animateTo(
+        targetValue = Color.Green,
+        animationSpec = tween(2000)
+    )
+}
+
+Box(
+    modifier = Modifier
+        .size(100.dp)
+        .background(color.value)
+)
+```
+
+### updateTransition
+```kotlin
+enum class BoxState { SMALL, LARGE }
+
+var boxState by remember { mutableStateOf(BoxState.SMALL) }
+val transition = updateTransition(boxState)
+
+val size by transition.animateDp { state ->
+    when (state) {
+        BoxState.SMALL -> 50.dp
+        BoxState.LARGE -> 100.dp
+    }
+}
+
+Box(
+    modifier = Modifier
+        .size(size)
+        .background(Color.Blue)
+        .clickable { 
+            boxState = when (boxState) {
+                BoxState.SMALL -> BoxState.LARGE
+                BoxState.LARGE -> BoxState.SMALL
+            }
+        }
+)
+```
+
+## 手势动画
+
+### 拖拽动画
+```kotlin
+var offsetX by remember { mutableStateOf(0f) }
+val offsetXAnim by animateFloatAsState(offsetX)
+
+Box(
+    modifier = Modifier
+        .offset { IntOffset(offsetXAnim.roundToInt(), 0) }
+        .draggable(
+            orientation = Orientation.Horizontal,
+            state = rememberDraggableState { delta ->
+                offsetX += delta
+            }
+        )
+)
+```
+
+## 自定义动画
+
+### 自定义动画规范
+```kotlin
+val customSpec = spring<Float>(
+    dampingRatio = Spring.DampingRatioMediumBouncy,
+    stiffness = Spring.StiffnessLow
+)
+
+var value by remember { mutableStateOf(0f) }
+val animatedValue by animateFloatAsState(
+    targetValue = value,
+    animationSpec = customSpec
+)
+```
+
+### 复杂动画组合
+```kotlin
+var state by remember { mutableStateOf(false) }
+val transition = updateTransition(state)
+
+val scale by transition.animateFloat(
+    transitionSpec = { spring(stiffness = Spring.StiffnessLow) }
+) { if (it) 1.5f else 1f }
+
+val color by transition.animateColor(
+    transitionSpec = { tween(1000) }
+) { if (it) Color.Red else Color.Blue }
+
+Box(
+    modifier = Modifier
+        .scale(scale)
+        .background(color)
+        .size(100.dp)
+        .clickable { state = !state }
+)
+```
+
+## 动画最佳实践
+
+### 性能优化
+```kotlin
+// 使用remember避免重复创建动画规范
+val animSpec = remember {
+    spring<Float>(
+        dampingRatio = Spring.DampingRatioMediumBouncy,
+        stiffness = Spring.StiffnessLow
+    )
+}
+
+// 使用crossfade实现平滑过渡
+Crossfade(
+    targetState = currentScreen,
+    animationSpec = tween(500)
+) { screen ->
+    when (screen) {
+        Screen.Home -> HomeScreen()
+        Screen.Profile -> ProfileScreen()
+    }
+}
+```
+
+### 动画调试
+```kotlin
+// 使用AnimationDebugLogger跟踪动画状态
+val transition = updateTransition(state, label = "StateTransition")
+
+// 使用remember缓存动画值
+val offset by remember(key1) {
+    Animatable(0f)
+}
+```

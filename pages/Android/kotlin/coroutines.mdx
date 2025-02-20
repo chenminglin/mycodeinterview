@@ -1,0 +1,279 @@
+# Kotlin协程
+
+## 基础概念
+
+### 1. 什么是协程？
+
+1. **定义**
+   - 轻量级线程
+   - 可挂起的计算单元
+   - 非阻塞式并发编程方案
+
+2. **特点**
+   - 轻量级：一个线程可以运行多个协程
+   - 内存占用小：协程挂起时不需要占用线程
+   - 内置取消支持：结构化并发
+   - 支持异步操作：简化异步编程
+
+## 面试题解析
+
+### 1. 协程的基本组件有哪些？
+
+1. **CoroutineScope**
+```kotlin
+val scope = CoroutineScope(Dispatchers.Main)
+scope.launch {
+    // 协程代码
+}
+```
+
+2. **CoroutineContext**
+   - Job：控制协程生命周期
+   - Dispatcher：指定运行线程
+   - CoroutineName：协程名称
+   - ExceptionHandler：异常处理
+
+### 2. 协程的启动模式有哪些？
+
+1. **DEFAULT**
+```kotlin
+launch(start = CoroutineStart.DEFAULT) {
+    // 立即开始调度协程
+}
+```
+
+2. **LAZY**
+```kotlin
+val job = launch(start = CoroutineStart.LAZY) {
+    // 需要手动调用start()
+}
+job.start()
+```
+
+3. **ATOMIC**
+```kotlin
+launch(start = CoroutineStart.ATOMIC) {
+    // 原子性操作，不可取消
+}
+```
+
+### 3. 协程的作用域构建器
+
+1. **coroutineScope**
+```kotlin
+suspend fun doWork() = coroutineScope {
+    val one = async { doSomethingOne() }
+    val two = async { doSomethingTwo() }
+    println("${one.await()} ${two.await()}")
+}
+```
+
+2. **supervisorScope**
+```kotlin
+supervisorScope {
+    val first = launch { throw Exception() }
+    val second = launch { println("不受first影响") }
+}
+```
+
+### 4. 协程的异常处理
+
+1. **try-catch**
+```kotlin
+val handler = CoroutineExceptionHandler { _, exception ->
+    println("Caught $exception")
+}
+
+val job = GlobalScope.launch(handler) {
+    throw AssertionError()
+}
+```
+
+2. **SupervisorJob**
+```kotlin
+val supervisor = SupervisorJob()
+val scope = CoroutineScope(supervisor + handler)
+```
+
+### 5. 协程的取消机制
+
+1. **基本取消**
+```kotlin
+val job = launch {
+    try {
+        repeat(1000) { i ->
+            println("job: I'm sleeping $i ...")
+            delay(500L)
+        }
+    } finally {
+        println("job: I'm running finally")
+    }
+}
+delay(1300L)
+job.cancel()
+```
+
+2. **取消检查**
+```kotlin
+while (isActive) {
+    // 执行计算
+}
+```
+
+## 实战技巧
+
+### 1. 网络请求处理
+
+```kotlin
+suspend fun fetchUser(): User = withContext(Dispatchers.IO) {
+    api.getUser() // 网络请求
+}
+
+viewModelScope.launch {
+    try {
+        val user = fetchUser()
+        updateUI(user)
+    } catch (e: Exception) {
+        handleError(e)
+    }
+}
+```
+
+### 2. 并行请求
+
+```kotlin
+suspend fun loadData() = coroutineScope {
+    val users = async { repository.getUsers() }
+    val products = async { repository.getProducts() }
+    
+    val combinedData = users.await() to products.await()
+    processData(combinedData)
+}
+```
+
+### 3. 超时处理
+
+```kotlin
+withTimeout(1000L) {
+    repeat(10) { i ->
+        println("I'm sleeping $i...")
+        delay(500L)
+    }
+}
+```
+
+## 注意事项
+
+1. **内存泄漏防范**
+   - 使用结构化并发
+   - 及时取消不需要的协程
+   - 避免使用GlobalScope
+
+2. **异常处理**
+   - 区分异常类型
+   - 使用适当的作用域
+   - 合理处理取消异常
+
+## 选择题
+
+1. 以下哪个不是协程的调度器？
+   A. Dispatchers.Main
+   B. Dispatchers.IO
+   C. Dispatchers.Network
+   D. Dispatchers.Default
+
+答案：C
+解析：Kotlin协程没有Dispatchers.Network调度器，常用的是Main、IO和Default。
+
+2. 协程的哪个作用域构建器会传播异常？
+   A. coroutineScope
+   B. supervisorScope
+   C. runBlocking
+   D. GlobalScope
+
+答案：A
+解析：coroutineScope会传播子协程的异常，而supervisorScope则不会。
+
+## 问答题
+
+1. 解释协程中的结构化并发是什么，以及它的优势。
+
+答案：
+- 概念：
+  1. 父子关系明确
+  2. 作用域层次分明
+  3. 生命周期管理自动化
+
+- 优势：
+  1. 避免协程泄漏
+  2. 自动传播取消
+  3. 异常处理更可控
+  4. 代码结构清晰
+
+2. 比较协程和RxJava的异同。
+
+答案：
+- 相同点：
+  1. 都支持异步操作
+  2. 都有线程调度
+  3. 都支持取消操作
+
+- 不同点：
+  1. 协程更轻量级
+  2. 协程的异步代码更直观
+  3. RxJava操作符更丰富
+  4. 协程的学习曲线更平缓
+
+## 编程题
+
+1. 实现一个带有重试机制的网络请求函数。
+
+```kotlin
+suspend fun <T> retryIO(
+    times: Int = 3,
+    initialDelay: Long = 100,
+    maxDelay: Long = 1000,
+    factor: Double = 2.0,
+    block: suspend () -> T
+): T {
+    var currentDelay = initialDelay
+    repeat(times - 1) {
+        try {
+            return block()
+        } catch (e: Exception) {
+            println("Retry attempt ${it + 1} failed")
+        }
+        delay(currentDelay)
+        currentDelay = (currentDelay * factor).toLong()
+            .coerceAtMost(maxDelay)
+    }
+    return block() // 最后一次尝试
+}
+
+// 使用示例
+suspend fun fetchData(): Result<Data> = withContext(Dispatchers.IO) {
+    retryIO {
+        api.getData()
+    }
+}
+```
+
+## 总结
+
+1. **核心要点**
+   - 协程基础概念
+   - 作用域和上下文
+   - 异常处理机制
+   - 结构化并发
+
+2. **实践建议**
+   - 合理使用调度器
+   - 正确处理生命周期
+   - 注意异常传播
+   - 避免阻塞操作
+
+3. **进阶方向**
+   - Flow集成
+   - 测试方案
+   - 性能优化
+   - 最佳实践

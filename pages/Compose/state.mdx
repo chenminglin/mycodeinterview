@@ -1,0 +1,164 @@
+# Compose 状态管理
+
+## 状态基础
+
+### 1. 什么是状态
+- UI 状态是可以随时间变化的任何值
+- 状态变化会触发重组（Recomposition）
+- 状态决定了界面的外观
+
+### 2. 状态类型
+```kotlin
+// 可变状态
+var count by remember { mutableStateOf(0) }
+
+// 不可变状态
+val text = remember { "Hello" }
+
+// 状态列表
+val items = remember { mutableStateListOf<String>() }
+
+// 状态映射
+val map = remember { mutableStateMapOf<String, Int>() }
+```
+
+## 状态管理工具
+
+### 1. remember
+```kotlin
+// 基本使用
+var text by remember { mutableStateOf("") }
+
+// 带键的记忆
+var value by remember(key1, key2) { mutableStateOf(0) }
+
+// 派生状态
+val upperText by remember(text) { derivedStateOf { text.uppercase() } }
+```
+
+### 2. rememberSaveable
+```kotlin
+// 保存状态（在配置更改后保留）
+var counter by rememberSaveable { mutableStateOf(0) }
+
+// 自定义保存规则
+var user by rememberSaveable(
+    saver = Saver(
+        save = { it.toJson() },
+        restore = { User.fromJson(it) }
+    )
+) { mutableStateOf(User()) }
+```
+
+## 状态提升
+
+### 1. 基本原则
+```kotlin
+// 状态提升示例
+@Composable
+fun StatefulCounter() {
+    var count by remember { mutableStateOf(0) }
+    StatelessCounter(count = count, onIncrement = { count++ })
+}
+
+@Composable
+fun StatelessCounter(
+    count: Int,
+    onIncrement: () -> Unit
+) {
+    Button(onClick = onIncrement) {
+        Text("Count: $count")
+    }
+}
+```
+
+### 2. ViewModel 集成
+```kotlin
+class CounterViewModel : ViewModel() {
+    private val _count = MutableStateFlow(0)
+    val count: StateFlow<Int> = _count.asStateFlow()
+
+    fun increment() {
+        _count.value++
+    }
+}
+
+@Composable
+fun CounterScreen(viewModel: CounterViewModel) {
+    val count by viewModel.count.collectAsState()
+    
+    Button(onClick = { viewModel.increment() }) {
+        Text("Count: $count")
+    }
+}
+```
+
+## 副作用处理
+
+### 1. LaunchedEffect
+```kotlin
+// 处理协程作用域内的副作用
+LaunchedEffect(key1) {
+    // 在协程中执行副作用
+    delay(1000L)
+    println("Effect executed")
+}
+```
+
+### 2. DisposableEffect
+```kotlin
+// 需要清理的副作用
+DisposableEffect(key1) {
+    // 设置效果
+    val listener = EventListener { /* 处理事件 */ }
+    registerListener(listener)
+
+    onDispose {
+        // 清理效果
+        unregisterListener(listener)
+    }
+}
+```
+
+### 3. SideEffect
+```kotlin
+// 与非 Compose 代码同步
+SideEffect {
+    // 每次重组都会执行
+    analytics.logScreen("Counter")
+}
+```
+
+## 最佳实践
+
+1. **状态设计**
+   - 单一数据源
+   - 状态不可变
+   - 合理的状态粒度
+
+2. **性能优化**
+   - 避免不必要的重组
+   - 使用 remember 缓存
+   - 合理使用派生状态
+
+3. **状态共享**
+   - 提升共享状态
+   - 使用依赖注入
+   - 考虑状态持久化
+
+## 注意事项
+
+1. **状态管理**
+   - 避免状态泄露
+   - 正确处理生命周期
+   - 合理使用记忆化
+
+2. **副作用处理**
+   - 选择合适的副作用 API
+   - 及时清理资源
+   - 避免副作用循环
+
+3. **调试技巧**
+   - 使用 Compose 调试工具
+   - 监控重组次数
+   - 追踪状态变化

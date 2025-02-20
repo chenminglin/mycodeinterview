@@ -1,0 +1,172 @@
+# Kotlin 作用域函数详解
+
+## 作用域函数概述
+
+### 基本概念
+
+1. **定义**
+   - 作用域函数是为对象创建临时作用域的函数
+   - 在此作用域内可以访问对象而无需其名称
+   - 包括：let、run、with、apply、also
+
+2. **共同点**
+   - 都是扩展函数（除了with）
+   - 都返回一个值
+   - 都有一个Lambda表达式参数
+
+### 区别和选择
+
+```kotlin
+// 1. let：处理可空对象和链式调用
+val length = str?.let {
+    println("字符串长度是 ${it.length}")
+    it.length
+}
+
+// 2. run：对象配置和计算结果
+val result = user.run {
+    name = "张三"
+    age = 25
+    "$name is $age years old"
+}
+
+// 3. with：对同一对象进行多次操作
+with(user) {
+    name = "李四"
+    age = 30
+    println("$name is $age years old")
+}
+
+// 4. apply：对象配置，返回对象本身
+val user = User().apply {
+    name = "王五"
+    age = 35
+}
+
+// 5. also：执行额外操作，返回对象本身
+val user = User("赵六", 40).also {
+    println("创建了用户：${it.name}")
+}
+```
+
+## 实战应用
+
+### 1. 链式调用
+
+```kotlin
+fun processUser(user: User?) {
+    user?.let {
+        validateUser(it)
+    }?.also {
+        saveToDatabase(it)
+    }?.apply {
+        sendNotification()
+    }
+}
+```
+
+### 2. 对象配置
+
+```kotlin
+val dialog = AlertDialog.Builder(context).apply {
+    setTitle("提示")
+    setMessage("确定要删除吗？")
+    setPositiveButton("确定") { _, _ -> /* 处理确定点击 */ }
+    setNegativeButton("取消") { _, _ -> /* 处理取消点击 */ }
+}.create()
+```
+
+### 3. 资源管理
+
+```kotlin
+file.inputStream().use { input ->
+    file.outputStream().use { output ->
+        input.copyTo(output)
+    }
+}
+```
+
+## 面试题解析
+
+### 1. 作用域函数的选择原则？
+
+**答案**：
+1. 根据上下文对象如何被引用（it/this）选择：
+   - it：let、also（适合链式调用）
+   - this：run、with、apply（适合对象配置）
+
+2. 根据返回值选择：
+   - 返回上下文对象：apply、also
+   - 返回Lambda结果：let、run、with
+
+### 2. let和run的主要区别？
+
+**答案**：
+1. 对象引用方式：
+   - let使用it引用对象
+   - run使用this引用对象
+
+2. 使用场景：
+   - let主要用于处理可空对象和链式调用
+   - run主要用于对象配置和计算结果
+
+### 3. apply和also的区别？
+
+**答案**：
+1. 对象引用：
+   - apply使用this
+   - also使用it
+
+2. 使用场景：
+   - apply适合对象配置
+   - also适合执行额外操作
+
+## 最佳实践
+
+### 1. 代码风格
+
+```kotlin
+// 推荐：清晰的作用域
+user.apply {
+    name = "张三"
+    age = 25
+}.also {
+    log("用户已更新：${it.name}")
+}
+
+// 不推荐：过度嵌套
+user.let {
+    it.run {
+        apply {
+            // 过多嵌套，难以理解
+        }
+    }
+}
+```
+
+### 2. 性能考虑
+
+1. **内联优化**
+   - 作用域函数都是内联的
+   - 不会产生额外的对象创建
+   - 运行时开销很小
+
+2. **避免过度使用**
+   - 保持代码简洁
+   - 不要为了使用而使用
+   - 考虑可读性
+
+## 总结
+
+1. **选择建议**
+   - 处理可空对象：使用let
+   - 对象配置：使用apply
+   - 执行额外操作：使用also
+   - 多次操作同一对象：使用with
+   - 计算结果：使用run
+
+2. **注意事项**
+   - 避免过度嵌套
+   - 保持代码可读性
+   - 合理使用this/it
+   - 考虑返回值需求

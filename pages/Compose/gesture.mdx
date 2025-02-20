@@ -1,0 +1,188 @@
+# Compose 手势交互
+
+## 基础手势
+
+### 点击手势
+```kotlin
+Box(
+    modifier = Modifier
+        .size(100.dp)
+        .clickable { /* 处理点击事件 */ }
+        .pointerInput(Unit) {
+            detectTapGestures(
+                onTap = { /* 单击 */ },
+                onDoubleTap = { /* 双击 */ },
+                onLongPress = { /* 长按 */ }
+            )
+        }
+) {
+    Text("点击区域")
+}
+```
+
+### 拖动手势
+```kotlin
+var offsetX by remember { mutableStateOf(0f) }
+var offsetY by remember { mutableStateOf(0f) }
+
+Box(
+    modifier = Modifier
+        .offset { IntOffset(offsetX.roundToInt(), offsetY.roundToInt()) }
+        .pointerInput(Unit) {
+            detectDragGestures { change, dragAmount ->
+                change.consume()
+                offsetX += dragAmount.x
+                offsetY += dragAmount.y
+            }
+        }
+)
+```
+
+## 复合手势
+
+### 缩放和旋转
+```kotlin
+var scale by remember { mutableStateOf(1f) }
+var rotation by remember { mutableStateOf(0f) }
+
+Box(
+    modifier = Modifier
+        .graphicsLayer(
+            scaleX = scale,
+            scaleY = scale,
+            rotationZ = rotation
+        )
+        .pointerInput(Unit) {
+            detectTransformGestures { _, _, zoom, angle ->
+                scale *= zoom
+                rotation += angle
+            }
+        }
+)
+```
+
+### 滑动手势
+```kotlin
+val scrollState = rememberScrollState()
+
+Column(
+    modifier = Modifier
+        .verticalScroll(scrollState)
+        .horizontalScroll(rememberScrollState())
+) {
+    // 内容
+}
+```
+
+## 自定义手势
+
+### 自定义手势检测器
+```kotlin
+suspend fun PointerInputScope.detectCustomGesture(
+    onGesture: (change: PointerInputChange) -> Unit
+) {
+    awaitPointerEventScope {
+        while (true) {
+            val event = awaitPointerEvent()
+            event.changes.forEach { change ->
+                if (change.pressed) {
+                    onGesture(change)
+                }
+            }
+        }
+    }
+}
+```
+
+### 手势状态管理
+```kotlin
+data class GestureState(
+    val isPressed: Boolean = false,
+    val position: Offset = Offset.Zero
+)
+
+var gestureState by remember { mutableStateOf(GestureState()) }
+
+Box(
+    modifier = Modifier
+        .pointerInput(Unit) {
+            detectDragGestures(
+                onDragStart = { gestureState = gestureState.copy(isPressed = true) },
+                onDragEnd = { gestureState = gestureState.copy(isPressed = false) },
+                onDrag = { _, dragAmount ->
+                    gestureState = gestureState.copy(
+                        position = gestureState.position + dragAmount
+                    )
+                }
+            )
+        }
+)
+```
+
+## 实际应用场景
+
+### 图片查看器
+```kotlin
+var scale by remember { mutableStateOf(1f) }
+var offset by remember { mutableStateOf(Offset.Zero) }
+
+Image(
+    painter = painterResource(id = R.drawable.image),
+    contentDescription = null,
+    modifier = Modifier
+        .graphicsLayer(
+            scaleX = scale,
+            scaleY = scale,
+            translationX = offset.x,
+            translationY = offset.y
+        )
+        .pointerInput(Unit) {
+            detectTransformGestures { _, pan, zoom, _ ->
+                scale = (scale * zoom).coerceIn(1f, 3f)
+                offset += pan
+            }
+        }
+)
+```
+
+### 滑动删除
+```kotlin
+var itemOffset by remember { mutableStateOf(0f) }
+val dismissThreshold = 100f
+
+Box(
+    modifier = Modifier
+        .offset { IntOffset(itemOffset.roundToInt(), 0) }
+        .draggable(
+            orientation = Orientation.Horizontal,
+            state = rememberDraggableState { delta ->
+                itemOffset = (itemOffset + delta).coerceIn(-dismissThreshold, 0f)
+            },
+            onDragStopped = { velocity ->
+                if (itemOffset < -dismissThreshold) {
+                    // 执行删除操作
+                } else {
+                    // 回弹动画
+                    itemOffset = 0f
+                }
+            }
+        )
+)
+```
+
+## 最佳实践
+
+1. **性能优化**
+   - 避免在手势回调中执行耗时操作
+   - 合理使用remember和mutableStateOf
+   - 及时消费手势事件
+
+2. **用户体验**
+   - 提供适当的视觉反馈
+   - 添加合适的动画效果
+   - 处理边界情况
+
+3. **代码组织**
+   - 将手势逻辑封装到独立组件
+   - 使用状态提升管理共享状态
+   - 保持代码可读性和可维护性

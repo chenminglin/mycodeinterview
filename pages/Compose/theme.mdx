@@ -1,0 +1,185 @@
+# Compose 主题和样式
+
+## MaterialTheme 概述
+
+MaterialTheme 是 Compose 的主题系统，它提供了一致的设计语言和样式定制能力。
+
+## 颜色系统
+
+### 定义颜色主题
+```kotlin
+val colors = lightColors(
+    primary = Purple500,
+    primaryVariant = Purple700,
+    secondary = Teal200,
+    background = Color.White,
+    surface = Color.White,
+    onPrimary = Color.White,
+    onSecondary = Color.Black,
+    onBackground = Color.Black,
+    onSurface = Color.Black
+)
+```
+
+### 使用主题颜色
+```kotlin
+MaterialTheme(
+    colors = colors
+) {
+    Surface(
+        color = MaterialTheme.colors.background
+    ) {
+        Text(
+            text = "主题文本",
+            color = MaterialTheme.colors.primary
+        )
+    }
+}
+```
+
+## 字体排版
+
+### 定义字体主题
+```kotlin
+val typography = Typography(
+    h1 = TextStyle(
+        fontFamily = FontFamily.Default,
+        fontWeight = FontWeight.Light,
+        fontSize = 96.sp
+    ),
+    body1 = TextStyle(
+        fontFamily = FontFamily.Default,
+        fontWeight = FontWeight.Normal,
+        fontSize = 16.sp
+    )
+)
+```
+
+### 使用字体样式
+```kotlin
+Text(
+    text = "标题文本",
+    style = MaterialTheme.typography.h1
+)
+```
+
+## 形状系统
+
+### 定义形状主题
+```kotlin
+val shapes = Shapes(
+    small = RoundedCornerShape(4.dp),
+    medium = RoundedCornerShape(8.dp),
+    large = RoundedCornerShape(12.dp)
+)
+```
+
+### 使用形状样式
+```kotlin
+Surface(
+    shape = MaterialTheme.shapes.medium,
+    elevation = 4.dp
+) {
+    Text("带形状的卡片")
+}
+```
+
+## 深色主题
+
+### 定义深色主题颜色
+```kotlin
+val DarkColorPalette = darkColors(
+    primary = Purple200,
+    primaryVariant = Purple700,
+    secondary = Teal200,
+    background = Color.Black,
+    surface = Color.Black,
+    onPrimary = Color.Black,
+    onSecondary = Color.White,
+    onBackground = Color.White,
+    onSurface = Color.White
+)
+```
+
+### 主题切换
+```kotlin
+@Composable
+fun AppTheme(
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    content: @Composable () -> Unit
+) {
+    val colors = if (darkTheme) {
+        DarkColorPalette
+    } else {
+        LightColorPalette
+    }
+
+    MaterialTheme(
+        colors = colors,
+        typography = Typography,
+        shapes = Shapes,
+        content = content
+    )
+}
+```
+
+## 动态主题
+
+### Material You 动态颜色
+```kotlin
+@Composable
+fun DynamicTheme(
+    content: @Composable () -> Unit
+) {
+    val context = LocalContext.current
+    val colorScheme = when {
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+            val display = context.display
+            val dynamicColors = if (isSystemInDarkTheme()) {
+                dynamicDarkColorScheme(context)
+            } else {
+                dynamicLightColorScheme(context)
+            }
+            dynamicColors
+        }
+        else -> defaultColorScheme
+    }
+
+    MaterialTheme(
+        colorScheme = colorScheme,
+        content = content
+    )
+}
+```
+
+### 自定义主题属性
+```kotlin
+data class Spacing(
+    val default: Dp = 0.dp,
+    val small: Dp = 4.dp,
+    val medium: Dp = 8.dp,
+    val large: Dp = 16.dp
+)
+
+val LocalSpacing = compositionLocalOf { Spacing() }
+
+@Composable
+fun CustomTheme(
+    content: @Composable () -> Unit
+) {
+    CompositionLocalProvider(
+        LocalSpacing provides Spacing()
+    ) {
+        MaterialTheme(content = content)
+    }
+}
+
+// 使用自定义主题属性
+@Composable
+fun ThemedComponent() {
+    val spacing = LocalSpacing.current
+    Box(modifier = Modifier.padding(spacing.medium)) {
+        // 内容
+    }
+}
+```

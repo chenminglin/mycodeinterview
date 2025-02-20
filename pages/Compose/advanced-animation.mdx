@@ -1,0 +1,192 @@
+# Compose 高级动画
+
+## 自定义动画
+
+### 1. 动画规格定制
+```kotlin
+// 自定义动画规格
+val customSpec = spring<Float>(
+    dampingRatio = Spring.DampingRatioMediumBouncy,
+    stiffness = Spring.StiffnessLow
+)
+
+@Composable
+fun CustomAnimatedButton() {
+    var selected by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(
+        targetValue = if (selected) 1.2f else 1f,
+        animationSpec = customSpec
+    )
+    
+    Button(
+        onClick = { selected = !selected },
+        modifier = Modifier.scale(scale)
+    ) {
+        Text("弹性按钮")
+    }
+}
+```
+
+### 2. 关键帧动画
+```kotlin
+@Composable
+fun KeyframeAnimation() {
+    var isAnimating by remember { mutableStateOf(false) }
+    val offset by animateIntAsState(
+        targetValue = if (isAnimating) 300 else 0,
+        animationSpec = keyframes {
+            durationMillis = 1000
+            0 at 0 with LinearEasing
+            150 at 250 with FastOutSlowInEasing
+            300 at 1000 with LinearEasing
+        }
+    )
+    
+    Box(
+        modifier = Modifier
+            .offset(x = offset.dp)
+            .size(50.dp)
+            .background(Color.Blue)
+            .clickable { isAnimating = !isAnimating }
+    )
+}
+```
+
+## 动画状态管理
+
+### 1. 动画状态机
+```kotlin
+enum class BoxState { SMALL, LARGE }
+
+@Composable
+fun AnimatedBox() {
+    var boxState by remember { mutableStateOf(BoxState.SMALL) }
+    val transition = updateTransition(boxState, label = "boxTransition")
+    
+    val size by transition.animateDp(label = "size") { state ->
+        when (state) {
+            BoxState.SMALL -> 50.dp
+            BoxState.LARGE -> 100.dp
+        }
+    }
+    
+    val color by transition.animateColor(label = "color") { state ->
+        when (state) {
+            BoxState.SMALL -> Color.Blue
+            BoxState.LARGE -> Color.Red
+        }
+    }
+    
+    Box(
+        modifier = Modifier
+            .size(size)
+            .background(color)
+            .clickable { 
+                boxState = when (boxState) {
+                    BoxState.SMALL -> BoxState.LARGE
+                    BoxState.LARGE -> BoxState.SMALL
+                }
+            }
+    )
+}
+```
+
+### 2. 无限动画
+```kotlin
+@Composable
+fun InfiniteAnimation() {
+    val infiniteTransition = rememberInfiniteTransition()
+    val color by infiniteTransition.animateColor(
+        initialValue = Color.Red,
+        targetValue = Color.Blue,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000),
+            repeatMode = RepeatMode.Reverse
+        )
+    )
+    
+    Box(
+        modifier = Modifier
+            .size(100.dp)
+            .background(color)
+    )
+}
+```
+
+## 手势动画
+
+### 1. 拖拽动画
+```kotlin
+@Composable
+fun DraggableAnimation() {
+    var offsetX by remember { mutableStateOf(0f) }
+    val draggableState = rememberDraggableState { delta ->
+        offsetX += delta
+    }
+    
+    Box(
+        modifier = Modifier
+            .offset { IntOffset(offsetX.roundToInt(), 0) }
+            .draggable(
+                state = draggableState,
+                orientation = Orientation.Horizontal,
+                onDragStopped = { velocity ->
+                    // 处理惯性滑动
+                }
+            )
+            .size(50.dp)
+            .background(Color.Green)
+    )
+}
+```
+
+### 2. 手势过渡动画
+```kotlin
+@Composable
+fun SwipeableCard() {
+    val width = 300.dp
+    val swipeableState = rememberSwipeableState(0)
+    val sizePx = with(LocalDensity.current) { width.toPx() }
+    val anchors = mapOf(0f to 0, sizePx to 1)
+    
+    Box(
+        modifier = Modifier
+            .width(width)
+            .swipeable(
+                state = swipeableState,
+                anchors = anchors,
+                thresholds = { _, _ -> FractionalThreshold(0.3f) },
+                orientation = Orientation.Horizontal
+            )
+            .background(
+                color = lerp(
+                    start = Color.White,
+                    stop = Color.Red,
+                    fraction = swipeableState.offset.value / sizePx
+                )
+            )
+    ) {
+        Text(
+            text = "滑动我",
+            modifier = Modifier.align(Alignment.Center)
+        )
+    }
+}
+```
+
+## 最佳实践
+
+1. **性能优化**
+   - 避免在动画过程中创建对象
+   - 使用 remember 缓存动画状态
+   - 合理设置动画时长和曲线
+
+2. **用户体验**
+   - 保持动画流畅性
+   - 提供适当的视觉反馈
+   - 考虑无障碍性支持
+
+3. **代码组织**
+   - 将动画逻辑封装到独立组件
+   - 使用状态机管理复杂动画
+   - 保持动画代码可维护性

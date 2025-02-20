@@ -1,0 +1,12 @@
+{
+  "index": "Compose概述",
+  "basic": "基础组件",
+  "layout": "布局系统",
+  "state": "状态管理",
+  "theme": "主题和样式",
+  "animation": "动画效果",
+  "gesture": "手势交互",
+  "custom": "自定义组件",
+  "performance": "性能优化",
+  "best-practices": "最佳实践"
+}

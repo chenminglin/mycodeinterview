@@ -1,0 +1,145 @@
+# Kotlin 集合操作
+
+## 集合类型
+
+### 不可变集合
+
+1. **List**
+   ```kotlin
+   val numbers = listOf(1, 2, 3, 4, 5)
+   val emptyList = emptyList<String>()
+   ```
+
+2. **Set**
+   ```kotlin
+   val uniqueNumbers = setOf(1, 2, 3, 3, 4) // 结果为 [1, 2, 3, 4]
+   ```
+
+3. **Map**
+   ```kotlin
+   val map = mapOf("key1" to 1, "key2" to 2)
+   ```
+
+### 可变集合
+
+1. **MutableList**
+   ```kotlin
+   val mutableList = mutableListOf(1, 2, 3)
+   mutableList.add(4)
+   mutableList.removeAt(0)
+   ```
+
+2. **MutableSet**
+   ```kotlin
+   val mutableSet = mutableSetOf<Int>()
+   mutableSet.add(1)
+   mutableSet.remove(1)
+   ```
+
+## 集合操作符
+
+### 转换操作符
+
+1. **map**
+   ```kotlin
+   val doubled = numbers.map { it * 2 }
+   ```
+
+2. **flatMap**
+   ```kotlin
+   val nested = listOf(listOf(1, 2), listOf(3, 4))
+   val flat = nested.flatMap { it } // [1, 2, 3, 4]
+   ```
+
+### 过滤操作符
+
+1. **filter**
+   ```kotlin
+   val evens = numbers.filter { it % 2 == 0 }
+   ```
+
+2. **filterNot**
+   ```kotlin
+   val odds = numbers.filterNot { it % 2 == 0 }
+   ```
+
+## 面试常见问题
+
+### 1. Kotlin集合与Java集合的区别？
+
+```kotlin
+答案：
+- Kotlin区分可变和不可变集合
+- Kotlin提供更丰富的操作符
+- Kotlin集合支持协变
+- 更好的空安全支持
+```
+
+### 2. 什么时候使用Sequence？
+
+```kotlin
+答案：
+- 处理大量数据时
+- 需要多个中间操作时
+- 避免创建中间集合
+- 提高性能的场景
+```
+
+## 最佳实践
+
+### 1. 集合选择
+
+```kotlin
+// 根据场景选择合适的集合类型
+fun processData(data: List<Int>): Set<Int> {
+    return data.filter { it > 0 }
+           .map { it * 2 }
+           .toSet()
+}
+```
+
+### 2. 性能优化
+
+```kotlin
+// 使用序列优化性能
+fun processLargeData(data: List<Int>): List<Int> {
+    return data.asSequence()
+           .filter { it > 0 }
+           .map { it * 2 }
+           .toList()
+}
+```
+
+## 高级特性
+
+### 1. 集合构建器
+
+```kotlin
+val numbers = buildList {
+    add(1)
+    add(2)
+    addAll(listOf(3, 4, 5))
+}
+```
+
+### 2. 自定义操作符
+
+```kotlin
+fun <T> List<T>.customFilter(predicate: (T) -> Boolean): List<T> {
+    return filter(predicate)
+}
+```
+
+## 总结
+
+1. **核心优势**
+   - 丰富的操作符
+   - 类型安全
+   - 不可变/可变区分
+   - 函数式编程支持
+
+2. **使用建议**
+   - 优先使用不可变集合
+   - 合理使用序列
+   - 注意性能开销
+   - 保持代码简洁

@@ -1,0 +1,152 @@
+# Android Binder机制原理
+
+## 1. Binder概述
+
+Binder是Android系统中的一种进程间通信（IPC）机制，也是Android系统服务（如AMS、WMS等）的基础通信方式。
+
+## 2. Binder架构
+
+### 2.1 四个角色
+
+- **Client**：客户端
+- **Server**：服务端
+- **ServiceManager**：管理系统中的所有服务
+- **Binder驱动**：负责进程间通信
+
+### 2.2 工作流程
+
+```java
+// 1. 服务端实现接口
+public class RemoteService extends Service {
+    private final IBinder mBinder = new IMyAidlInterface.Stub() {
+        @Override
+        public void basicTypes(int anInt, long aLong, boolean aBoolean,
+            float aFloat, double aDouble, String aString) {
+            // 实现接口方法
+        }
+    };
+
+    @Override
+    public IBinder onBind(Intent intent) {
+        return mBinder;
+    }
+}
+
+// 2. 客户端调用
+public class MainActivity extends Activity {
+    private ServiceConnection connection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            IMyAidlInterface myService = IMyAidlInterface.Stub.asInterface(service);
+            try {
+                myService.basicTypes(1, 2L, true, 3.0f, 4.0d, "test");
+            } catch (RemoteException e) {
+                e.printStackTrace();
+            }
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+        }
+    };
+}
+```
+
+## 3. Binder通信原理
+
+### 3.1 内存映射
+
+- Binder驱动在内核空间创建一块数据接收缓存区
+- 通过mmap()将内核空间的接收缓存区映射到接收进程的用户空间
+- 发送进程通过copy_from_user()将数据拷贝到内核空间
+
+### 3.2 一次拷贝原理
+
+```text
+发送进程                     接收进程
+用户空间     内核空间        用户空间
++-------+    +-------+    +-------+
+|       |    |       |    |       |
+| Data  | -> | Data  | -> | Data  |
+|       |    |       |    |       |
++-------+    +-------+    +-------+
+```
+
+## 4. AIDL使用
+
+### 4.1 定义AIDL接口
+
+```java
+// IMyAidlInterface.aidl
+package com.example.app;
+
+interface IMyAidlInterface {
+    void basicTypes(int anInt, long aLong, boolean aBoolean,
+        float aFloat, double aDouble, String aString);
+}
+```
+
+### 4.2 实现服务端
+
+```java
+public class RemoteService extends Service {
+    private final IBinder mBinder = new IMyAidlInterface.Stub() {
+        @Override
+        public void basicTypes(int anInt, long aLong, boolean aBoolean,
+            float aFloat, double aDouble, String aString) {
+            // 实现接口方法
+        }
+    };
+
+    @Override
+    public IBinder onBind(Intent intent) {
+        return mBinder;
+    }
+}
+```
+
+## 5. 面试常见问题
+
+### Q1: Binder通信的优势是什么？
+
+1. **性能高效**：只需一次数据拷贝
+2. **安全性好**：可以携带调用者的UID/PID
+3. **使用简单**：通过AIDL自动生成代码
+
+### Q2: Binder线程池的工作原理？
+
+1. 每个Server进程创建一个Binder线程池
+2. 多个Client同时发起请求时，Server进程的Binder线程池会分配空闲线程处理
+3. 默认最大线程数是16
+
+### Q3: 为什么Android要使用Binder？
+
+1. **性能考虑**：相比传统IPC机制，Binder只需一次内存拷贝
+2. **安全考虑**：可以获得对方进程的UID/PID，从而验证对方身份
+3. **语言层面**：契合面向对象的设计理念
+
+## 6. 实践建议
+
+### 6.1 AIDL接口设计
+
+```java
+// 1. 考虑数据大小，避免传输过大数据
+// 2. 处理并发访问
+// 3. 处理异常情况
+interface IMyAidlInterface {
+    oneway void asyncMethod(String data);
+    void syncMethod(in ParcelableData data) throws RemoteException;
+}
+```
+
+### 6.2 进程间大数据传输
+
+1. 使用ContentProvider
+2. 使用文件共享
+3. 使用共享内存
+
+### 6.3 注意事项
+
+1. 处理RemoteException
+2. 注意线程安全
+3. 合理管理Binder连接

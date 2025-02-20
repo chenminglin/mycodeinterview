@@ -1,0 +1,181 @@
+# Android内存泄漏优化
+
+## 1. 什么是内存泄漏？
+
+内存泄漏是指程序在申请内存后，无法释放已申请的内存空间，导致系统内存的浪费。在Android中，内存泄漏最终可能导致OOM（Out Of Memory）异常。
+
+## 2. 常见的内存泄漏场景
+
+### 2.1 静态变量引用Activity
+
+```java
+public class MainActivity extends Activity {
+    private static Context sContext;
+    
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        sContext = this; // 错误的做法，可能导致内存泄漏
+    }
+}
+```
+
+### 2.2 Handler使用不当
+
+```java
+public class MainActivity extends Activity {
+    private Handler mHandler = new Handler() {
+        @Override
+        public void handleMessage(Message msg) {
+            // 处理消息
+        }
+    };
+    
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        mHandler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                // 延迟执行的任务
+            }
+        }, 10000);
+    }
+}
+```
+
+### 2.3 注册监听器未注销
+
+```java
+public class MainActivity extends Activity {
+    private LocationManager locationManager;
+    private LocationListener locationListener;
+    
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+        locationListener = new LocationListener() {
+            // 实现监听方法
+        };
+        locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, locationListener);
+    }
+    
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        locationManager.removeUpdates(locationListener); // 记得注销监听
+    }
+}
+```
+
+## 3. 内存泄漏检测工具
+
+### 3.1 Android Studio Memory Profiler
+
+- 实时监控应用内存使用情况
+- 查看内存分配情况
+- 捕获堆转储并分析
+
+### 3.2 LeakCanary
+
+```gradle
+dependencies {
+    debugImplementation 'com.squareup.leakcanary:leakcanary-android:2.10'
+}
+```
+
+使用示例：
+```java
+public class MyApplication extends Application {
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        if (BuildConfig.DEBUG) {
+            // LeakCanary会自动检测Activity和Fragment的内存泄漏
+        }
+    }
+}
+```
+
+## 4. 最佳实践
+
+### 4.1 正确使用Handler
+
+```java
+public class MainActivity extends Activity {
+    private static class MyHandler extends Handler {
+        private final WeakReference<MainActivity> activityRef;
+        
+        MyHandler(MainActivity activity) {
+            activityRef = new WeakReference<>(activity);
+        }
+        
+        @Override
+        public void handleMessage(Message msg) {
+            MainActivity activity = activityRef.get();
+            if (activity != null) {
+                // 处理消息
+            }
+        }
+    }
+    
+    private final MyHandler mHandler = new MyHandler(this);
+}
+```
+
+### 4.2 使用生命周期感知组件
+
+```java
+public class MyViewModel extends ViewModel {
+    private final MutableLiveData<String> data = new MutableLiveData<>();
+    
+    public void loadData() {
+        // 异步加载数据
+        // ViewModel会在Activity销毁时自动清理
+    }
+}
+```
+
+### 4.3 避免内部类持有外部类引用
+
+```java
+public class MainActivity extends Activity {
+    private static class MyRunnable implements Runnable {
+        private final WeakReference<MainActivity> activityRef;
+        
+        MyRunnable(MainActivity activity) {
+            activityRef = new WeakReference<>(activity);
+        }
+        
+        @Override
+        public void run() {
+            MainActivity activity = activityRef.get();
+            if (activity != null) {
+                // 执行任务
+            }
+        }
+    }
+}
+```
+
+## 5. 面试常见问题
+
+### Q1: 如何排查内存泄漏？
+
+1. 使用Memory Profiler观察内存走势
+2. 在怀疑有内存泄漏的场景进行堆转储
+3. 分析堆转储文件，查找GC Root
+4. 使用LeakCanary等工具辅助检测
+
+### Q2: 为什么Handler容易造成内存泄漏？
+
+1. Handler内部类持有外部Activity的引用
+2. 消息队列中的Message持有Handler的引用
+3. 如果有延迟消息，会阻止Activity被回收
+
+### Q3: WeakReference的作用是什么？
+
+1. 弱引用不会阻止对象被垃圾回收
+2. 适合用于缓存场景
+3. 可以用来解决内存泄漏问题

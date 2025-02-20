@@ -1,0 +1,330 @@
+# Compose 最佳实践
+
+## 状态管理
+
+### 状态提升
+```kotlin
+// 不推荐
+@Composable
+fun Counter() {
+    var count by remember { mutableStateOf(0) }
+    Button(onClick = { count++ }) {
+        Text("Count: $count")
+    }
+}
+
+// 推荐
+@Composable
+fun Counter(count: Int, onCountChange: (Int) -> Unit) {
+    Button(onClick = { onCountChange(count + 1) }) {
+        Text("Count: $count")
+    }
+}
+```
+
+### 状态恢复
+```kotlin
+class MyViewModel : ViewModel() {
+    private val _uiState = MutableStateFlow(UiState())
+    val uiState: StateFlow<UiState> = _uiState.asStateFlow()
+
+    fun handleEvent(event: UiEvent) {
+        viewModelScope.launch {
+            // 处理事件并更新状态
+        }
+    }
+}
+
+@Composable
+fun MyScreen(viewModel: MyViewModel) {
+    val uiState by viewModel.uiState.collectAsState()
+    // 使用uiState渲染UI
+}
+```
+
+## 性能优化
+
+### 重组优化
+```kotlin
+// 不推荐
+@Composable
+fun ExpensiveScreen() {
+    val items = remember { mutableStateListOf<Item>() }
+    LazyColumn {
+        items(items) { item ->
+            ExpensiveItem(item) // 每次重组都会重新创建
+        }
+    }
+}
+
+// 推荐
+@Composable
+fun OptimizedScreen() {
+    val items = remember { mutableStateListOf<Item>() }
+    LazyColumn {
+        items(
+            items = items,
+            key = { it.id } // 使用稳定的key
+        ) { item ->
+            key(item.id) {
+                ExpensiveItem(item)
+            }
+        }
+    }
+}
+```
+
+### 副作用处理
+```kotlin
+@Composable
+fun NetworkImage(url: String) {
+    var bitmap by remember { mutableStateOf<Bitmap?>(null) }
+
+    LaunchedEffect(url) {
+        bitmap = loadImage(url)
+    }
+
+    if (bitmap != null) {
+        Image(bitmap = bitmap!!.asImageBitmap(), contentDescription = null)
+    } else {
+        CircularProgressIndicator()
+    }
+}
+```
+
+## 架构设计
+
+### 单向数据流
+```kotlin
+data class UiState(
+    val items: List<Item> = emptyList(),
+    val isLoading: Boolean = false,
+    val error: String? = null
+)
+
+sealed class UiEvent {
+    data class ItemClicked(val item: Item) : UiEvent()
+    object RefreshRequested : UiEvent()
+}
+
+@Composable
+fun MyScreen(
+    uiState: UiState,
+    onEvent: (UiEvent) -> Unit
+) {
+    when {
+        uiState.isLoading -> LoadingUI()
+        uiState.error != null -> ErrorUI(uiState.error)
+        else -> ContentUI(
+            items = uiState.items,
+            onItemClick = { item ->
+                onEvent(UiEvent.ItemClicked(item))
+            }
+        )
+    }
+}
+```
+
+### 组件分层
+```kotlin
+// UI层：纯展示组件
+@Composable
+fun ItemCard(item: Item, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier.clickable(onClick = onClick)
+    ) {
+        // UI展示逻辑
+    }
+}
+
+// Screen层：组合组件和处理状态
+@Composable
+fun ItemsScreen(viewModel: ItemsViewModel) {
+    val uiState by viewModel.uiState.collectAsState()
+    
+    ItemsList(
+        items = uiState.items,
+        onItemClick = { viewModel.handleItemClick(it) }
+    )
+}
+```
+
+## 测试
+
+### 可测试性设计
+```kotlin
+// 将业务逻辑抽离到ViewModel
+class CalculatorViewModel : ViewModel() {
+    private val _result = MutableStateFlow(0)
+    val result: StateFlow<Int> = _result.asStateFlow()
+
+    fun add(a: Int, b: Int) {
+        _result.value = a + b
+    }
+}
+
+// 易于测试的UI组件
+@Composable
+fun Calculator(
+    result: Int,
+    onAdd: (Int, Int) -> Unit
+) {
+    var a by remember { mutableStateOf(0) }
+    var b by remember { mutableStateOf(0) }
+
+    Column {
+        TextField(value = a.toString(), onValueChange = { a = it.toIntOrNull() ?: 0 })
+        TextField(value = b.toString(), onValueChange = { b = it.toIntOrNull() ?: 0 })
+        Button(onClick = { onAdd(a, b) }) {
+            Text("Add")
+        }
+        Text("Result: $result")
+    }
+}
+```
+
+## 主题和样式
+
+### 一致性设计
+```kotlin
+@Composable
+fun AppTheme(content: @Composable () -> Unit) {
+    MaterialTheme(
+        colors = AppColors,
+        typography = AppTypography,
+        shapes = AppShapes
+    ) {
+        CompositionLocalProvider(
+            LocalSpacing provides Spacing(),
+            content = content
+        )
+    }
+}
+
+// 使用主题变量
+@Composable
+fun ThemedButton(
+    onClick: () -> Unit,
+    content: @Composable () -> Unit
+) {
+    val colors = MaterialTheme.colors
+    val spacing = LocalSpacing.current
+
+    Button(
+        onClick = onClick,
+        colors = ButtonDefaults.buttonColors(
+            backgroundColor = colors.primary
+        ),
+        modifier = Modifier.padding(spacing.medium)
+    ) {
+        content()
+    }
+}
+```
+
+## 无障碍性
+
+### 无障碍支持
+```kotlin
+@Composable
+fun AccessibleContent() {
+    Column(
+        modifier = Modifier.semantics {
+            contentDescription = "主要内容区域"
+        }
+    ) {
+        Text(
+            text = "标题",
+            modifier = Modifier.semantics {
+                heading()
+            }
+        )
+
+        Button(
+            onClick = { /* 处理点击 */ },
+            modifier = Modifier.semantics {
+                onClick(label = "点击执行操作", action = null)
+            }
+        ) {
+            Text("操作按钮")
+        }
+    }
+}
+```
+
+## 与Android View互操作
+
+### AndroidView封装
+```kotlin
+@Composable
+fun CustomAndroidView() {
+    AndroidView(
+        factory = { context ->
+            CustomView(context).apply {
+                // 初始化View
+            }
+        },
+        update = { view ->
+            // 更新View的属性
+            view.updateProperties()
+        }
+    )
+}
+```
+
+### 自定义布局
+```kotlin
+@Composable
+fun CustomLayout(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    Layout(
+        content = content,
+        modifier = modifier
+    ) { measurables, constraints ->
+        // 测量子项
+        val placeables = measurables.map { measurable ->
+            measurable.measure(constraints)
+        }
+
+        // 确定布局大小
+        val width = placeables.maxOf { it.width }
+        val height = placeables.sumOf { it.height }
+
+        // 放置子项
+        layout(width, height) {
+            var y = 0
+            placeables.forEach { placeable ->
+                placeable.placeRelative(x = 0, y = y)
+                y += placeable.height
+            }
+        }
+    }
+}
+```
+
+### 复杂手势处理
+```kotlin
+@Composable
+fun GestureHandler() {
+    var offset by remember { mutableStateOf(Offset.Zero) }
+    val state = rememberTransformableState { zoomChange, panChange, rotationChange ->
+        // 处理缩放、平移和旋转
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .transformable(state = state)
+            .pointerInput(Unit) {
+                detectDragGestures { change, dragAmount ->
+                    change.consume()
+                    offset += dragAmount
+                }
+            }
+    ) {
+        // 内容
+    }
+}
+```

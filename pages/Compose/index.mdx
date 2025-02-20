@@ -1,0 +1,120 @@
+# Jetpack Compose 概述
+
+## 什么是 Jetpack Compose?
+
+Jetpack Compose 是 Android 现代化的原生 UI 开发工具包，它使用声明式 UI 范式，能够简化和加速 Android UI 开发。
+
+## 核心特点
+
+### 1. 声明式 UI
+- 直观地描述界面状态
+- 自动处理 UI 更新
+- 减少模板代码
+
+### 2. 完全使用 Kotlin
+- 利用 Kotlin 的强大特性
+- 协程支持
+- 函数式编程
+
+### 3. 可组合函数
+```kotlin
+@Composable
+fun Greeting(name: String) {
+    Text(text = "Hello $name!")
+}
+```
+
+### 4. 内置 Material Design
+- 丰富的 Material 组件
+- 主题定制
+- 动画支持
+
+## 优势
+
+1. **开发效率**
+   - 更少的代码
+   - 实时预览
+   - 快速迭代
+
+2. **可维护性**
+   - 清晰的代码结构
+   - 更好的代码复用
+   - 易于测试
+
+3. **性能优化**
+   - 智能重组
+   - 高效渲染
+   - 内存优化
+
+## 基本概念
+
+### 1. Composable 函数
+```kotlin
+@Composable
+fun MyApp() {
+    Surface(color = MaterialTheme.colors.background) {
+        Greeting("Android")
+    }
+}
+```
+
+### 2. 状态管理
+```kotlin
+var text by remember { mutableStateOf("") }
+```
+
+### 3. 副作用处理
+```kotlin
+LaunchedEffect(key1) {
+    // 处理副作用
+}
+```
+
+## 最佳实践
+
+1. **状态提升**
+   - 将状态移至可组合项的调用方
+   - 保持可组合函数无状态
+
+2. **组件化设计**
+   - 创建可重用的组件
+   - 遵循单一职责原则
+
+3. **性能考虑**
+   - 适当使用 remember
+   - 避免不必要的重组
+   - 合理使用 key
+
+## 学习路线
+
+1. **基础组件**
+   - 了解基本布局
+   - 掌握常用组件
+   - 学习状态管理
+
+2. **进阶主题**
+   - 自定义主题
+   - 动画效果
+   - 手势处理
+
+3. **高级特性**
+   - 自定义布局
+   - 性能优化
+   - 测试技巧
+
+## 注意事项
+
+1. **版本兼容性**
+   - 检查最低 API 要求
+   - 关注版本更新
+   - 处理向后兼容
+
+2. **迁移策略**
+   - 渐进式迁移
+   - 混合使用传统 View
+   - 保持代码一致性
+
+3. **开发工具**
+   - Android Studio 版本要求
+   - 预览功能的使用
+   - 调试工具的应用

@@ -1,0 +1,230 @@
+# View的绘制原理
+
+## 1. 基础知识
+
+### 1.1 View绘制流程的三个阶段
+
+1. **测量（Measure）**
+   - 确定View的大小
+   - 自上而下遍历View树
+   - 父View向子View传递测量要求
+
+2. **布局（Layout）**
+   - 确定View的位置
+   - 计算View的left、top、right、bottom
+   - 根据测量结果和布局参数进行定位
+
+3. **绘制（Draw）**
+   - 将View绘制到屏幕上
+   - 绘制背景、内容、子View、前景等
+   - 处理透明度、动画等效果
+
+## 2. 核心问题
+
+### 2.1 View的测量过程是怎样的？
+
+**答案：**
+
+1. **MeasureSpec的生成**
+   ```java
+   public static class MeasureSpec {
+       private static final int MODE_SHIFT = 30;
+       private static final int MODE_MASK = 0x3 << MODE_SHIFT;
+       
+       // 精确模式，指定具体大小
+       public static final int EXACTLY = 1 << MODE_SHIFT;
+       
+       // 最大模式，View的大小不能超过指定大小
+       public static final int AT_MOST = 2 << MODE_SHIFT;
+       
+       // 未指定模式，View按需求取值
+       public static final int UNSPECIFIED = 0;
+   }
+   ```
+
+2. **measure过程**
+   ```java
+   protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+       setMeasuredDimension(
+           getDefaultSize(getSuggestedMinimumWidth(), widthMeasureSpec),
+           getDefaultSize(getSuggestedMinimumHeight(), heightMeasureSpec)
+       );
+   }
+   ```
+
+### 2.2 自定义View需要注意什么？
+
+1. **正确重写测量方法**
+   ```java
+   @Override
+   protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+       // 获取测量模式和大小
+       int widthMode = MeasureSpec.getMode(widthMeasureSpec);
+       int widthSize = MeasureSpec.getSize(widthMeasureSpec);
+       
+       int heightMode = MeasureSpec.getMode(heightMeasureSpec);
+       int heightSize = MeasureSpec.getSize(heightMeasureSpec);
+       
+       // 计算实际大小
+       int width = calculateWidth(widthMode, widthSize);
+       int height = calculateHeight(heightMode, heightSize);
+       
+       // 保存测量结果
+       setMeasuredDimension(width, height);
+   }
+   ```
+
+2. **处理wrap_content**
+   - 指定默认大小
+   - 避免与match_parent效果相同
+
+3. **考虑padding和margin**
+   ```java
+   @Override
+   protected void onDraw(Canvas canvas) {
+       super.onDraw(canvas);
+       // 考虑padding
+       int paddingLeft = getPaddingLeft();
+       int paddingTop = getPaddingTop();
+       int width = getWidth() - getPaddingRight() - paddingLeft;
+       int height = getHeight() - getPaddingBottom() - paddingTop;
+   }
+   ```
+
+### 2.3 View的绘制流程是从哪里开始的？
+
+**答案：**
+
+1. **ViewRootImpl的performTraversals方法**
+   - 开始View树的遍历
+   - 触发measure、layout、draw三大流程
+
+2. **绘制流程的传递**
+   ```java
+   private void performTraversals() {
+       // 执行测量
+       performMeasure(childWidthMeasureSpec, childHeightMeasureSpec);
+       
+       // 执行布局
+       performLayout(lp, mWidth, mHeight);
+       
+       // 执行绘制
+       performDraw();
+   }
+   ```
+
+## 3. 性能优化
+
+### 3.1 如何优化View的绘制性能？
+
+1. **避免过度绘制**
+   - 移除不必要的背景
+   - 使用clipRect裁剪画布
+   - 使用ViewStub延迟加载
+
+2. **扁平化View层级**
+   ```xml
+   <!-- 优化前 -->
+   <LinearLayout>
+       <LinearLayout>
+           <LinearLayout>
+               <TextView/>
+           </LinearLayout>
+       </LinearLayout>
+   </LinearLayout>
+
+   <!-- 优化后 -->
+   <ConstraintLayout>
+       <TextView/>
+   </ConstraintLayout>
+   ```
+
+3. **使用硬件加速**
+   ```xml
+   <application android:hardwareAccelerated="true">
+   ```
+
+## 4. 实战示例
+
+### 4.1 自定义圆形进度条
+
+```java
+public class CircleProgressView extends View {
+    private Paint mPaint;
+    private int mProgress;
+    private int mMax = 100;
+
+    public CircleProgressView(Context context) {
+        this(context, null);
+    }
+
+    public CircleProgressView(Context context, AttributeSet attrs) {
+        super(context, attrs);
+        init();
+    }
+
+    private void init() {
+        mPaint = new Paint();
+        mPaint.setAntiAlias(true);
+        mPaint.setStyle(Paint.Style.STROKE);
+        mPaint.setStrokeWidth(10);
+    }
+
+    @Override
+    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        int width = MeasureSpec.getSize(widthMeasureSpec);
+        int height = MeasureSpec.getSize(heightMeasureSpec);
+        int size = Math.min(width, height);
+        setMeasuredDimension(size, size);
+    }
+
+    @Override
+    protected void onDraw(Canvas canvas) {
+        super.onDraw(canvas);
+
+        int centerX = getWidth() / 2;
+        int centerY = getHeight() / 2;
+        int radius = Math.min(centerX, centerY) - 10;
+
+        // 绘制背景圆
+        mPaint.setColor(Color.GRAY);
+        canvas.drawCircle(centerX, centerY, radius, mPaint);
+
+        // 绘制进度
+        mPaint.setColor(Color.BLUE);
+        float sweepAngle = 360f * mProgress / mMax;
+        RectF rectF = new RectF(centerX - radius, centerY - radius,
+                centerX + radius, centerY + radius);
+        canvas.drawArc(rectF, -90, sweepAngle, false, mPaint);
+    }
+
+    public void setProgress(int progress) {
+        mProgress = progress;
+        invalidate();
+    }
+}
+```
+
+### 4.2 使用示例
+
+```java
+public class MainActivity extends AppCompatActivity {
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        CircleProgressView progressView = findViewById(R.id.progressView);
+        // 设置进度
+        progressView.setProgress(75);
+    }
+}
+```
+
+```xml
+<com.example.CircleProgressView
+    android:id="@+id/progressView"
+    android:layout_width="200dp"
+    android:layout_height="200dp"
+    android:layout_gravity="center"/>
+```

@@ -1,0 +1,141 @@
+# Kotlin 类型系统
+
+## 基础类型
+
+### 数字类型
+
+1. **整数类型**
+   - Byte (8位)
+   - Short (16位)
+   - Int (32位)
+   - Long (64位)
+
+2. **浮点类型**
+   - Float (32位)
+   - Double (64位)
+
+### 类型推断
+
+```kotlin
+val number = 100 // 自动推断为Int
+val decimal = 3.14 // 自动推断为Double
+val long = 100L // 显式指定为Long
+```
+
+## 可空类型系统
+
+### 基本概念
+
+1. **可空类型声明**
+   ```kotlin
+   var nullableString: String? = null
+   var nonNullString: String = "Hello"
+   ```
+
+2. **安全调用操作符**
+   ```kotlin
+   val length = nullableString?.length ?: 0
+   ```
+
+### 智能类型转换
+
+1. **类型检查**
+   ```kotlin
+   if (value is String) {
+       // 在这个作用域内，value自动转换为String类型
+       println(value.length)
+   }
+   ```
+
+2. **安全类型转换**
+   ```kotlin
+   val result = value as? String ?: ""
+   ```
+
+## 面试常见问题
+
+### 1. Kotlin的类型系统有什么特点？
+
+```kotlin
+答案：
+- 默认所有类型都是非空的
+- 支持智能类型转换
+- 提供了完善的空安全机制
+- 类型推断能力强
+```
+
+### 2. 什么是智能类型转换？
+
+```kotlin
+答案：
+- 编译器能够追踪类型检查和类型转换
+- 自动在检查后的作用域中转换类型
+- 减少显式类型转换的代码
+- 提高代码可读性和安全性
+```
+
+## 最佳实践
+
+### 1. 类型使用建议
+
+```kotlin
+// 推荐写法
+fun process(value: Any) {
+    when (value) {
+        is String -> handleString(value)
+        is Int -> handleInt(value)
+        else -> handleUnknown(value)
+    }
+}
+```
+
+### 2. 空安全处理
+
+```kotlin
+// 推荐写法
+fun getName(user: User?): String {
+    return user?.name ?: "Unknown"
+}
+
+// 避免使用!!
+fun getBadName(user: User?): String {
+    return user!!.name // 不推荐
+}
+```
+
+## 高级特性
+
+### 1. 泛型
+
+```kotlin
+class Box<T>(var value: T)
+
+// 协变
+class Producer<out T>(val item: T)
+
+// 逆变
+class Consumer<in T> {
+    fun consume(item: T) {}
+}
+```
+
+### 2. 类型别名
+
+```kotlin
+typealias NetworkResult<T> = Result<Pair<T, Int>>
+typealias OnSuccess<T> = (T) -> Unit
+```
+
+## 总结
+
+1. **核心优势**
+   - 类型安全
+   - 空安全
+   - 智能类型转换
+   - 泛型支持
+
+2. **使用建议**
+   - 优先使用非空类型
+   - 合理利用类型推断
+   - 避免使用非空断言
+   - 善用智能类型转换

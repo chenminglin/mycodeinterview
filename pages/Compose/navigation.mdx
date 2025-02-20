@@ -1,0 +1,195 @@
+# Compose 导航
+
+## 基础导航
+
+### NavController
+```kotlin
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent {
+            val navController = rememberNavController()
+            
+            NavHost(navController, startDestination = "home") {
+                composable("home") { HomeScreen(navController) }
+                composable("detail/{id}") { backStackEntry ->
+                    val id = backStackEntry.arguments?.getString("id")
+                    DetailScreen(id, navController)
+                }
+            }
+        }
+    }
+}
+```
+
+### 导航操作
+```kotlin
+@Composable
+fun HomeScreen(navController: NavController) {
+    Button(onClick = { 
+        navController.navigate("detail/123") 
+    }) {
+        Text("跳转到详情")
+    }
+}
+
+@Composable
+fun DetailScreen(id: String?, navController: NavController) {
+    Button(onClick = { 
+        navController.popBackStack() 
+    }) {
+        Text("返回")
+    }
+}
+```
+
+## 高级特性
+
+### 深层链接
+```kotlin
+AndroidManifest.xml:
+<activity>
+    <intent-filter>
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <category android:name="android.intent.category.BROWSABLE" />
+        <data android:scheme="myapp" android:host="example.com" />
+    </intent-filter>
+</activity>
+
+NavHost {
+    composable(
+        "detail/{id}",
+        deepLinks = listOf(navDeepLink { 
+            uriPattern = "myapp://example.com/detail/{id}" 
+        })
+    ) { backStackEntry ->
+        DetailScreen(backStackEntry.arguments?.getString("id"))
+    }
+}
+```
+
+### 参数传递
+```kotlin
+// 定义参数
+composable(
+    route = "profile/{userId}?showDetails={showDetails}",
+    arguments = listOf(
+        navArgument("userId") { type = NavType.StringType },
+        navArgument("showDetails") { 
+            type = NavType.BoolType 
+            defaultValue = false
+        }
+    )
+) { backStackEntry ->
+    val userId = backStackEntry.arguments?.getString("userId")
+    val showDetails = backStackEntry.arguments?.getBoolean("showDetails") ?: false
+    ProfileScreen(userId, showDetails)
+}
+
+// 导航时传递参数
+navController.navigate("profile/123?showDetails=true")
+```
+
+## 导航架构
+
+### 导航图
+```kotlin
+fun NavGraphBuilder.profileGraph(navController: NavController) {
+    navigation(startDestination = "profile", route = "profile_graph") {
+        composable("profile") { ProfileScreen(navController) }
+        composable("settings") { SettingsScreen(navController) }
+        composable("edit_profile") { EditProfileScreen(navController) }
+    }
+}
+
+NavHost(navController, startDestination = "home") {
+    composable("home") { HomeScreen(navController) }
+    profileGraph(navController)
+}
+```
+
+### 共享元素过渡
+```kotlin
+@Composable
+fun ListScreen(navController: NavController) {
+    val items = remember { listOf("Item 1", "Item 2", "Item 3") }
+    
+    LazyColumn {
+        items(items) { item ->
+            ListItem(
+                modifier = Modifier.clickable {
+                    navController.navigate("detail/$item")
+                },
+                text = { Text(item) }
+            )
+        }
+    }
+}
+
+@Composable
+fun DetailScreen(item: String, navController: NavController) {
+    Column {
+        Text(
+            text = item,
+            style = MaterialTheme.typography.h4
+        )
+        Button(onClick = { navController.popBackStack() }) {
+            Text("返回")
+        }
+    }
+}
+```
+
+## 最佳实践
+
+### 1. 导航状态管理
+```kotlin
+class MainViewModel : ViewModel() {
+    private val _navigationState = MutableStateFlow<NavigationState>(NavigationState.None)
+    val navigationState: StateFlow<NavigationState> = _navigationState.asStateFlow()
+
+    fun navigate(state: NavigationState) {
+        _navigationState.value = state
+    }
+}
+
+sealed class NavigationState {
+    object None : NavigationState()
+    data class ToDetail(val id: String) : NavigationState()
+    object Back : NavigationState()
+}
+```
+
+### 2. 类型安全的导航
+```kotlin
+sealed class Screen(val route: String) {
+    object Home : Screen("home")
+    object Profile : Screen("profile")
+    data class Detail(val id: String) : Screen("detail/{id}") {
+        fun createRoute() = "detail/$id"
+    }
+}
+
+// 使用
+navController.navigate(Screen.Detail("123").createRoute())
+```
+
+### 3. 导航拦截
+```kotlin
+val navController = rememberNavController()
+
+LaunchedEffect(navController) {
+    navController.addOnDestinationChangedListener { _, destination, _ ->
+        // 处理导航变化
+        when(destination.route) {
+            "profile" -> {
+                // 检查是否登录
+                if (!isLoggedIn) {
+                    navController.navigate("login")
+                }
+            }
+        }
+    }
+}
+```

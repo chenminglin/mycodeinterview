@@ -64,142 +64,177 @@ class PreferenceDelegate<T>(
     }
 
     operator fun setValue(thisRef: Any?, property: KProperty<*>, value: T) {
-        putPreference(name, value)
+        savePreference(name, value)
     }
 }
 
 // 使用示例
-class UserSettings(context: Context) {
+class SettingsManager(context: Context) {
     var username by PreferenceDelegate(context, "username", "")
-    var isFirstLaunch by PreferenceDelegate(context, "is_first_launch", true)
+    var isFirstLaunch by PreferenceDelegate(context, "isFirstLaunch", true)
 }
 ```
 
-## 协程作用域
+## 内联类（Inline Class）
 
-### 作用域类型
+### 基本概念
 
-1. **GlobalScope**
-   - 全局作用域
-   - 生命周期与应用程序同步
-   - 不推荐使用
+1. **特点**
+   - 在运行时表示为包装的类型
+   - 编译时会被优化，减少内存分配
+   - 只能有一个主构造器参数
 
-2. **CoroutineScope**
-   - 自定义作用域
-   - 可控制生命周期
-   - 推荐使用
+2. **使用场景**
+   - 度量单位转换
+   - 类型安全的标识符
+   - 性能优化
 
-3. **ViewModelScope**
-   - ViewModel专用作用域
-   - 自动取消
-
-### 最佳实践
+### 代码示例
 
 ```kotlin
-class MyViewModel : ViewModel() {
-    private val _data = MutableLiveData<String>()
-    val data: LiveData<String> = _data
+@JvmInline
+value class Password(private val value: String)
 
-    fun loadData() {
-        viewModelScope.launch {
-            try {
-                val result = withContext(Dispatchers.IO) {
-                    // 执行耗时操作
-                    repository.fetchData()
-                }
-                _data.value = result
-            } catch (e: Exception) {
-                // 错误处理
-            }
-        }
+@JvmInline
+value class Meters(val value: Double) {
+    fun toKilometers(): Kilometers = Kilometers(value / 1000)
+}
+
+@JvmInline
+value class Kilometers(val value: Double)
+
+// 使用示例
+fun login(username: String, password: Password) {
+    // 类型安全的密码处理
+}
+
+val distance = Meters(5000.0).toKilometers()
+```
+
+## 扩展函数（Extension Functions）
+
+### 核心特性
+
+1. **定义方式**
+   - 不修改原类的情况下添加新功能
+   - 可以访问接收者的public成员
+   - 支持泛型扩展
+
+2. **使用限制**
+   - 不能访问私有成员
+   - 不能重写已有方法
+   - 扩展属性不能有backing field
+
+### 实践示例
+
+```kotlin
+// 字符串扩展
+fun String.removeFirstAndLast() = substring(1, length - 1)
+
+// 泛型扩展
+fun <T> List<T>.swap(index1: Int, index2: Int): List<T> {
+    val result = this.toMutableList()
+    val tmp = result[index1]
+    result[index1] = result[index2]
+    result[index2] = tmp
+    return result
+}
+
+// 扩展属性
+val <T> List<T>.lastIndex: Int
+    get() = size - 1
+```
+
+## 协程（Coroutines）
+
+### 基础概念
+
+1. **特点**
+   - 轻量级线程
+   - 支持异步编程
+   - 结构化并发
+
+2. **核心组件**
+   - CoroutineScope
+   - CoroutineContext
+   - Job
+   - Dispatcher
+
+### 实现示例
+
+```kotlin
+// 基本使用
+fun main() = runBlocking {
+    launch {
+        delay(1000)
+        println("World!")
     }
+    println("Hello")
+}
+
+// 异步操作
+suspend fun fetchUser(): User = coroutineScope {
+    val user = async { api.getUser() }
+    val friends = async { api.getFriends() }
+    user.await().copy(friends = friends.await())
+}
+
+// 错误处理
+val handler = CoroutineExceptionHandler { _, exception ->
+    println("Caught $exception")
+}
+
+val job = GlobalScope.launch(handler) {
+    throw AssertionError("My Custom Error")
 }
 ```
 
-## 面试常见问题
+## 面试题精选
 
-### 1. Kotlin协程与线程的区别？
+### 1. 密封类和枚举类的区别是什么？
 
-- **协程**：
-  - 轻量级
-  - 非阻塞
-  - 支持挂起和恢复
-  - 更好的并发控制
+**答案**：
+1. 密封类可以包含状态，而枚举常量不能
+2. 密封类的子类可以有多个实例，枚举常量只能有一个实例
+3. 密封类可以继承其他类，枚举类不能
+4. 密封类更适合表示复杂的状态层次结构
 
-- **线程**：
-  - 系统级资源
-  - 阻塞式
-  - 切换开销大
-  - 并发控制复杂
+### 2. 什么是属性委托？有哪些常用的委托模式？
 
-### 2. 什么是协程的结构化并发？
+**答案**：
+1. 属性委托是将属性的getter/setter委托给另一个类处理的机制
+2. 常用的委托模式：
+   - lazy：懒加载
+   - observable：观察属性变化
+   - vetoable：可否决的属性修改
+   - notNull：非空属性
+   - map：将属性存储在Map中
 
-- 父协程等待所有子协程完成
-- 子协程继承父协程的上下文
-- 父协程取消会级联取消子协程
-- 子协程异常会传播给父协程
+### 3. 内联类的主要用途是什么？
 
-### 3. Kotlin中的委托模式有哪些应用场景？
+**答案**：
+1. 性能优化：避免运行时装箱操作
+2. 类型安全：提供特定类型的包装
+3. 零成本抽象：编译时会被优化掉
+4. 适用场景：
+   - 度量单位转换
+   - 类型安全的标识符
+   - 性能敏感的包装类
 
-1. **属性委托**：
-   - 懒加载
-   - 观察者模式
-   - 数据持久化
-   - 线程安全访问
+### 4. 协程与线程的区别是什么？
 
-2. **类委托**：
-   - 装饰器模式
-   - 适配器模式
-   - 代理模式
+**答案**：
+1. 资源消耗：协程更轻量，可以创建大量实例
+2. 切换开销：协程切换成本低，不涉及线程切换
+3. 编程模型：协程支持结构化并发，代码更清晰
+4. 异常处理：协程提供内置的异常处理机制
+5. 取消机制：协程支持结构化取消
 
-### 4. 密封类与枚举类的区别？
+### 5. Kotlin的扩展函数有什么限制？
 
-1. **密封类**：
-   - 可以包含状态
-   - 子类可以有多个实例
-   - 更灵活的继承结构
-   - 适合表示复杂状态
-
-2. **枚举类**：
-   - 固定实例数量
-   - 每个常量只有一个实例
-   - 简单的值集合
-   - 适合表示固定选项
-
-## 最佳实践
-
-1. **协程使用**
-   - 使用适当的作用域
-   - 正确处理异常
-   - 合理选择调度器
-   - 避免使用GlobalScope
-
-2. **密封类设计**
-   - 状态管理
-   - 错误处理
-   - UI状态表示
-   - 网络请求结果
-
-3. **委托属性**
-   - 封装SharedPreferences
-   - 实现懒加载
-   - 观察属性变化
-   - 线程安全处理
-
-## 注意事项
-
-1. **协程安全**
-   - 避免在GlobalScope中启动协程
-   - 正确处理异常
-   - 注意协程取消
-   - 使用适当的调度器
-
-2. **内存管理**
-   - 及时取消不需要的协程
-   - 避免内存泄漏
-   - 正确管理生命周期
-
-3. **性能优化**
-   - 合理使用挂起函数
-   - 避免过度使用协程
-   - 正确使用调度器
+**答案**：
+1. 不能访问接收者类的私有成员
+2. 不能重写已有的成员方法
+3. 扩展属性不能有backing field
+4. 扩展函数的解析是静态的
+5. 子类扩展函数不能覆盖父类扩展函数
