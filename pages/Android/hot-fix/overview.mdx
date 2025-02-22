@@ -1,0 +1,265 @@
+# Android热修复技术详解
+
+## 热修复概述
+
+热修复（Hot Fix）是Android平台上的一种动态修复线上Bug的技术，无需重新发版就能修复应用问题，是应用程序维护的重要手段。
+
+## 主流方案对比
+
+### 1. Tinker（腾讯）
+- 支持全量更新
+- 支持资源修复
+- 性能较好
+
+### 2. Sophix（阿里）
+- 多种修复方式
+- 稳定性高
+- 接入简单
+
+### 3. AndFix（阿里）
+- 即时生效
+- 补丁包小
+- 方法级修复
+
+## 核心原理
+
+### 1. 类加载方案
+
+```java
+// 示例：替换ClassLoader
+public class HotFixClassLoader extends ClassLoader {
+    private final String patchDexPath;
+
+    public HotFixClassLoader(String patchDexPath, ClassLoader parent) {
+        super(parent);
+        this.patchDexPath = patchDexPath;
+    }
+
+    @Override
+    protected Class<?> findClass(String name) throws ClassNotFoundException {
+        // 优先从补丁包加载
+        Class<?> c = loadClassFromPatch(name);
+        if (c != null) return c;
+        return super.findClass(name);
+    }
+}
+```
+
+### 2. 底层替换方案
+
+```java
+// 示例：方法替换
+public class MethodReplacer {
+    public static void replaceMethod(Method src, Method dest) {
+        try {
+            // 替换ArtMethod
+            long srcArtMethod = getArtMethod(src);
+            long destArtMethod = getArtMethod(dest);
+            replaceArtMethod(srcArtMethod, destArtMethod);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}
+```
+
+## 实现流程
+
+### 1. 补丁生成
+
+```java
+// 示例：差分包生成
+public class PatchGenerator {
+    public static void generate(File oldDex, File newDex, File patch) {
+        // 1. 对比新旧Dex文件
+        // 2. 提取差异内容
+        // 3. 生成补丁文件
+    }
+}
+```
+
+### 2. 补丁加载
+
+```java
+public class PatchLoader {
+    public static boolean load(Context context, File patch) {
+        try {
+            // 1. 验证补丁完整性
+            if (!verifyPatch(patch)) return false;
+            
+            // 2. 复制到私有目录
+            File dexDir = context.getDir("dex", Context.MODE_PRIVATE);
+            File dexFile = new File(dexDir, patch.getName());
+            copyFile(patch, dexFile);
+            
+            // 3. 加载补丁
+            loadDex(context, dexFile);
+            
+            return true;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+}
+```
+
+## 面试重点
+
+### 1. 热修复原理
+
+1. **类加载方案**
+   - DexPathList机制
+   - ClassLoader加载顺序
+   - 补丁优先级
+
+2. **方法替换方案**
+   - Native层替换
+   - ArtMethod结构
+   - 内存修改
+
+### 2. 常见问题
+
+1. **类修复限制**
+   - 构造方法限制
+   - 静态变量限制
+   - 资源限制
+
+2. **兼容性问题**
+   - 系统版本差异
+   - ROM适配
+   - 机型兼容
+
+## 最佳实践
+
+### 1. 补丁管理
+
+```java
+public class PatchManager {
+    private static final String PATCH_DIR = "patches";
+    private static final String PATCH_INFO = "patch_info.json";
+    
+    public void applyPatch(String patchPath) {
+        // 1. 校验补丁版本
+        // 2. 备份当前补丁
+        // 3. 应用新补丁
+        // 4. 更新补丁信息
+    }
+    
+    public void rollbackPatch() {
+        // 回滚到上一个补丁版本
+    }
+}
+```
+
+### 2. 安全策略
+
+```java
+public class SecurityChecker {
+    public static boolean verifyPatch(File patch) {
+        // 1. 校验签名
+        if (!verifySignature(patch)) return false;
+        
+        // 2. 校验完整性
+        if (!verifyChecksum(patch)) return false;
+        
+        // 3. 校验版本兼容性
+        return verifyVersion(patch);
+    }
+}
+```
+
+## 性能优化
+
+### 1. 补丁加载优化
+
+```java
+// 示例：异步加载
+public class AsyncPatchLoader {
+    public void loadPatchAsync(final File patch) {
+        new Thread(() -> {
+            // 1. 解压补丁
+            // 2. 优化dex
+            // 3. 加载补丁
+            // 4. 通知主线程
+        }).start();
+    }
+}
+```
+
+### 2. 内存优化
+
+- 及时释放补丁资源
+- 合理设置补丁大小
+- 优化补丁结构
+
+## 监控体系
+
+### 1. 补丁监控
+
+```java
+public class PatchMonitor {
+    public static void report(PatchResult result) {
+        // 上报补丁执行结果
+        Map<String, String> data = new HashMap<>();
+        data.put("patch_version", result.version);
+        data.put("success", String.valueOf(result.success));
+        data.put("cost_time", String.valueOf(result.costTime));
+        // 上报数据
+    }
+}
+```
+
+### 2. 异常监控
+
+- 加载异常
+- 运行异常
+- 内存监控
+
+## 常见问题解决
+
+### 1. 类加载问题
+
+```java
+// 解决CLASS_ISPREVERIFIED问题
+public class AntiVerify {
+    public static void preventVerify(Context context) {
+        // 在应用安装时预处理
+    }
+}
+```
+
+### 2. 资源修复
+
+```java
+// 示例：资源热修复
+public class ResourcePatcher {
+    public static void patch(Context context, String patchPath) {
+        // 1. 加载补丁资源
+        // 2. 替换资源管理器
+        // 3. 更新资源引用
+    }
+}
+```
+
+## 发布策略
+
+1. **灰度发布**
+   - 按用户比例
+   - 按地区
+   - 按版本
+
+2. **补丁回滚**
+   - 自动回滚
+   - 强制回滚
+   - 版本控制
+
+## 总结
+
+热修复技术是Android应用维护的重要手段，通过合理使用热修复技术，可以快速修复线上问题，提升用户体验。在实际应用中，需要注意：
+
+1. 选择合适的热修复方案
+2. 建立完善的监控体系
+3. 制定合理的发布策略
+4. 做好兼容性适配
+5. 确保补丁安全性

@@ -1,0 +1,264 @@
+# Android Window管理机制
+
+## Window系统架构
+
+### 1. Window的概念
+
+Window是Android系统中的窗口概念，是所有视图的容器。
+
+```kotlin
+class WindowBasics {
+    fun getWindow(activity: Activity) {
+        val window = activity.window // Activity的Window
+        val decorView = window.decorView // Window的根View
+        val contentView = window.findViewById<ViewGroup>(android.R.id.content) // 内容View
+    }
+}
+```
+
+### 2. Window的类型
+
+```kotlin
+class WindowTypes {
+    fun createWindow(context: Context) {
+        val params = WindowManager.LayoutParams().apply {
+            // 应用窗口
+            type = WindowManager.LayoutParams.TYPE_APPLICATION
+            // 子窗口
+            // type = WindowManager.LayoutParams.TYPE_APPLICATION_PANEL
+            // 系统窗口
+            // type = WindowManager.LayoutParams.TYPE_SYSTEM_ALERT
+        }
+    }
+}
+```
+
+## Window管理服务
+
+### 1. WindowManager
+
+```kotlin
+class WindowManagerDemo {
+    private lateinit var windowManager: WindowManager
+    private lateinit var view: View
+    
+    fun addWindow(context: Context) {
+        windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        
+        val params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.TRANSLUCENT
+        )
+        
+        windowManager.addView(view, params)
+    }
+    
+    fun removeWindow() {
+        windowManager.removeView(view)
+    }
+}
+```
+
+### 2. WindowManagerService
+
+WindowManagerService是系统服务，负责窗口管理。
+
+```kotlin
+// WindowManagerService的主要职责
+class WMSResponsibilities {
+    /*
+    1. 窗口管理
+    2. 窗口动画
+    3. 输入事件分发
+    4. 窗口层级管理
+    5. 屏幕旋转
+    */
+}
+```
+
+## 实践应用
+
+### 1. 悬浮窗实现
+
+```kotlin
+class FloatingWindow(private val context: Context) {
+    private var windowManager: WindowManager? = null
+    private var floatingView: View? = null
+    private var params: WindowManager.LayoutParams? = null
+    
+    fun show() {
+        if (checkOverlayPermission()) {
+            windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+            floatingView = LayoutInflater.from(context).inflate(R.layout.floating_view, null)
+            
+            params = WindowManager.LayoutParams().apply {
+                type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                format = PixelFormat.RGBA_8888
+                flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                width = WindowManager.LayoutParams.WRAP_CONTENT
+                height = WindowManager.LayoutParams.WRAP_CONTENT
+                gravity = Gravity.CENTER
+            }
+            
+            windowManager?.addView(floatingView, params)
+        }
+    }
+    
+    private fun checkOverlayPermission(): Boolean {
+        return Settings.canDrawOverlays(context)
+    }
+    
+    fun dismiss() {
+        windowManager?.removeView(floatingView)
+        floatingView = null
+    }
+}
+```
+
+### 2. 自定义Window
+
+```kotlin
+class CustomWindow(context: Context) {
+    private val window: PhoneWindow
+    
+    init {
+        window = PhoneWindow(context)
+        window.setContentView(R.layout.custom_window)
+        setupWindow()
+    }
+    
+    private fun setupWindow() {
+        window.setFlags(
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+        )
+        
+        window.setFlags(
+            WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
+            WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
+        )
+    }
+}
+```
+
+## 常见面试题
+
+### 1. Window、Activity和DecorView的关系？
+
+A: 三者的关系如下：
+
+1. Activity包含一个Window对象（PhoneWindow的实例）
+2. Window是视图的承载者，内部持有DecorView
+3. DecorView是整个视图树的根节点
+4. Activity通过setContentView设置的布局是添加到DecorView的content部分
+
+### 2. Window的添加过程是怎样的？
+
+A: Window的添加过程如下：
+
+```kotlin
+// 1. 获取WindowManager服务
+val windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+
+// 2. 创建LayoutParams
+val params = WindowManager.LayoutParams().apply {
+    // 设置窗口参数
+}
+
+// 3. 通过WindowManager添加View
+windowManager.addView(view, params)
+
+// 4. WindowManagerService处理添加请求
+// - 检查权限
+// - 计算窗口位置
+// - 添加到窗口列表
+// - 执行布局和绘制
+```
+
+### 3. 如何处理Window的触摸事件？
+
+A: Window的触摸事件处理：
+
+```kotlin
+class TouchEventWindow(context: Context) {
+    init {
+        window.setFlags(
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+        )
+    }
+    
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        when (event.action) {
+            MotionEvent.ACTION_DOWN -> {
+                // 处理按下事件
+                return true
+            }
+            MotionEvent.ACTION_MOVE -> {
+                // 处理移动事件
+                updateWindowPosition(event)
+                return true
+            }
+            MotionEvent.ACTION_UP -> {
+                // 处理抬起事件
+                return true
+            }
+        }
+        return super.onTouchEvent(event)
+    }
+    
+    private fun updateWindowPosition(event: MotionEvent) {
+        params.x = event.rawX.toInt()
+        params.y = event.rawY.toInt()
+        windowManager.updateViewLayout(view, params)
+    }
+}
+```
+
+## 性能优化
+
+### 1. Window层级优化
+
+```kotlin
+class WindowOptimization {
+    fun optimizeWindow() {
+        // 1. 减少Window数量
+        // 2. 合理设置Window类型
+        // 3. 及时移除不需要的Window
+        // 4. 避免频繁更新Window
+    }
+    
+    fun updateWindowEfficiently(view: View, params: WindowManager.LayoutParams) {
+        // 批量更新Window属性
+        params.flags = params.flags or WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
+        windowManager.updateViewLayout(view, params)
+    }
+}
+```
+
+### 2. 内存优化
+
+```kotlin
+class WindowMemoryManagement {
+    private val windowCache = WeakReference<Window>(null)
+    
+    fun recycleWindow() {
+        // 释放Window资源
+        windowCache.get()?.closeAllPanels()
+        System.gc()
+    }
+}
+```
+
+## 总结
+
+Window管理机制的关键点：
+
+1. 理解Window的概念和类型
+2. 掌握WindowManager的使用
+3. 了解WindowManagerService的职责
+4. 注意权限和安全问题
+5. 重视性能优化

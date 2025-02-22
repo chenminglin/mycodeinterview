@@ -1,0 +1,257 @@
+# Android高级动画开发
+
+## 动画系统基础
+
+### 1. 动画类型及其原理
+
+```kotlin
+class AnimationTypes {
+    // 1. 属性动画
+    fun propertyAnimation(view: View) {
+        ObjectAnimator.ofFloat(view, "alpha", 1f, 0f).apply {
+            duration = 1000
+            interpolator = AccelerateDecelerateInterpolator()
+            start()
+        }
+    }
+    
+    // 2. 视图动画
+    fun viewAnimation(view: View) {
+        val rotate = RotateAnimation(0f, 360f,
+            Animation.RELATIVE_TO_SELF, 0.5f,
+            Animation.RELATIVE_TO_SELF, 0.5f)
+        rotate.duration = 1000
+        view.startAnimation(rotate)
+    }
+    
+    // 3. 帧动画
+    fun frameAnimation(view: ImageView) {
+        val frameAnim = view.drawable as AnimationDrawable
+        frameAnim.start()
+    }
+}
+```
+
+### 2. 自定义动画评估器
+
+```kotlin
+class CustomEvaluator : TypeEvaluator<Point> {
+    override fun evaluate(fraction: Float, startValue: Point, endValue: Point): Point {
+        // 实现自定义的插值计算
+        val x = startValue.x + (endValue.x - startValue.x) * fraction
+        val y = startValue.y + (endValue.y - startValue.y) * fraction
+        return Point(x.toInt(), y.toInt())
+    }
+}
+
+// 使用自定义评估器
+val animator = ObjectAnimator.ofObject(
+    view,
+    "position",
+    CustomEvaluator(),
+    Point(0, 0),
+    Point(100, 100)
+)
+```
+
+## 高级动画技巧
+
+### 1. 复杂动画组合
+
+```kotlin
+class ComplexAnimation {
+    fun createComplexAnimation(view: View) {
+        // 1. 创建动画集
+        val animatorSet = AnimatorSet()
+        
+        // 2. 创建各个动画
+        val scaleX = ObjectAnimator.ofFloat(view, "scaleX", 1f, 1.5f)
+        val scaleY = ObjectAnimator.ofFloat(view, "scaleY", 1f, 1.5f)
+        val rotation = ObjectAnimator.ofFloat(view, "rotation", 0f, 360f)
+        
+        // 3. 设置动画播放顺序
+        animatorSet.apply {
+            play(scaleX).with(scaleY)
+            play(rotation).after(scaleX)
+            duration = 1000
+            interpolator = BounceInterpolator()
+        }.start()
+    }
+}
+```
+
+### 2. 过渡动画
+
+```kotlin
+class TransitionAnimation : AppCompatActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        
+        // 1. 启用过渡动画
+        window.requestFeature(Window.FEATURE_CONTENT_TRANSITIONS)
+        
+        // 2. 设置过渡效果
+        window.enterTransition = Explode()
+        window.exitTransition = Slide()
+        
+        // 3. 共享元素转场
+        val options = ActivityOptions.makeSceneTransitionAnimation(
+            this,
+            imageView,
+            "shared_image"
+        )
+        startActivity(intent, options.toBundle())
+    }
+}
+```
+
+## 性能优化
+
+### 1. 动画性能优化
+
+```kotlin
+class AnimationOptimization {
+    fun optimizeAnimation(view: View) {
+        // 1. 使用硬件加速
+        view.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+        
+        // 2. 优化属性动画
+        ObjectAnimator.ofFloat(view, View.TRANSLATION_X, 0f, 100f).apply {
+            duration = 300 // 合适的动画时长
+            interpolator = LinearInterpolator() // 简单的插值器
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    // 动画结束后清除硬件加速层
+                    view.setLayerType(View.LAYER_TYPE_NONE, null)
+                }
+            })
+        }.start()
+    }
+}
+```
+
+### 2. 动画缓存
+
+```kotlin
+class AnimationCache {
+    private val animatorMap = HashMap<String, Animator>()
+    
+    fun getCachedAnimator(key: String, creator: () -> Animator): Animator {
+        return animatorMap.getOrPut(key) {
+            creator().apply {
+                addListener(object : AnimatorListenerAdapter() {
+                    override fun onAnimationEnd(animation: Animator) {
+                        // 重置动画状态
+                        animation.setCurrentPlayTime(0)
+                    }
+                })
+            }
+        }
+    }
+}
+```
+
+## 实战案例
+
+### 1. 自定义路径动画
+
+```kotlin
+class PathAnimation : View {
+    private val path = Path()
+    private var pathMeasure: PathMeasure? = null
+    private val pos = FloatArray(2)
+    private val tan = FloatArray(2)
+    
+    fun startPathAnimation() {
+        // 1. 创建路径
+        path.apply {
+            moveTo(100f, 100f)
+            quadTo(200f, 200f, 300f, 100f)
+        }
+        
+        // 2. 测量路径
+        pathMeasure = PathMeasure(path, false)
+        
+        // 3. 创建动画
+        ValueAnimator.ofFloat(0f, pathMeasure?.length ?: 0f).apply {
+            duration = 1000
+            addUpdateListener { animator ->
+                val value = animator.animatedValue as Float
+                // 获取路径上的点
+                pathMeasure?.getPosTan(value, pos, tan)
+                // 更新位置
+                translationX = pos[0]
+                translationY = pos[1]
+            }
+        }.start()
+    }
+}
+```
+
+### 2. 粒子动画系统
+
+```kotlin
+class ParticleSystem {
+    data class Particle(
+        var x: Float,
+        var y: Float,
+        var velocity: PointF,
+        var alpha: Float,
+        var life: Float
+    )
+    
+    private val particles = ArrayList<Particle>()
+    private val random = Random()
+    
+    fun createParticles(count: Int, x: Float, y: Float) {
+        repeat(count) {
+            particles.add(Particle(
+                x = x,
+                y = y,
+                velocity = PointF(
+                    random.nextFloat() * 2 - 1,
+                    random.nextFloat() * 2 - 1
+                ),
+                alpha = 1f,
+                life = 1f
+            ))
+        }
+    }
+    
+    fun update() {
+        particles.forEach { particle ->
+            // 更新粒子状态
+            particle.x += particle.velocity.x
+            particle.y += particle.velocity.y
+            particle.life -= 0.01f
+            particle.alpha = particle.life
+        }
+        
+        // 移除死亡粒子
+        particles.removeAll { it.life <= 0 }
+    }
+}
+```
+
+## 面试重点
+
+1. **属性动画和视图动画的区别是什么？**
+   - 属性动画：真实改变对象属性
+   - 视图动画：仅改变视觉效果
+
+2. **如何优化动画性能？**
+   - 使用硬件加速
+   - 避免过度绘制
+   - 合理使用缓存
+   - 控制动画复杂度
+
+3. **动画框架的工作原理**
+   - 时间插值器：控制动画进度
+   - 类型估值器：计算属性值
+   - 属性包装器：更新对象属性
+
+4. **如何实现自定义动画？**
+   - 自定义估值器
+   - 自定义插值器
+   - 使用ValueAnimator
+   - 实现动画监听器

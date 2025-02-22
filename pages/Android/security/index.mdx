@@ -1,0 +1,148 @@
+# Android安全机制
+
+## 概述
+
+Android安全机制是保护应用和用户数据安全的重要基础。本章将介绍Android安全开发中的关键知识点和最佳实践。
+
+## 核心知识点
+
+### 1. 应用加固
+
+#### 面试题：什么是应用加固？常见的加固方式有哪些？
+
+应用加固是防止应用被破解、反编译的安全防护手段。主要包括：
+
+1. 代码混淆
+```gradle
+// 在build.gradle中配置ProGuard
+android {
+    buildTypes {
+        release {
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+```
+
+2. 资源文件加密
+3. So文件加密
+4. Dex加固
+5. 签名校验
+
+### 2. 数据加密
+
+#### 面试题：Android中常用的数据加密方式有哪些？
+
+```kotlin
+// 1. AES加密示例
+class AESEncryption {
+    private val keySpec = SecretKeySpec("your-secret-key".toByteArray(), "AES")
+    
+    fun encrypt(data: String): String {
+        val cipher = Cipher.getInstance("AES")
+        cipher.init(Cipher.ENCRYPT_MODE, keySpec)
+        val encrypted = cipher.doFinal(data.toByteArray())
+        return Base64.encodeToString(encrypted, Base64.DEFAULT)
+    }
+    
+    fun decrypt(encryptedData: String): String {
+        val cipher = Cipher.getInstance("AES")
+        cipher.init(Cipher.DECRYPT_MODE, keySpec)
+        val decrypted = cipher.doFinal(Base64.decode(encryptedData, Base64.DEFAULT))
+        return String(decrypted)
+    }
+}
+
+// 2. Hash加密（单向加密）
+fun hashPassword(password: String): String {
+    val digest = MessageDigest.getInstance("SHA-256")
+    val hash = digest.digest(password.toByteArray())
+    return hash.joinToString("") { "%02x".format(it) }
+}
+```
+
+### 3. 漏洞防护
+
+#### 面试题：Android常见的安全漏洞有哪些？如何防护？
+
+1. WebView漏洞防护
+```kotlin
+webView.settings.apply {
+    // 禁用文件访问
+    allowFileAccess = false
+    // 禁止执行JavaScript
+    javaScriptEnabled = false
+    // 禁止保存密码
+    savePassword = false
+}
+```
+
+2. SQL注入防护
+```kotlin
+// 使用参数化查询
+val selection = "name = ?"
+val selectionArgs = arrayOf(userInput)
+database.query("table", null, selection, selectionArgs, null, null, null)
+```
+
+3. 组件安全
+```xml
+<!-- 在AndroidManifest.xml中设置组件的导出属性 -->
+<activity
+    android:name=".SecureActivity"
+    android:exported="false" />
+```
+
+### 4. 网络安全
+
+#### 面试题：如何保证Android应用网络通信的安全性？
+
+1. 配置网络安全策略
+```xml
+<!-- res/xml/network_security_config.xml -->
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
+```
+
+2. 证书锁定
+```kotlin
+val certificatePinner = CertificatePinner.Builder()
+    .add("api.example.com", "sha256/XXXX=")
+    .build()
+
+val client = OkHttpClient.Builder()
+    .certificatePinner(certificatePinner)
+    .build()
+```
+
+## 最佳实践
+
+1. 敏感数据处理
+- 使用KeyStore存储密钥
+- 避免明文存储敏感信息
+- 及时清理缓存数据
+
+2. 权限管理
+- 遵循最小权限原则
+- 动态申请敏感权限
+- 及时释放不需要的权限
+
+3. 代码安全
+- 避免硬编码敏感信息
+- 使用安全的随机数生成器
+- 防止内存泄露
+
+## 面试要点
+
+1. 了解Android安全机制的整体架构
+2. 熟悉常见的应用加固方案
+3. 掌握数据加密的实现方法
+4. 理解各类安全漏洞的防护措施
+5. 能够设计并实现安全的网络通信方案

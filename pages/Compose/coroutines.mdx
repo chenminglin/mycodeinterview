@@ -1,0 +1,260 @@
+# Compose与协程集成
+
+## 基础概念
+
+### 协程作用域
+```kotlin
+// 组件级作用域
+@Composable
+fun ComponentWithCoroutine() {
+    val scope = rememberCoroutineScope()
+    
+    Button(onClick = {
+        scope.launch {
+            // 在协程中执行异步操作
+            delay(1000L)
+            println("异步操作完成")
+        }
+    }) {
+        Text("启动协程")
+    }
+}
+```
+
+### 状态管理
+```kotlin
+@Composable
+fun AsyncDataComponent() {
+    var data by remember { mutableStateOf<String?>(null) }
+    var isLoading by remember { mutableStateOf(false) }
+    
+    LaunchedEffect(Unit) {
+        isLoading = true
+        data = fetchData() // 挂起函数
+        isLoading = false
+    }
+    
+    when {
+        isLoading -> LoadingIndicator()
+        data != null -> Text(data!!)
+        else -> Text("无数据")
+    }
+}
+```
+
+## 高级用法
+
+### 并发操作
+```kotlin
+@Composable
+fun ParallelDataLoading() {
+    var data1 by remember { mutableStateOf<String?>(null) }
+    var data2 by remember { mutableStateOf<String?>(null) }
+    
+    LaunchedEffect(Unit) {
+        coroutineScope {
+            launch { data1 = fetchFirstData() }
+            launch { data2 = fetchSecondData() }
+        }
+    }
+    
+    // 显示数据
+    Column {
+        data1?.let { Text(it) }
+        data2?.let { Text(it) }
+    }
+}
+```
+
+### 错误处理
+```kotlin
+@Composable
+fun ErrorHandlingComponent() {
+    var state by remember {
+        mutableStateOf<Result<String>>(Result.success(""))
+    }
+    
+    LaunchedEffect(Unit) {
+        state = try {
+            Result.success(fetchData())
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    
+    when {
+        state.isSuccess -> Text(state.getOrNull()!!)
+        state.isFailure -> ErrorMessage(state.exceptionOrNull()!!)
+    }
+}
+```
+
+## 最佳实践
+
+### 生命周期管理
+```kotlin
+@Composable
+fun LifecycleAwareComponent() {
+    val scope = rememberCoroutineScope()
+    var job by remember { mutableStateOf<Job?>(null) }
+    
+    DisposableEffect(Unit) {
+        onDispose {
+            job?.cancel()
+        }
+    }
+    
+    Button(onClick = {
+        job = scope.launch {
+            // 长时间运行的操作
+        }
+    }) {
+        Text("开始任务")
+    }
+}
+```
+
+### 状态流集成
+```kotlin
+class DataViewModel : ViewModel() {
+    private val _items = MutableStateFlow<List<Item>>(emptyList())
+    val items: StateFlow<List<Item>> = _items.asStateFlow()
+    
+    fun loadItems() {
+        viewModelScope.launch {
+            _items.value = repository.fetchItems()
+        }
+    }
+}
+
+@Composable
+fun DataScreen(viewModel: DataViewModel) {
+    val items by viewModel.items.collectAsState()
+    
+    LaunchedEffect(Unit) {
+        viewModel.loadItems()
+    }
+    
+    LazyColumn {
+        items(items) { item ->
+            ItemRow(item)
+        }
+    }
+}
+```
+
+### 取消和超时
+```kotlin
+@Composable
+fun TimeoutComponent() {
+    var result by remember { mutableStateOf<String?>(null) }
+    
+    LaunchedEffect(Unit) {
+        try {
+            withTimeout(5000L) {
+                result = fetchDataWithTimeout()
+            }
+        } catch (e: TimeoutCancellationException) {
+            result = "操作超时"
+        }
+    }
+    
+    Text(result ?: "加载中...")
+}
+```
+
+## 性能考虑
+
+### 避免不必要的协程
+```kotlin
+// 不推荐
+@Composable
+fun BadExample() {
+    LaunchedEffect(Unit) {
+        // 每次重组都会创建新的协程
+        launch {
+            // 一些操作
+        }
+    }
+}
+
+// 推荐
+@Composable
+fun GoodExample() {
+    val scope = rememberCoroutineScope()
+    
+    DisposableEffect(Unit) {
+        val job = scope.launch {
+            // 一些操作
+        }
+        onDispose {
+            job.cancel()
+        }
+    }
+}
+```
+
+### 协程作用域选择
+```kotlin
+@Composable
+fun ScopeSelection() {
+    // 1. rememberCoroutineScope
+    // - 适用于UI事件触发的协程
+    // - 生命周期与组件同步
+    val uiScope = rememberCoroutineScope()
+    
+    // 2. LaunchedEffect
+    // - 适用于副作用处理
+    // - 自动处理生命周期
+    LaunchedEffect(Unit) {
+        // 副作用处理
+    }
+    
+    // 3. ViewModel作用域
+    // - 适用于业务逻辑
+    // - 生命周期与ViewModel同步
+    class MyViewModel : ViewModel() {
+        fun doWork() {
+            viewModelScope.launch {
+                // 业务逻辑
+            }
+        }
+    }
+}
+```
+
+## 测试
+
+### 可测试性设计
+```kotlin
+// 业务逻辑封装在ViewModel中
+class TestableViewModel(
+    private val dispatcher: CoroutineDispatcher = Dispatchers.IO
+) : ViewModel() {
+    private val _state = MutableStateFlow<UiState>(UiState.Initial)
+    val state: StateFlow<UiState> = _state.asStateFlow()
+    
+    fun loadData() {
+        viewModelScope.launch(dispatcher) {
+            _state.value = UiState.Loading
+            try {
+                val result = fetchData()
+                _state.value = UiState.Success(result)
+            } catch (e: Exception) {
+                _state.value = UiState.Error(e.message)
+            }
+        }
+    }
+}
+
+// 测试代码
+@Test
+fun `test data loading`() = runTest {
+    val viewModel = TestableViewModel(StandardTestDispatcher())
+    viewModel.loadData()
+    
+    assert(viewModel.state.value is UiState.Loading)
+    advanceTimeBy(1000)
+    assert(viewModel.state.value is UiState.Success)
+}
+```

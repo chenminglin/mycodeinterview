@@ -1,0 +1,277 @@
+# Android WMS机制详解
+
+## WMS基础概念
+
+### 1. Window类型和层级
+
+```java
+public class WindowTypes {
+    // 1. 应用窗口
+    public static final int FIRST_APPLICATION_WINDOW = 1;
+    public static final int TYPE_BASE_APPLICATION = 1;
+    public static final int TYPE_APPLICATION = 2;
+    
+    // 2. 子窗口
+    public static final int FIRST_SUB_WINDOW = 1000;
+    public static final int TYPE_APPLICATION_PANEL = FIRST_SUB_WINDOW;
+    public static final int TYPE_APPLICATION_MEDIA = FIRST_SUB_WINDOW + 1;
+    
+    // 3. 系统窗口
+    public static final int FIRST_SYSTEM_WINDOW = 2000;
+    public static final int TYPE_STATUS_BAR = FIRST_SYSTEM_WINDOW;
+    public static final int TYPE_SYSTEM_DIALOG = FIRST_SYSTEM_WINDOW + 8;
+}
+```
+
+### 2. Window的添加过程
+
+```kotlin
+class WindowAddProcess {
+    // 1. 创建窗口参数
+    private fun createWindowParams(): WindowManager.LayoutParams {
+        return WindowManager.LayoutParams().apply {
+            width = WindowManager.LayoutParams.MATCH_PARENT
+            height = WindowManager.LayoutParams.MATCH_PARENT
+            type = WindowManager.LayoutParams.TYPE_APPLICATION
+            flags = WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
+            format = PixelFormat.TRANSLUCENT
+        }
+    }
+    
+    // 2. 添加窗口
+    private fun addWindow(context: Context, view: View) {
+        val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        val params = createWindowParams()
+        windowManager.addView(view, params)
+    }
+}
+```
+
+## WMS进阶原理
+
+### 1. 窗口管理机制
+
+```kotlin
+class WindowManagement {
+    // 1. Z-Order排序
+    class WindowLayerSorter {
+        private val windows = mutableListOf<WindowState>()
+        
+        fun addWindow(window: WindowState) {
+            val insertIndex = findInsertIndex(window)
+            windows.add(insertIndex, window)
+            updateWindowsLayers()
+        }
+        
+        private fun findInsertIndex(window: WindowState): Int {
+            val type = window.mAttrs.type
+            return when {
+                type >= FIRST_SYSTEM_WINDOW -> windows.size
+                type >= FIRST_SUB_WINDOW -> findSubWindowIndex(window)
+                else -> findAppWindowIndex(window)
+            }
+        }
+    }
+    
+    // 2. 窗口动画
+    class WindowAnimator {
+        fun applyEnterAnimation(window: WindowState) {
+            val anim = loadAnimation(window.mAttrs.windowAnimations)
+            window.mWinAnimator.setAnimation(anim)
+        }
+        
+        fun applyExitAnimation(window: WindowState) {
+            val anim = loadAnimation(android.R.anim.window_close_exit)
+            window.mWinAnimator.setAnimation(anim)
+        }
+    }
+}
+```
+
+### 2. Surface管理
+
+```kotlin
+class SurfaceManagement {
+    // 1. Surface创建
+    class SurfaceFactory {
+        fun createSurface(width: Int, height: Int): Surface {
+            return Surface(SurfaceTexture(0)).apply {
+                setSize(width, height)
+            }
+        }
+    }
+    
+    // 2. Surface绘制
+    class SurfaceDrawer {
+        private val canvas = Canvas()
+        
+        fun draw(surface: Surface) {
+            surface.lockCanvas(null)?.let { canvas ->
+                try {
+                    // 执行绘制
+                    performDraw(canvas)
+                } finally {
+                    surface.unlockCanvasAndPost(canvas)
+                }
+            }
+        }
+    }
+}
+```
+
+## 面试重点
+
+### 1. WMS的工作原理是什么？
+
+关键点解析：
+1. 窗口管理
+2. 输入事件分发
+3. Surface管理
+
+```java
+public class WMSPrinciple {
+    // 1. 窗口添加流程
+    class WindowAddFlow {
+        void addWindow() {
+            // 权限检查
+            checkCallingPermission();
+            
+            // 创建WindowState
+            WindowState win = new WindowState(this, session,
+                client, token, attrs);
+            
+            // 添加到窗口列表
+            mWindowMap.put(client.asBinder(), win);
+            
+            // 更新窗口层级
+            assignLayersLocked(win);
+        }
+    }
+    
+    // 2. 事件分发流程
+    class InputDispatcher {
+        void dispatchEvent(InputEvent event) {
+            // 找到目标窗口
+            WindowState targetWindow = findTargetWindow(event);
+            
+            // 分发事件
+            deliverEventToWindow(targetWindow, event);
+        }
+    }
+}
+```
+
+### 2. Surface的创建和管理
+
+```kotlin
+class SurfaceExample {
+    // 1. Surface创建
+    class SurfaceCreation {
+        private var surface: Surface? = null
+        
+        fun createSurface(width: Int, height: Int) {
+            val surfaceTexture = SurfaceTexture(0)
+            surfaceTexture.setDefaultBufferSize(width, height)
+            surface = Surface(surfaceTexture)
+        }
+    }
+    
+    // 2. Surface生命周期管理
+    class SurfaceLifecycle : SurfaceHolder.Callback {
+        override fun surfaceCreated(holder: SurfaceHolder) {
+            // Surface创建完成
+            initDrawingCanvas(holder.surface)
+        }
+        
+        override fun surfaceDestroyed(holder: SurfaceHolder) {
+            // Surface销毁
+            releaseResources()
+        }
+    }
+}
+```
+
+## 实战应用
+
+### 1. 自定义窗口实现
+
+```kotlin
+class CustomWindowImplementation {
+    // 1. 悬浮窗实现
+    class FloatingWindow(context: Context) {
+        private val windowManager = context.getSystemService(WindowManager::class.java)
+        private val view = LayoutInflater.from(context)
+            .inflate(R.layout.floating_window, null)
+        private val params = WindowManager.LayoutParams().apply {
+            type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+            flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+            width = WindowManager.LayoutParams.WRAP_CONTENT
+            height = WindowManager.LayoutParams.WRAP_CONTENT
+        }
+        
+        fun show() {
+            windowManager.addView(view, params)
+        }
+        
+        fun dismiss() {
+            windowManager.removeView(view)
+        }
+    }
+    
+    // 2. 窗口拖动实现
+    class DraggableWindow {
+        private var lastX = 0f
+        private var lastY = 0f
+        
+        private val touchListener = View.OnTouchListener { v, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    lastX = event.rawX
+                    lastY = event.rawY
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val dx = event.rawX - lastX
+                    val dy = event.rawY - lastY
+                    updateWindowPosition(dx, dy)
+                    lastX = event.rawX
+                    lastY = event.rawY
+                    true
+                }
+                else -> false
+            }
+        }
+    }
+}
+```
+
+### 2. 窗口动画效果
+
+```kotlin
+class WindowAnimation {
+    // 1. 窗口切换动画
+    class WindowTransitionAnimation {
+        fun setupWindowAnimation(window: Window) {
+            window.setWindowAnimations(R.style.WindowAnimationStyle)
+        }
+        
+        /* styles.xml
+        <style name="WindowAnimationStyle">
+            <item name="android:windowEnterAnimation">@anim/slide_in_right</item>
+            <item name="android:windowExitAnimation">@anim/slide_out_left</item>
+        </style>
+        */
+    }
+    
+    // 2. 自定义窗口动画
+    class CustomWindowAnimation {
+        fun applyCustomAnimation(view: View) {
+            val animator = ObjectAnimator.ofFloat(view,
+                View.SCALE_X, 0f, 1f)
+            animator.duration = 300
+            animator.interpolator = OvershootInterpolator()
+            animator.start()
+        }
+    }
+}
+```

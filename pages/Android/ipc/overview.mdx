@@ -1,0 +1,268 @@
+# Android进程间通信详解
+
+## IPC机制概述
+
+进程间通信（Inter-Process Communication，IPC）是Android系统中实现跨进程通信的重要机制。Android提供了多种IPC方式，每种方式都有其特定的使用场景和优势。
+
+## IPC方式对比
+
+### 1. Binder
+- 性能高效
+- 使用简单
+- 安全性好
+
+### 2. AIDL
+- 支持复杂数据
+- 跨进程接口定义
+- 双向通信
+
+### 3. Messenger
+- 基于Handler
+- 串行处理
+- 简单易用
+
+### 4. ContentProvider
+- 数据共享
+- 权限控制
+- CRUD操作
+
+### 5. Socket
+- 网络通信
+- 跨设备
+- 灵活性高
+
+## AIDL使用详解
+
+### 1. AIDL接口定义
+
+```java
+// IBookManager.aidl
+interface IBookManager {
+    List<Book> getBookList();
+    void addBook(in Book book);
+    void registerCallback(IBookCallback callback);
+    void unregisterCallback(IBookCallback callback);
+}
+```
+
+### 2. 服务端实现
+
+```java
+public class BookManagerService extends Service {
+    private final IBookManager.Stub mBinder = new IBookManager.Stub() {
+        @Override
+        public List<Book> getBookList() {
+            // 实现获取图书列表
+            return bookList;
+        }
+        
+        @Override
+        public void addBook(Book book) {
+            // 实现添加图书
+            bookList.add(book);
+        }
+    };
+}
+```
+
+### 3. 客户端调用
+
+```java
+public class BookManagerActivity extends Activity {
+    private IBookManager bookManager;
+    
+    private ServiceConnection connection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            bookManager = IBookManager.Stub.asInterface(service);
+            try {
+                List<Book> books = bookManager.getBookList();
+                // 处理返回数据
+            } catch (RemoteException e) {
+                e.printStackTrace();
+            }
+        }
+    };
+}
+```
+
+## Messenger实现
+
+### 1. 服务端代码
+
+```java
+public class MessengerService extends Service {
+    private final Messenger mMessenger = new Messenger(new Handler() {
+        @Override
+        public void handleMessage(Message msg) {
+            switch (msg.what) {
+                case MSG_FROM_CLIENT:
+                    // 处理客户端消息
+                    break;
+            }
+        }
+    });
+    
+    @Override
+    public IBinder onBind(Intent intent) {
+        return mMessenger.getBinder();
+    }
+}
+```
+
+### 2. 客户端代码
+
+```java
+public class MessengerActivity extends Activity {
+    private Messenger mService;
+    
+    private ServiceConnection mConnection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            mService = new Messenger(service);
+            Message msg = Message.obtain(null, MSG_FROM_CLIENT);
+            try {
+                mService.send(msg);
+            } catch (RemoteException e) {
+                e.printStackTrace();
+            }
+        }
+    };
+}
+```
+
+## ContentProvider实现
+
+### 1. 自定义ContentProvider
+
+```java
+public class BookProvider extends ContentProvider {
+    @Override
+    public boolean onCreate() {
+        // 初始化
+        return true;
+    }
+    
+    @Override
+    public Cursor query(Uri uri, String[] projection, String selection,
+            String[] selectionArgs, String sortOrder) {
+        // 实现查询逻辑
+        return cursor;
+    }
+}
+```
+
+### 2. 访问ContentProvider
+
+```java
+// 查询数据
+ContentResolver resolver = getContentResolver();
+Cursor cursor = resolver.query(uri, projection, selection, selectionArgs, sortOrder);
+
+// 插入数据
+ContentValues values = new ContentValues();
+values.put("name", "Android开发艺术探索");
+resolver.insert(uri, values);
+```
+
+## Socket通信
+
+### 1. TCP实现
+
+```java
+// 服务端
+public class TCPServer implements Runnable {
+    @Override
+    public void run() {
+        ServerSocket serverSocket = new ServerSocket(8688);
+        while (!Thread.interrupted()) {
+            Socket client = serverSocket.accept();
+            // 处理客户端连接
+        }
+    }
+}
+
+// 客户端
+Socket socket = new Socket("localhost", 8688);
+PrintWriter out = new PrintWriter(socket.getOutputStream());
+out.println("Hello from client");
+```
+
+## 性能优化
+
+### 1. 序列化优化
+
+```java
+// 使用Parcelable代替Serializable
+public class Book implements Parcelable {
+    private String name;
+    private int price;
+    
+    @Override
+    public void writeToParcel(Parcel dest, int flags) {
+        dest.writeString(name);
+        dest.writeInt(price);
+    }
+    
+    public static final Creator<Book> CREATOR = new Creator<Book>() {
+        // 实现创建对象的方法
+    };
+}
+```
+
+### 2. 数据传输优化
+
+- 合理设计数据结构
+- 避免频繁IPC调用
+- 使用缓存机制
+
+## 安全考虑
+
+### 1. 权限控制
+
+```xml
+<!-- AndroidManifest.xml -->
+<permission
+    android:name="com.example.permission.ACCESS_BOOK_SERVICE"
+    android:protectionLevel="normal" />
+```
+
+### 2. 数据验证
+
+```java
+// 检查调用者权限
+public void addBook(Book book) throws RemoteException {
+    if (checkCallingPermission(PERMISSION_ACCESS_BOOK_SERVICE)
+            != PackageManager.PERMISSION_GRANTED) {
+        throw new SecurityException("Requires permission");
+    }
+    // 添加图书
+}
+```
+
+## 调试技巧
+
+1. **日志追踪**
+2. **进程监控**
+3. **异常处理**
+
+## 最佳实践
+
+1. **选择合适的IPC方式**
+   - 简单数据传输：Messenger
+   - 复杂接口：AIDL
+   - 数据共享：ContentProvider
+
+2. **异常处理**
+   - 处理远程调用异常
+   - 进程死亡重连
+   - 线程同步
+
+3. **性能优化**
+   - 减少IPC次数
+   - 合理设计接口
+   - 数据缓存
+
+## 总结
+
+Android提供了丰富的IPC机制，开发者需要根据具体场景选择合适的方式。在使用过程中，要注意性能优化、安全控制和异常处理，确保应用的稳定性和可靠性。

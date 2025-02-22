@@ -1,0 +1,244 @@
+# Material Design 3 集成
+
+## 主题系统
+
+### 动态颜色
+```kotlin
+@Composable
+fun MaterialApp() {
+    val colorScheme = dynamicColorScheme(LocalContext.current)
+    MaterialTheme(
+        colorScheme = colorScheme,
+        typography = MaterialTheme.typography,
+        content = {
+            // 应用内容
+        }
+    )
+}
+```
+
+### 自定义主题
+```kotlin
+val CustomColorScheme = lightColorScheme(
+    primary = Color(0xFF6200EE),
+    secondary = Color(0xFF03DAC6),
+    tertiary = Color(0xFF3700B3)
+)
+
+@Composable
+fun CustomMaterialTheme(
+    content: @Composable () -> Unit
+) {
+    MaterialTheme(
+        colorScheme = CustomColorScheme,
+        typography = Typography(
+            bodyLarge = TextStyle(
+                fontFamily = FontFamily.Default,
+                fontWeight = FontWeight.Normal,
+                fontSize = 16.sp
+            )
+        ),
+        shapes = Shapes(
+            small = RoundedCornerShape(4.dp),
+            medium = RoundedCornerShape(8.dp),
+            large = RoundedCornerShape(12.dp)
+        ),
+        content = content
+    )
+}
+```
+
+## Material 3 组件
+
+### 卡片组件
+```kotlin
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MaterialCard() {
+    ElevatedCard(
+        onClick = { /* 处理点击 */ },
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        elevation = CardDefaults.elevatedCardElevation()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(
+                text = "标题",
+                style = MaterialTheme.typography.titleLarge
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "内容描述",
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+    }
+}
+```
+
+### 按钮组件
+```kotlin
+@Composable
+fun ButtonVariants() {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        // 填充按钮
+        FilledButton(
+            onClick = { /* 处理点击 */ }
+        ) {
+            Text("填充按钮")
+        }
+
+        // 轮廓按钮
+        OutlinedButton(
+            onClick = { /* 处理点击 */ }
+        ) {
+            Text("轮廓按钮")
+        }
+
+        // 文本按钮
+        TextButton(
+            onClick = { /* 处理点击 */ }
+        ) {
+            Text("文本按钮")
+        }
+
+        // 图标按钮
+        IconButton(onClick = { /* 处理点击 */ }) {
+            Icon(Icons.Filled.Add, contentDescription = "添加")
+        }
+    }
+}
+```
+
+### 顶部应用栏
+```kotlin
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TopAppBarExample() {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Material 3 应用") },
+                navigationIcon = {
+                    IconButton(onClick = { /* 处理导航 */ }) {
+                        Icon(Icons.Filled.Menu, contentDescription = "菜单")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { /* 处理搜索 */ }) {
+                        Icon(Icons.Filled.Search, contentDescription = "搜索")
+                    }
+                    IconButton(onClick = { /* 处理更多 */ }) {
+                        Icon(Icons.Filled.MoreVert, contentDescription = "更多")
+                    }
+                }
+            )
+        }
+    ) { paddingValues ->
+        // 内容
+    }
+}
+```
+
+## 自适应设计
+
+### 响应式布局
+```kotlin
+@Composable
+fun AdaptiveLayout() {
+    val windowSizeClass = calculateWindowSizeClass()
+    
+    when (windowSizeClass.widthSizeClass) {
+        WindowWidthSizeClass.Compact -> {
+            // 紧凑布局（手机）
+            CompactLayout()
+        }
+        WindowWidthSizeClass.Medium -> {
+            // 中等布局（平板）
+            MediumLayout()
+        }
+        WindowWidthSizeClass.Expanded -> {
+            // 扩展布局（桌面）
+            ExpandedLayout()
+        }
+    }
+}
+```
+
+### 自适应组件
+```kotlin
+@Composable
+fun AdaptiveNavigationBar() {
+    val windowSizeClass = calculateWindowSizeClass()
+    
+    when (windowSizeClass.widthSizeClass) {
+        WindowWidthSizeClass.Compact -> {
+            // 底部导航栏
+            NavigationBar {
+                // 导航项
+            }
+        }
+        else -> {
+            // 侧边导航栏
+            NavigationRail {
+                // 导航项
+            }
+        }
+    }
+}
+```
+
+## 深色主题
+
+### 动态切换
+```kotlin
+@Composable
+fun ThemeSwitchableApp() {
+    var darkTheme by remember { mutableStateOf(false) }
+    
+    MaterialTheme(
+        colorScheme = if (darkTheme) {
+            darkColorScheme()
+        } else {
+            lightColorScheme()
+        }
+    ) {
+        Column {
+            Switch(
+                checked = darkTheme,
+                onCheckedChange = { darkTheme = it }
+            )
+            // 应用内容
+        }
+    }
+}
+```
+
+### 系统主题跟随
+```kotlin
+@Composable
+fun SystemThemeApp() {
+    val systemUiController = rememberSystemUiController()
+    val darkTheme = isSystemInDarkTheme()
+    
+    SideEffect {
+        systemUiController.setSystemBarsColor(
+            color = Color.Transparent,
+            darkIcons = !darkTheme
+        )
+    }
+    
+    MaterialTheme(
+        colorScheme = if (darkTheme) {
+            darkColorScheme()
+        } else {
+            lightColorScheme()
+        }
+    ) {
+        // 应用内容
+    }
+}
+```

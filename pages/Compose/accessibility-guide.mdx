@@ -1,0 +1,268 @@
+# Compose 无障碍指南
+
+## TalkBack支持
+
+### 基础配置
+```kotlin
+@Composable
+fun AccessibleButton() {
+    Button(
+        onClick = { /* 处理点击 */ },
+        modifier = Modifier.semantics {
+            // 设置内容描述
+            contentDescription = "确认按钮"
+            // 设置角色
+            role = Role.Button
+            // 设置状态
+            stateDescription = "可用"
+        }
+    ) {
+        Text("确认")
+    }
+}
+```
+
+### 自定义朗读
+```kotlin
+@Composable
+fun CustomAnnouncement() {
+    val announcer = LocalAccessibilityManager.current
+    
+    Column(
+        modifier = Modifier.semantics {
+            // 自定义朗读文本
+            customActions = listOf(
+                CustomAccessibilityAction(
+                    label = "展开详情",
+                    action = { true }
+                )
+            )
+        }
+    ) {
+        // 动态更新朗读内容
+        LaunchedEffect(Unit) {
+            announcer.announce("页面加载完成", AccessibilityMode.Polite)
+        }
+    }
+}
+```
+
+## 语义树优化
+
+### 语义节点组织
+```kotlin
+@Composable
+fun SemanticStructure() {
+    Column(
+        modifier = Modifier.semantics(mergeDescendants = true) {
+            // 合并子节点语义
+            heading()
+            contentDescription = "主要内容区域"
+        }
+    ) {
+        // 标题区域
+        Text(
+            text = "标题",
+            modifier = Modifier.semantics {
+                heading()
+            }
+        )
+        
+        // 内容区域
+        Text(
+            text = "详细内容",
+            modifier = Modifier.clearAndSetSemantics {
+                // 清除并重设语义
+                contentDescription = "详细说明文本"
+            }
+        )
+    }
+}
+```
+
+### 焦点管理
+```kotlin
+@Composable
+fun FocusManagement() {
+    var focusRequester = remember { FocusRequester() }
+    
+    Column {
+        // 自动获取焦点的输入框
+        TextField(
+            value = "",
+            onValueChange = {},
+            modifier = Modifier
+                .focusRequester(focusRequester)
+                .semantics {
+                    focused = true
+                }
+        )
+        
+        // 焦点顺序控制
+        Row(
+            modifier = Modifier.semantics(traversalIndex = 1f) {}
+        ) {
+            // 按钮组
+        }
+    }
+    
+    // 初始焦点设置
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+    }
+}
+```
+
+## 手势适配
+
+### 手势替代方案
+```kotlin
+@Composable
+fun AccessibleGestures() {
+    var scale by remember { mutableStateOf(1f) }
+    
+    Box(
+        modifier = Modifier
+            .semantics {
+                // 提供手势替代方案
+                customActions = listOf(
+                    CustomAccessibilityAction(
+                        label = "放大",
+                        action = {
+                            scale *= 1.2f
+                            true
+                        }
+                    ),
+                    CustomAccessibilityAction(
+                        label = "缩小",
+                        action = {
+                            scale *= 0.8f
+                            true
+                        }
+                    )
+                )
+            }
+            .scale(scale)
+    ) {
+        // 内容
+    }
+}
+```
+
+### 触摸目标优化
+```kotlin
+@Composable
+fun TouchTargetOptimization() {
+    IconButton(
+        onClick = { /* 处理点击 */ },
+        modifier = Modifier
+            .size(48.dp) // 符合无障碍最小触摸区域要求
+            .semantics {
+                // 设置可点击区域描述
+                onClick(label = "打开菜单", action = null)
+            }
+    ) {
+        Icon(
+            imageVector = Icons.Default.Menu,
+            contentDescription = null // 父组件已提供描述
+        )
+    }
+}
+```
+
+## 动态适配
+
+### 字体大小适配
+```kotlin
+@Composable
+fun FontSizeAdaptation() {
+    val textScale = LocalDensity.current.fontScale
+    
+    Column {
+        Text(
+            text = "标题",
+            fontSize = (20 * textScale).sp,
+            modifier = Modifier.semantics {
+                heading()
+            }
+        )
+        
+        Text(
+            text = "正文内容",
+            fontSize = (16 * textScale).sp
+        )
+    }
+}
+```
+
+### 高对比度支持
+```kotlin
+@Composable
+fun HighContrastSupport() {
+    val isHighContrast = LocalAccessibilityManager.current.isHighContrastEnabled
+    
+    Surface(
+        color = if (isHighContrast) {
+            MaterialTheme.colors.surface.copy(alpha = 1f)
+        } else {
+            MaterialTheme.colors.surface
+        }
+    ) {
+        Text(
+            text = "高对比度文本",
+            color = if (isHighContrast) {
+                Color.White
+            } else {
+                MaterialTheme.colors.onSurface
+            }
+        )
+    }
+}
+```
+
+## 测试与验证
+
+### 无障碍测试
+```kotlin
+@Test
+fun testAccessibility() {
+    composeTestRule.setContent {
+        AccessibleComponent()
+    }
+    
+    // 验证语义属性
+    composeTestRule
+        .onNodeWithText("标题")
+        .assertHasRole(Role.Heading)
+    
+    // 验证自定义操作
+    composeTestRule
+        .onRoot()
+        .performAccessibilityAction("展开详情")
+    
+    // 验证焦点顺序
+    composeTestRule
+        .onRoot()
+        .printToLog("AccessibilityTree")
+}
+```
+
+### 无障碍检查工具
+```kotlin
+@Composable
+fun AccessibilityChecker() {
+    val context = LocalContext.current
+    
+    DisposableEffect(Unit) {
+        val checker = AccessibilityChecker.Builder(context)
+            .setThrowExceptionForErrors(true)
+            .build()
+            
+        onDispose {
+            checker.shutdown()
+        }
+    }
+    
+    // 组件内容
+}
+```

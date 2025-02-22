@@ -1,0 +1,186 @@
+# Android内存优化进阶
+
+## 内存优化概述
+
+内存优化是Android性能优化中最重要的环节之一，直接影响应用的稳定性和用户体验。本文将深入探讨内存优化的高级技巧和最佳实践。
+
+## 核心面试题
+
+### 1. 如何系统地进行内存优化？
+
+内存优化需要从以下几个方面系统性地进行：
+
+1. 内存泄漏检测与处理
+```kotlin
+// 使用LeakCanary进行检测
+class MyApplication : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        if (BuildConfig.DEBUG) {
+            LeakCanary.install(this)
+        }
+    }
+}
+```
+
+2. 内存抖动优化
+```kotlin
+// 避免在onDraw中创建对象
+class CustomView : View {
+    private val paint = Paint()
+    private val rect = RectF()
+    
+    override fun onDraw(canvas: Canvas) {
+        // 复用对象而不是每次创建
+        rect.set(0f, 0f, width.toFloat(), height.toFloat())
+        canvas.drawRect(rect, paint)
+    }
+}
+```
+
+3. Bitmap优化
+```kotlin
+// 高效的Bitmap加载
+fun decodeBitmapFromResource(
+    resources: Resources,
+    resId: Int,
+    reqWidth: Int,
+    reqHeight: Int
+): Bitmap {
+    return BitmapFactory.Options().run {
+        inJustDecodeBounds = true
+        BitmapFactory.decodeResource(resources, resId, this)
+        inSampleSize = calculateInSampleSize(this, reqWidth, reqHeight)
+        inJustDecodeBounds = false
+        BitmapFactory.decodeResource(resources, resId, this)
+    }
+}
+```
+
+### 2. 如何处理OOM问题？
+
+处理OOM（Out of Memory）问题的关键步骤：
+
+1. 及时释放资源
+```kotlin
+class ImageActivity : AppCompatActivity() {
+    private var bitmap: Bitmap? = null
+    
+    override fun onDestroy() {
+        super.onDestroy()
+        bitmap?.recycle()
+        bitmap = null
+    }
+}
+```
+
+2. 大图片加载优化
+```kotlin
+// 使用Glide进行图片加载和缓存管理
+Glide.with(context)
+    .load(imageUrl)
+    .apply(RequestOptions()
+        .diskCacheStrategy(DiskCacheStrategy.ALL)
+        .override(Target.SIZE_ORIGINAL))
+    .into(imageView)
+```
+
+3. 内存缓存优化
+```kotlin
+class MemoryCache<K, V>(maxSize: Int) : LruCache<K, V>(maxSize) {
+    override fun sizeOf(key: K, value: V): Int {
+        // 根据实际对象大小计算缓存大小
+        return when (value) {
+            is Bitmap -> value.byteCount / 1024
+            else -> 1
+        }
+    }
+}
+```
+
+### 3. 如何监控应用内存使用情况？
+
+1. 使用Android Profiler
+```kotlin
+// 在代码中添加内存分析点
+Debug.startMethodTracing("memory_trace")
+// 执行需要分析的代码
+Debug.stopMethodTracing()
+```
+
+2. 自定义内存监控
+```kotlin
+class MemoryMonitor {
+    fun getMemoryInfo(context: Context): String {
+        val runtime = Runtime.getRuntime()
+        val maxMemory = runtime.maxMemory()
+        val totalMemory = runtime.totalMemory()
+        val freeMemory = runtime.freeMemory()
+        
+        return "Max Memory: ${maxMemory / 1024}KB\n" +
+               "Total Memory: ${totalMemory / 1024}KB\n" +
+               "Free Memory: ${freeMemory / 1024}KB"
+    }
+}
+```
+
+## 最佳实践
+
+1. 使用WeakReference避免内存泄漏
+```kotlin
+class MyHandler(activity: Activity) {
+    private val activityRef = WeakReference(activity)
+    
+    fun doSomething() {
+        activityRef.get()?.let { activity ->
+            // 使用activity
+        }
+    }
+}
+```
+
+2. 使用对象池复用对象
+```kotlin
+class ObjectPool<T>(private val maxSize: Int, private val factory: () -> T) {
+    private val pool = ArrayDeque<T>(maxSize)
+    
+    fun acquire(): T {
+        return if (pool.isEmpty()) factory() else pool.removeFirst()
+    }
+    
+    fun release(obj: T) {
+        if (pool.size < maxSize) {
+            pool.addLast(obj)
+        }
+    }
+}
+```
+
+3. 避免在循环中创建对象
+```kotlin
+// 不推荐
+fun processItems(items: List<String>) {
+    items.forEach { item ->
+        val processor = ItemProcessor() // 每次循环都创建新对象
+        processor.process(item)
+    }
+}
+
+// 推荐
+fun processItems(items: List<String>) {
+    val processor = ItemProcessor() // 只创建一次
+    items.forEach { item ->
+        processor.process(item)
+    }
+}
+```
+
+## 总结
+
+内存优化是一个持续的过程，需要在开发过程中不断关注和优化。通过合理使用内存监控工具、采用正确的编码实践，可以有效避免内存问题，提升应用性能和用户体验。记住以下关键点：
+
+- 及时释放不需要的资源
+- 合理使用缓存机制
+- 避免内存泄漏
+- 优化大对象的使用
+- 建立内存监控机制

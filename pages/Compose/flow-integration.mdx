@@ -1,0 +1,232 @@
+# Compose与Flow深度集成
+
+## 基础用法
+
+### 状态收集
+```kotlin
+@Composable
+fun FlowCollector(viewModel: MyViewModel) {
+    val items by viewModel.items.collectAsState(initial = emptyList())
+    
+    LazyColumn {
+        items(items) { item ->
+            ItemRow(item)
+        }
+    }
+}
+```
+
+### 生命周期感知
+```kotlin
+class MyViewModel : ViewModel() {
+    private val _events = MutableSharedFlow<UiEvent>()
+    val events = _events.asSharedFlow()
+    
+    fun emitEvent(event: UiEvent) {
+        viewModelScope.launch {
+            _events.emit(event)
+        }
+    }
+}
+
+@Composable
+fun EventHandler(viewModel: MyViewModel) {
+    LaunchedEffect(Unit) {
+        viewModel.events.collect { event ->
+            // 处理事件
+            when (event) {
+                is UiEvent.ShowSnackbar -> { /* 显示Snackbar */ }
+                is UiEvent.Navigate -> { /* 导航 */ }
+            }
+        }
+    }
+}
+```
+
+## 高级特性
+
+### 状态合并
+```kotlin
+@Composable
+fun CombinedStateScreen(
+    viewModel: CombinedViewModel
+) {
+    val uiState by remember(viewModel) {
+        combine(
+            viewModel.userData,
+            viewModel.preferences,
+            viewModel.notifications
+        ) { user, prefs, notifications ->
+            ScreenState(
+                user = user,
+                preferences = prefs,
+                notifications = notifications
+            )
+        }
+    }.collectAsState(initial = ScreenState())
+    
+    // 使用合并后的状态渲染UI
+    UserProfile(uiState.user)
+    PreferencesSection(uiState.preferences)
+    NotificationList(uiState.notifications)
+}
+```
+
+### 防抖和节流
+```kotlin
+@Composable
+fun SearchScreen(viewModel: SearchViewModel) {
+    var searchQuery by remember { mutableStateOf("") }
+    
+    LaunchedEffect(Unit) {
+        snapshotFlow { searchQuery }
+            .debounce(300)
+            .filter { it.length >= 3 }
+            .distinctUntilChanged()
+            .collect { query ->
+                viewModel.search(query)
+            }
+    }
+    
+    SearchBar(
+        value = searchQuery,
+        onValueChange = { searchQuery = it }
+    )
+}
+```
+
+## 性能优化
+
+### 状态去重
+```kotlin
+@Composable
+fun OptimizedList(viewModel: ListViewModel) {
+    val items by remember {
+        viewModel.items
+            .distinctUntilChanged()
+            .map { items -> items.sortedBy { it.priority } }
+    }.collectAsState(initial = emptyList())
+    
+    LazyColumn {
+        items(items, key = { it.id }) { item ->
+            ItemRow(item)
+        }
+    }
+}
+```
+
+### 缓存策略
+```kotlin
+class CachedViewModel : ViewModel() {
+    private val cache = mutableMapOf<String, Flow<Data>>()
+    
+    fun getData(key: String): Flow<Data> {
+        return cache.getOrPut(key) {
+            flow {
+                val data = fetchData(key)
+                emit(data)
+            }.shareIn(
+                scope = viewModelScope,
+                started = SharingStarted.Lazily,
+                replay = 1
+            )
+        }
+    }
+}
+
+@Composable
+fun CachedDataScreen(viewModel: CachedViewModel) {
+    val data by viewModel.getData("key")
+        .collectAsState(initial = null)
+    
+    data?.let { 
+        DataContent(it)
+    }
+}
+```
+
+## 错误处理
+
+### 优雅降级
+```kotlin
+@Composable
+fun ResilientScreen(viewModel: ResilientViewModel) {
+    val state by viewModel.dataFlow
+        .catch { error ->
+            emit(UiState.Error(error.message))
+        }
+        .onStart { emit(UiState.Loading) }
+        .collectAsState(initial = UiState.Loading)
+    
+    when (state) {
+        is UiState.Loading -> LoadingSpinner()
+        is UiState.Error -> ErrorView(state.message)
+        is UiState.Success -> ContentView(state.data)
+    }
+}
+```
+
+### 重试机制
+```kotlin
+@Composable
+fun RetryableScreen(viewModel: RetryableViewModel) {
+    val state by viewModel.dataFlow
+        .retry(3) { cause ->
+            // 只重试特定错误
+            cause is NetworkException
+        }
+        .collectAsState(initial = UiState.Loading)
+    
+    when (state) {
+        is UiState.Loading -> LoadingSpinner()
+        is UiState.Error -> {
+            ErrorView(
+                message = state.message,
+                onRetry = { viewModel.retry() }
+            )
+        }
+        is UiState.Success -> ContentView(state.data)
+    }
+}
+```
+
+## 测试
+
+### Flow测试
+```kotlin
+@Test
+fun testDataFlow() = runTest {
+    val viewModel = TestViewModel()
+    val states = mutableListOf<UiState>()
+    
+    val job = launch {
+        viewModel.uiState.toList(states)
+    }
+    
+    viewModel.loadData()
+    advanceTimeBy(1000)
+    
+    assertEquals(UiState.Loading, states[0])
+    assertTrue(states[1] is UiState.Success)
+    
+    job.cancel()
+}
+```
+
+### 组合测试
+```kotlin
+@Test
+fun testComposableWithFlow() {
+    val testFlow = MutableStateFlow("Initial")
+    
+    composeTestRule.setContent {
+        val text by testFlow.collectAsState()
+        Text(text)
+    }
+    
+    composeTestRule.onNodeWithText("Initial").assertExists()
+    
+    testFlow.value = "Updated"
+    composeTestRule.onNodeWithText("Updated").assertExists()
+}
+```

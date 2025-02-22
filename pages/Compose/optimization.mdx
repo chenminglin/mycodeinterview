@@ -1,0 +1,238 @@
+# Compose 性能分析与调优
+
+## 编译器优化
+
+### 跳过参数检查
+```kotlin
+@Stable
+class UiState(
+    val data: List<Item>,
+    val isLoading: Boolean
+)
+
+@Composable
+fun StableComponent(
+    state: UiState // 标记为@Stable的类可以跳过参数检查
+) {
+    // 组件内容
+}
+```
+
+### 智能重组
+```kotlin
+// 使用remember和key控制重组范围
+@Composable
+fun OptimizedList(items: List<Item>) {
+    LazyColumn {
+        items(
+            items = items,
+            key = { it.id }, // 使用稳定的key
+            contentType = { it.type } // 相同类型的item共享模板
+        ) { item ->
+            ItemRow(item)
+        }
+    }
+}
+```
+
+## 布局优化
+
+### 布局层级优化
+```kotlin
+// 不推荐：过深的布局层级
+@Composable
+fun DeepLayout() {
+    Column {
+        Row {
+            Column {
+                Box {
+                    // 内容
+                }
+            }
+        }
+    }
+}
+
+// 推荐：扁平化布局
+@Composable
+fun FlatLayout() {
+    Layout(
+        content = {
+            // 所有子组件
+        }
+    ) { measurables, constraints ->
+        // 自定义布局逻辑
+    }
+}
+```
+
+### 约束优化
+```kotlin
+@Composable
+fun ConstrainedLayout() {
+    BoxWithConstraints {
+        if (maxWidth < 600.dp) {
+            CompactLayout()
+        } else {
+            ExpandedLayout()
+        }
+    }
+}
+```
+
+## 内存优化
+
+### 状态管理优化
+```kotlin
+// 使用remember缓存不变的值
+val formatter = remember { DateTimeFormatter.ISO_DATE }
+
+// 使用derivedStateOf避免不必要的计算
+val sortedItems = remember(items) {
+    derivedStateOf { items.sortedBy { it.priority } }
+}
+```
+
+### 资源管理
+```kotlin
+@Composable
+fun ResourceManagement() {
+    val context = LocalContext.current
+    val bitmap = remember {
+        BitmapFactory.decodeResource(context.resources, R.drawable.image)
+    }
+    
+    DisposableEffect(Unit) {
+        onDispose {
+            bitmap.recycle()
+        }
+    }
+}
+```
+
+## 性能分析工具
+
+### Layout Inspector
+```kotlin
+@Composable
+fun DebugLayout() {
+    Box(
+        modifier = Modifier.debugInspectorInfo {
+            name = "MainContainer"
+            value = "Debug Info"
+        }
+    ) {
+        // 内容
+    }
+}
+```
+
+### 性能追踪
+```kotlin
+class PerformanceTracker {
+    private val recompositionCount = AtomicInteger(0)
+    
+    fun trackRecomposition() {
+        recompositionCount.incrementAndGet()
+    }
+    
+    @Composable
+    fun TrackableComponent(content: @Composable () -> Unit) {
+        SideEffect {
+            trackRecomposition()
+        }
+        content()
+    }
+}
+```
+
+## 异步操作优化
+
+### 协程优化
+```kotlin
+@Composable
+fun OptimizedAsyncOperation() {
+    val scope = rememberCoroutineScope()
+    var data by remember { mutableStateOf<Data?>(null) }
+    
+    LaunchedEffect(Unit) {
+        supervisorScope {
+            try {
+                data = withContext(Dispatchers.IO) {
+                    fetchData()
+                }
+            } catch (e: Exception) {
+                // 错误处理
+            }
+        }
+    }
+}
+```
+
+### 图片加载优化
+```kotlin
+@Composable
+fun OptimizedImageLoading(
+    imageUrl: String,
+    modifier: Modifier = Modifier
+) {
+    var bitmap by remember { mutableStateOf<ImageBitmap?>(null) }
+    
+    LaunchedEffect(imageUrl) {
+        withContext(Dispatchers.IO) {
+            try {
+                val options = BitmapFactory.Options().apply {
+                    inSampleSize = 2 // 降采样
+                }
+                bitmap = loadAndResizeImage(imageUrl, options)
+            } catch (e: Exception) {
+                // 错误处理
+            }
+        }
+    }
+    
+    bitmap?.let { image ->
+        Image(
+            bitmap = image,
+            contentDescription = null,
+            modifier = modifier
+        )
+    }
+}
+```
+
+## 最佳实践总结
+
+### 性能检查清单
+```kotlin
+// 1. 使用@Stable和@Immutable标记
+@Stable
+interface UiState
+
+// 2. 合理使用remember和key
+val expensiveComputation = remember(key1, key2) { compute() }
+
+// 3. 避免不必要的对象分配
+@Composable
+fun OptimizedComponent(
+    onClick: () -> Unit = remember { {} } // 重用空lambda
+) {
+    // 组件内容
+}
+
+// 4. 使用proper key进行列表优化
+LazyColumn {
+    items(
+        items = items,
+        key = { it.id },
+        contentType = { it.type }
+    ) { item ->
+        ItemRow(item)
+    }
+}
+
+// 5. 合理使用副作用
+LaunchedEffect(key1) {
+    // 仅在key1变化时执行
+}
+```

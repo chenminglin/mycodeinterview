@@ -1,0 +1,318 @@
+# Android高级UI开发
+
+## 自定义View进阶
+
+### 1. 高级绘制技巧
+
+```kotlin
+class AdvancedCustomView @JvmOverloads constructor(
+    context: Context,
+    attrs: AttributeSet? = null,
+    defStyleAttr: Int = 0
+) : View(context, attrs, defStyleAttr) {
+
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+        pathEffect = CornerPathEffect(30f)
+        shader = LinearGradient(
+            0f, 0f, 100f, 100f,
+            intArrayOf(Color.RED, Color.BLUE),
+            null,
+            Shader.TileMode.CLAMP
+        )
+    }
+
+    private val path = Path()
+    
+    override fun onDraw(canvas: Canvas) {
+        // 使用Path绘制复杂图形
+        path.reset()
+        path.moveTo(0f, 0f)
+        path.quadTo(width / 2f, height / 2f, width.toFloat(), 0f)
+        canvas.drawPath(path, paint)
+        
+        // 绘制文字
+        paint.textSize = 50f
+        paint.textAlign = Paint.Align.CENTER
+        canvas.drawText("高级UI", width / 2f, height / 2f, paint)
+    }
+}
+```
+
+### 2. 性能优化技巧
+
+```kotlin
+class OptimizedView : View {
+    private var drawingCache: Bitmap? = null
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val clipPath = Path()
+    
+    init {
+        // 开启硬件加速
+        setLayerType(LAYER_TYPE_HARDWARE, null)
+    }
+    
+    override fun onDraw(canvas: Canvas) {
+        // 使用clipPath裁剪画布
+        clipPath.addRoundRect(
+            0f, 0f, width.toFloat(), height.toFloat(),
+            30f, 30f, Path.Direction.CW
+        )
+        canvas.clipPath(clipPath)
+        
+        // 使用缓存进行绘制
+        if (drawingCache == null) {
+            createDrawingCache()
+        }
+        drawingCache?.let { canvas.drawBitmap(it, 0f, 0f, paint) }
+    }
+}
+```
+
+## 动画特效
+
+### 1. 属性动画高级应用
+
+```kotlin
+class AnimationDemo {
+    fun createComplexAnimation(view: View) {
+        // 创建关键帧动画
+        val scaleX = PropertyValuesHolder.ofKeyframe(
+            View.SCALE_X,
+            Keyframe.ofFloat(0f, 1f),
+            Keyframe.ofFloat(0.5f, 1.5f),
+            Keyframe.ofFloat(1f, 1f)
+        )
+        
+        val rotation = PropertyValuesHolder.ofKeyframe(
+            View.ROTATION,
+            Keyframe.ofFloat(0f, 0f),
+            Keyframe.ofFloat(0.5f, 180f),
+            Keyframe.ofFloat(1f, 360f)
+        )
+        
+        ObjectAnimator.ofPropertyValuesHolder(view, scaleX, rotation).apply {
+            duration = 1000
+            interpolator = BounceInterpolator()
+            start()
+        }
+    }
+    
+    // 自定义估值器
+    class CustomEvaluator : TypeEvaluator<Point> {
+        override fun evaluate(fraction: Float, startValue: Point, endValue: Point): Point {
+            val x = startValue.x + (endValue.x - startValue.x) * fraction
+            val y = startValue.y + (endValue.y - startValue.y) * fraction
+            return Point(x.toInt(), y.toInt())
+        }
+    }
+}
+```
+
+### 2. 自定义动画
+
+```kotlin
+class CustomAnimationView : View {
+    private var currentProgress = 0f
+    private val animator = ValueAnimator.ofFloat(0f, 1f).apply {
+        duration = 1000
+        repeatCount = ValueAnimator.INFINITE
+        addUpdateListener { 
+            currentProgress = it.animatedValue as Float
+            invalidate()
+        }
+    }
+    
+    fun startAnimation() {
+        animator.start()
+    }
+    
+    override fun onDraw(canvas: Canvas) {
+        // 根据progress绘制动画效果
+        val radius = width / 2f * currentProgress
+        canvas.drawCircle(width / 2f, height / 2f, radius, paint)
+    }
+}
+```
+
+## 手势处理
+
+### 1. 高级手势检测
+
+```kotlin
+class GestureView : View {
+    private val gestureDetector = GestureDetectorCompat(context,
+        object : GestureDetector.SimpleOnGestureListener() {
+            override fun onDown(e: MotionEvent) = true
+            
+            override fun onFling(
+                e1: MotionEvent?,
+                e2: MotionEvent,
+                velocityX: Float,
+                velocityY: Float
+            ): Boolean {
+                // 处理快速滑动
+                return true
+            }
+            
+            override fun onScroll(
+                e1: MotionEvent?,
+                e2: MotionEvent,
+                distanceX: Float,
+                distanceY: Float
+            ): Boolean {
+                // 处理滑动
+                return true
+            }
+        })
+    
+    private val scaleGestureDetector = ScaleGestureDetector(context,
+        object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+            override fun onScale(detector: ScaleGestureDetector): Boolean {
+                val scaleFactor = detector.scaleFactor
+                // 处理缩放
+                return true
+            }
+        })
+    
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        var handled = scaleGestureDetector.onTouchEvent(event)
+        handled = gestureDetector.onTouchEvent(event) || handled
+        return handled || super.onTouchEvent(event)
+    }
+}
+```
+
+### 2. 自定义手势
+
+```kotlin
+class CustomGestureDetector(context: Context) {
+    private var startPoint: PointF? = null
+    private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
+    
+    fun onTouchEvent(event: MotionEvent): Boolean {
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                startPoint = PointF(event.x, event.y)
+                return true
+            }
+            MotionEvent.ACTION_MOVE -> {
+                val dx = abs(event.x - (startPoint?.x ?: 0f))
+                val dy = abs(event.y - (startPoint?.y ?: 0f))
+                if (dx > touchSlop || dy > touchSlop) {
+                    // 判断手势方向
+                    val direction = if (dx > dy) {
+                        if (event.x > startPoint?.x ?: 0f) "RIGHT" else "LEFT"
+                    } else {
+                        if (event.y > startPoint?.y ?: 0f) "DOWN" else "UP"
+                    }
+                    // 处理手势
+                    handleGesture(direction)
+                }
+            }
+        }
+        return false
+    }
+}
+```
+
+## 面试重点
+
+### 1. 自定义View性能优化有哪些方法？
+
+A: 主要包括以下几点：
+
+1. **避免过度绘制**
+   - 使用clipRect()和clipPath()裁剪不需要绘制的区域
+   - 使用ViewStub延迟加载不常用的布局
+
+2. **合理使用硬件加速**
+   - 对于复杂的绘制操作启用硬件加速
+   - 注意某些API在硬件加速下的兼容性问题
+
+3. **使用绘制缓存**
+   - 对于静态内容使用缓存机制
+   - 及时更新和回收缓存
+
+### 2. 属性动画和补间动画的区别？
+
+A:
+1. **实现原理**
+   - 属性动画：真实改变对象属性值
+   - 补间动画：仅改变视觉效果，不改变实际属性
+
+2. **性能消耗**
+   - 属性动画：较高，因为需要不断计算和更新属性值
+   - 补间动画：较低，仅做视觉变换
+
+3. **使用场景**
+   - 属性动画：需要真实改变对象状态的场景
+   - 补间动画：简单的视觉效果变换
+
+### 3. 如何处理复杂的手势冲突？
+
+A: 处理手势冲突的关键点：
+
+1. **事件分发机制**
+```kotlin
+override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
+    when (ev.actionMasked) {
+        MotionEvent.ACTION_DOWN -> {
+            // 记录初始位置
+            lastX = ev.x
+            lastY = ev.y
+            return false
+        }
+        MotionEvent.ACTION_MOVE -> {
+            val dx = abs(ev.x - lastX)
+            val dy = abs(ev.y - lastY)
+            // 根据移动距离和方向判断是否拦截
+            return if (isHorizontalScroll) dx > dy else dy > dx
+        }
+    }
+    return super.onInterceptTouchEvent(ev)
+}
+```
+
+2. **内外部滑动冲突**
+```kotlin
+class ConflictLayout : ViewGroup {
+    private var lastX = 0f
+    private var lastY = 0f
+    
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        val x = ev.x
+        val y = ev.y
+        
+        when (ev.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                parent.requestDisallowInterceptTouchEvent(true)
+            }
+            MotionEvent.ACTION_MOVE -> {
+                val deltaX = x - lastX
+                val deltaY = y - lastY
+                if (abs(deltaX) > abs(deltaY)) {
+                    // 水平滑动，自己处理
+                    parent.requestDisallowInterceptTouchEvent(true)
+                } else {
+                    // 垂直滑动，交给父容器
+                    parent.requestDisallowInterceptTouchEvent(false)
+                }
+            }
+        }
+        lastX = x
+        lastY = y
+        return super.dispatchTouchEvent(ev)
+    }
+}
+```
+
+## 总结
+
+高级UI开发需要注意以下几点：
+
+1. 掌握自定义View的性能优化技巧
+2. 灵活运用属性动画实现复杂动画效果
+3. 正确处理手势冲突
+4. 注意内存优化和绘制性能
+5. 合理使用硬件加速

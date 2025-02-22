@@ -1,0 +1,180 @@
+# Android传感器开发
+
+## 概述
+
+Android设备配备了丰富的传感器，掌握传感器开发对于实现各种创新功能至关重要。本章将介绍Android传感器开发的核心知识和实践经验。
+
+## 核心知识点
+
+### 1. 传感器类型
+
+#### 面试题：Android支持哪些类型的传感器？如何获取设备支持的传感器列表？
+
+```kotlin
+// 获取传感器管理器
+val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+
+// 获取所有传感器列表
+val sensors = sensorManager.getSensorList(Sensor.TYPE_ALL)
+
+// 检查特定传感器是否可用
+val accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+val gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
+val magnetometer = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)
+```
+
+### 2. 传感器数据采集
+
+#### 面试题：如何监听传感器数据？如何控制采样率？
+
+```kotlin
+class SensorDataCollector : SensorEventListener {
+    private val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+    private val accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+    
+    fun startCollecting() {
+        // SENSOR_DELAY_NORMAL: 200,000 微秒
+        // SENSOR_DELAY_GAME: 20,000 微秒
+        // SENSOR_DELAY_UI: 60,000 微秒
+        // SENSOR_DELAY_FASTEST: 0 微秒
+        sensorManager.registerListener(
+            this,
+            accelerometer,
+            SensorManager.SENSOR_DELAY_NORMAL
+        )
+    }
+    
+    override fun onSensorChanged(event: SensorEvent) {
+        when (event.sensor.type) {
+            Sensor.TYPE_ACCELEROMETER -> {
+                val x = event.values[0]
+                val y = event.values[1]
+                val z = event.values[2]
+                // 处理加速度数据
+            }
+        }
+    }
+    
+    override fun onAccuracyChanged(sensor: Sensor, accuracy: Int) {
+        // 处理精度变化
+    }
+    
+    fun stopCollecting() {
+        sensorManager.unregisterListener(this)
+    }
+}
+```
+
+### 3. 传感器数据处理
+
+#### 面试题：如何处理传感器数据噪声？如何实现数据平滑？
+
+```kotlin
+class SensorDataProcessor {
+    // 1. 低通滤波
+    private var lastValue = 0f
+    private val alpha = 0.8f
+    
+    fun lowPassFilter(input: Float): Float {
+        lastValue = alpha * lastValue + (1 - alpha) * input
+        return lastValue
+    }
+    
+    // 2. 移动平均
+    private val windowSize = 5
+    private val values = ArrayDeque<Float>(windowSize)
+    
+    fun movingAverage(input: Float): Float {
+        values.addLast(input)
+        if (values.size > windowSize) {
+            values.removeFirst()
+        }
+        return values.average().toFloat()
+    }
+    
+    // 3. 卡尔曼滤波
+    private var estimate = 0f
+    private var errorEstimate = 1f
+    private val q = 0.1f // 过程噪声
+    private val r = 0.1f // 测量噪声
+    
+    fun kalmanFilter(measurement: Float): Float {
+        // 预测
+        val errorPrediction = errorEstimate + q
+        
+        // 更新
+        val kalmanGain = errorPrediction / (errorPrediction + r)
+        estimate += kalmanGain * (measurement - estimate)
+        errorEstimate = (1 - kalmanGain) * errorPrediction
+        
+        return estimate
+    }
+}
+```
+
+### 4. 传感器应用场景
+
+#### 面试题：传感器在Android应用中有哪些常见的应用场景？
+
+```kotlin
+// 1. 计步器实现
+class StepCounter(context: Context) {
+    private val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+    private val stepCounter = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
+    
+    private val listener = object : SensorEventListener {
+        override fun onSensorChanged(event: SensorEvent) {
+            val steps = event.values[0]
+            // 处理步数数据
+        }
+        
+        override fun onAccuracyChanged(sensor: Sensor, accuracy: Int) {}
+    }
+}
+
+// 2. 屏幕旋转检测
+class RotationDetector(context: Context) {
+    private val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+    private val accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+    private val magnetometer = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)
+    
+    private val rotationMatrix = FloatArray(9)
+    private val orientationAngles = FloatArray(3)
+    
+    fun calculateRotation(accelerometerReading: FloatArray, magnetometerReading: FloatArray) {
+        SensorManager.getRotationMatrix(
+            rotationMatrix,
+            null,
+            accelerometerReading,
+            magnetometerReading
+        )
+        
+        SensorManager.getOrientation(rotationMatrix, orientationAngles)
+    }
+}
+```
+
+## 最佳实践
+
+1. 性能优化
+- 合理选择采样率
+- 及时注销监听器
+- 避免在主线程处理数据
+
+2. 电池优化
+- 按需注册传感器
+- 使用批处理模式
+- 降低采样频率
+
+3. 数据处理
+- 使用适当的滤波算法
+- 处理异常数据
+- 实现数据平滑
+
+## 面试要点
+
+1. 了解Android支持的传感器类型
+2. 掌握传感器数据采集方法
+3. 熟悉传感器数据处理技术
+4. 理解传感器应用场景
+5. 具备性能优化意识

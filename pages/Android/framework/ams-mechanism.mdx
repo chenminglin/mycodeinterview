@@ -1,0 +1,256 @@
+# Android ActivityManagerService机制深度解析
+
+## AMS的基本原理
+
+### 1. AMS的系统架构
+
+```java
+public class AMSArchitecture {
+    // 1. Activity管理
+    class ActivityStackSupervisor {
+        private final ArrayList<ActivityStack> mStacks = new ArrayList<>();
+        
+        void handleActivityLaunch() {
+            // 处理Activity启动流程
+            startActivityLocked();
+            resumeTopActivityLocked();
+        }
+        
+        private void startActivityLocked() {
+            // 启动Activity的具体实现
+            // 1. 权限检查
+            // 2. 创建ActivityRecord
+            // 3. 加入Activity栈
+        }
+    }
+    
+    // 2. 进程管理
+    class ProcessRecord {
+        final int pid;
+        final String processName;
+        final ArrayList<ActivityRecord> activities = new ArrayList<>();
+        
+        void updateProcessInfo() {
+            // 更新进程信息
+            updateOomAdj();
+            updateCpuStats();
+        }
+    }
+}
+```
+
+### 2. Activity生命周期管理
+
+```kotlin
+class ActivityLifecycleManagement {
+    class ActivityStack {
+        private val activities = ArrayList<ActivityRecord>()
+        
+        fun resumeTopActivityLocked() {
+            // 1. 暂停当前Activity
+            pauseCurrentActivity()
+            
+            // 2. 恢复栈顶Activity
+            val top = activities.lastOrNull()
+            top?.let { 
+                startResumeActivity(it)
+            }
+        }
+        
+        private fun startResumeActivity(activity: ActivityRecord) {
+            // 通过ApplicationThread发送消息
+            activity.app.thread.scheduleResumeActivity(
+                activity.token,
+                true
+            )
+        }
+    }
+    
+    // Activity状态追踪
+    class ActivityRecord {
+        var state: State = State.INITIALIZING
+        var visible = false
+        var stopped = false
+        
+        fun updateState(newState: State) {
+            state = newState
+            // 通知状态变化
+            notifyStateChanged()
+        }
+    }
+}
+```
+
+## AMS的高级应用
+
+### 1. 进程优先级管理
+
+```kotlin
+class ProcessPriorityManagement {
+    // 进程优先级计算
+    class ProcessList {
+        fun computeOomScore(
+            app: ProcessRecord,
+            cachedAdj: Int,
+            empty: Boolean
+        ): Int {
+            var adj = cachedAdj
+            
+            // 1. 前台进程
+            if (app.hasForegroundActivities()) {
+                adj = FOREGROUND_APP_ADJ
+            }
+            // 2. 可见进程
+            else if (app.hasVisibleActivities()) {
+                adj = VISIBLE_APP_ADJ
+            }
+            // 3. 服务进程
+            else if (app.hasServiceComponents()) {
+                adj = SERVICE_ADJ
+            }
+            
+            return adj
+        }
+    }
+    
+    // 进程回收策略
+    class ProcessRecycler {
+        fun trimProcessesIfNeeded() {
+            // 1. 获取内存信息
+            val memInfo = MemInfoReader()
+            memInfo.readMemInfo()
+            
+            // 2. 根据内存状态决定回收策略
+            if (memInfo.isLowMemory()) {
+                killBackgroundProcesses()
+            }
+        }
+    }
+}
+```
+
+### 2. 多任务管理
+
+```kotlin
+class MultiTaskManagement {
+    // 1. 最近任务管理
+    class RecentTaskManager {
+        private val recentTasks = ArrayList<TaskRecord>()
+        
+        fun addRecentTask(task: TaskRecord) {
+            // 更新最近任务列表
+            recentTasks.add(0, task)
+            // 限制最大数量
+            if (recentTasks.size > MAX_TASKS) {
+                recentTasks.removeAt(recentTasks.lastIndex)
+            }
+        }
+        
+        fun removeTask(taskId: Int) {
+            recentTasks.removeAll { it.taskId == taskId }
+        }
+    }
+    
+    // 2. 分屏管理
+    class SplitScreenManager {
+        fun createSplitScreen(
+            primaryActivity: ActivityRecord,
+            secondaryActivity: ActivityRecord
+        ) {
+            // 创建分屏任务
+            val primaryTask = TaskRecord(primaryActivity)
+            val secondaryTask = TaskRecord(secondaryActivity)
+            
+            // 设置分屏布局
+            updateSplitScreenLayout(primaryTask, secondaryTask)
+        }
+    }
+}
+```
+
+## AMS源码分析
+
+### 1. Activity启动流程
+
+```java
+public class ActivityStartAnalysis {
+    public void analyzeStartActivity() {
+        // Activity启动流程分析
+        /*
+        1. Activity.startActivity
+        2. Instrumentation.execStartActivity
+        3. AMS.startActivity
+        4. ActivityStarter.execute
+        5. ActivityStackSupervisor.startSpecificActivityLocked
+        6. ProcessRecord.startProcessLocked
+        7. ApplicationThread.scheduleLaunchActivity
+        */
+    }
+    
+    // Activity启动优化
+    public void optimizeActivityStart() {
+        // 1. 预创建进程
+        void prepareProcessLocked(String processName) {
+            // 提前创建进程
+        }
+        
+        // 2. 优化启动参数
+        Bundle optimizeOptions(Bundle options) {
+            // 设置启动模式
+            options.putInt(LAUNCH_OPTIMIZE, OPTIMIZE_FLAG);
+            return options;
+        }
+    }
+}
+```
+
+### 2. 进程创建流程
+
+```java
+public class ProcessCreateAnalysis {
+    public void analyzeProcessCreate() {
+        // 进程创建流程分析
+        /*
+        1. AMS.startProcessLocked
+        2. Process.start
+        3. ZygoteProcess.start
+        4. ZygoteConnection.handleChildProc
+        5. ActivityThread.main
+        6. ActivityThread.attach
+        7. AMS.attachApplication
+        */
+    }
+}
+```
+
+## 面试要点
+
+1. AMS的核心功能：
+   - Activity生命周期管理
+   - 进程管理
+   - 任务管理
+   - 内存管理
+
+2. Activity管理机制：
+   - Activity栈管理
+   - 启动模式
+   - 任务栈管理
+   - 生命周期回调
+
+3. 进程管理：
+   - 进程优先级
+   - 进程回收
+   - 进程间通信
+   - 多进程管理
+
+4. 性能优化：
+   - 启动优化
+   - 内存优化
+   - 进程优化
+   - 任务管理优化
+
+5. 实际应用：
+   - Activity管理
+   - 进程管理
+   - 多窗口支持
+   - 应用切换

@@ -1,0 +1,274 @@
+# Android AMS深入分析
+
+## AMS基础原理
+
+### 1. AMS是什么？
+
+ActivityManagerService（AMS）是Android中最核心的服务之一，主要负责四大组件的启动、切换、调度及应用进程的管理和调度等工作。
+
+```java
+public class AMSExample {
+    // 获取ActivityManager实例
+    ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+    
+    // 获取运行中的应用信息
+    List<ActivityManager.RunningAppProcessInfo> runningProcesses = am.getRunningAppProcesses();
+    
+    // 获取内存信息
+    ActivityManager.MemoryInfo memoryInfo = new ActivityManager.MemoryInfo();
+    am.getMemoryInfo(memoryInfo);
+}
+```
+
+### 2. Activity启动流程
+
+```kotlin
+class ActivityStartProcess {
+    fun startActivityAnalysis() {
+        // Activity启动流程分析
+        
+        // 1. Activity.startActivity
+        startActivity(intent)
+        
+        // 2. Instrumentation.execStartActivity
+        instrumentation.execStartActivity(
+            context, who, target, requestCode, intent, options)
+        
+        // 3. ActivityTaskManager.getService
+        // 通过AIDL获取AMS代理对象
+        IActivityTaskManager service = ActivityTaskManager.getService()
+        
+        // 4. AMS.startActivity
+        // 进入系统进程处理
+        service.startActivity(...)
+    }
+}
+```
+
+## 进程管理
+
+### 1. 进程创建流程
+
+```kotlin
+class ProcessManagement {
+    // 进程创建示意代码
+    class ProcessRecord {
+        var pid: Int = 0
+        var processName: String = ""
+        var pkgList: MutableList<String> = mutableListOf()
+    }
+    
+    fun createProcess(context: Context, processName: String) {
+        // 1. 创建进程记录
+        val processRecord = ProcessRecord().apply {
+            this.processName = processName
+        }
+        
+        // 2. 通过Zygote创建进程
+        val pid = createProcessViaZygote(processName)
+        processRecord.pid = pid
+        
+        // 3. 初始化进程
+        attachApplication(processRecord)
+    }
+}
+```
+
+### 2. 进程优先级管理
+
+```kotlin
+class ProcessPriorityManager {
+    companion object {
+        const val PROCESS_PRIORITY_FOREGROUND = 100
+        const val PROCESS_PRIORITY_VISIBLE = 200
+        const val PROCESS_PRIORITY_SERVICE = 300
+        const val PROCESS_PRIORITY_BACKGROUND = 400
+    }
+    
+    fun adjustProcessPriority(pid: Int, priority: Int) {
+        try {
+            Process.setThreadPriority(pid, priority)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+    
+    fun handleLowMemory() {
+        // 根据进程优先级进行内存回收
+        val am = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        val runningProcesses = am.runningAppProcesses
+        
+        runningProcesses?.forEach { process ->
+            if (process.importance >= ActivityManager.RunningAppProcessInfo.IMPORTANCE_BACKGROUND) {
+                // 终止后台进程
+                Process.killProcess(process.pid)
+            }
+        }
+    }
+}
+```
+
+## 组件管理
+
+### 1. Activity栈管理
+
+```kotlin
+class ActivityStackManager {
+    // Activity任务栈管理
+    class TaskRecord {
+        val activities = mutableListOf<ActivityRecord>()
+        var taskId: Int = 0
+        
+        fun addActivity(activity: ActivityRecord) {
+            activities.add(activity)
+        }
+        
+        fun removeActivity(activity: ActivityRecord) {
+            activities.remove(activity)
+        }
+    }
+    
+    // Activity记录
+    data class ActivityRecord(
+        val intent: Intent,
+        val activityInfo: ActivityInfo,
+        val state: Int
+    )
+    
+    // 任务栈操作
+    fun moveTaskToFront(taskId: Int) {
+        val am = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        am.moveTaskToFront(taskId, ActivityManager.MOVE_TASK_WITH_HOME)
+    }
+}
+```
+
+### 2. Service管理
+
+```kotlin
+class ServiceManager {
+    // Service生命周期管理
+    class ServiceRecord {
+        var name: ComponentName? = null
+        var intent: Intent? = null
+        var startId: Int = 0
+        var pid: Int = 0
+    }
+    
+    fun startService(context: Context, intent: Intent) {
+        // 1. 检查权限
+        checkPermission(context, intent)
+        
+        // 2. 创建或获取ServiceRecord
+        val record = findOrCreateServiceRecord(intent)
+        
+        // 3. 启动Service
+        startServiceInner(record)
+    }
+    
+    private fun startServiceInner(record: ServiceRecord) {
+        // 处理Service启动
+        if (record.pid == 0) {
+            // 需要创建新进程
+            createProcessForService(record)
+        } else {
+            // 直接启动Service
+            scheduleServiceStart(record)
+        }
+    }
+}
+```
+
+## 实战应用
+
+### 1. 自定义进程管理
+
+```kotlin
+class CustomProcessManager {
+    private val processMap = mutableMapOf<Int, ProcessInfo>()
+    
+    data class ProcessInfo(
+        val pid: Int,
+        val processName: String,
+        var importance: Int,
+        var lastUsedTime: Long
+    )
+    
+    fun monitorProcesses(context: Context) {
+        val am = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        
+        // 定期监控进程状态
+        Timer().scheduleAtFixedRate(object : TimerTask() {
+            override fun run() {
+                am.runningAppProcesses?.forEach { process ->
+                    processMap[process.pid] = ProcessInfo(
+                        process.pid,
+                        process.processName,
+                        process.importance,
+                        System.currentTimeMillis()
+                    )
+                }
+                
+                // 清理长时间未使用的后台进程
+                cleanIdleProcesses()
+            }
+        }, 0, 60000) // 每分钟执行一次
+    }
+    
+    private fun cleanIdleProcesses() {
+        val currentTime = System.currentTimeMillis()
+        processMap.entries.removeIf { (_, info) ->
+            val idle = currentTime - info.lastUsedTime > 30 * 60 * 1000 // 30分钟
+            if (idle && info.importance >= ActivityManager.RunningAppProcessInfo.IMPORTANCE_BACKGROUND) {
+                Process.killProcess(info.pid)
+                true
+            } else false
+        }
+    }
+}
+```
+
+### 2. Activity启动优化
+
+```kotlin
+class ActivityStartOptimization {
+    class OptimizedActivity : AppCompatActivity() {
+        override fun onCreate(savedInstanceState: Bundle?) {
+            // 1. 优化启动窗口
+            window.setBackgroundDrawable(null)
+            
+            // 2. 避免主线程IO
+            lifecycleScope.launch(Dispatchers.IO) {
+                // 异步初始化
+                val data = loadInitialData()
+                
+                withContext(Dispatchers.Main) {
+                    // 更新UI
+                    updateUI(data)
+                }
+            }
+            
+            super.onCreate(savedInstanceState)
+        }
+        
+        // 3. 懒加载
+        private val lazyData by lazy {
+            // 延迟加载数据
+            loadData()
+        }
+    }
+    
+    // 4. 预加载机制
+    object ActivityPreloader {
+        private val preloadDataMap = mutableMapOf<Class<*>, Any>()
+        
+        fun preload(activityClass: Class<*>, data: Any) {
+            preloadDataMap[activityClass] = data
+        }
+        
+        fun getPreloadData(activityClass: Class<*>): Any? {
+            return preloadDataMap.remove(activityClass)
+        }
+    }
+}
+```

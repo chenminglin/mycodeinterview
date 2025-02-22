@@ -1,0 +1,275 @@
+# Compose 深度集成
+
+## 与Android系统集成
+
+### Activity集成
+```kotlin
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent {
+            AppTheme {
+                AppContent()
+            }
+        }
+    }
+}
+```
+
+### Fragment集成
+```kotlin
+class MainFragment : Fragment() {
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        return ComposeView(requireContext()).apply {
+            setContent {
+                AppTheme {
+                    FragmentContent()
+                }
+            }
+        }
+    }
+}
+```
+
+## 与传统View系统互操作
+
+### 在Compose中嵌入View
+```kotlin
+@Composableun AndroidViewWrapper() {
+    AndroidView(
+        factory = { context ->
+            CustomView(context).apply {
+                // 初始化View
+            }
+        },
+        update = { view ->
+            // 更新View属性
+            view.updateProperties()
+        }
+    )
+}
+```
+
+### 在View中嵌入Compose
+```kotlin
+class CustomViewGroup : FrameLayout {
+    private val composeView = ComposeView(context)
+
+    init {
+        addView(composeView)
+        composeView.setContent {
+            ComposeContent()
+        }
+    }
+}
+```
+
+## 第三方库集成
+
+### 依赖注入
+```kotlin
+@HiltViewModel
+class MainViewModel @Inject constructor(
+    private val repository: Repository
+) : ViewModel() {
+    // ViewModel实现
+}
+
+@AndroidEntryPoint
+class MainActivity : ComponentActivity() {
+    private val viewModel: MainViewModel by viewModels()
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent {
+            MainScreen(viewModel)
+        }
+    }
+}
+```
+
+### 导航框架
+```kotlin
+@Composable
+fun AppNavigation() {
+    val navController = rememberNavController()
+
+    NavHost(navController, startDestination = "home") {
+        composable("home") { HomeScreen() }
+        composable(
+            "detail/{id}",
+            arguments = listOf(navArgument("id") { type = NavType.StringType })
+        ) { backStackEntry ->
+            DetailScreen(backStackEntry.arguments?.getString("id"))
+        }
+    }
+}
+```
+
+## 数据层集成
+
+### Room数据库
+```kotlin
+@Dao
+interface UserDao {
+    @Query("SELECT * FROM users")
+    fun getUsers(): Flow<List<User>>
+
+    @Insert
+    suspend fun insertUser(user: User)
+}
+
+@Composable
+fun UserList(viewModel: UserViewModel) {
+    val users by viewModel.users.collectAsState(initial = emptyList())
+
+    LazyColumn {
+        items(users) { user ->
+            UserItem(user)
+        }
+    }
+}
+```
+
+### 网络请求
+```kotlin
+@Composable
+fun NetworkContent() {
+    var data by remember { mutableStateOf<Result<Data>?>(null) }
+
+    LaunchedEffect(Unit) {
+        data = try {
+            Result.success(api.fetchData())
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    when (data) {
+        is Result.Success -> SuccessContent(data.getOrNull()!!)
+        is Result.Failure -> ErrorContent(data.exceptionOrNull()!!)
+        null -> LoadingContent()
+    }
+}
+```
+
+## 性能优化
+
+### 延迟加载
+```kotlin
+val lazyListState = rememberLazyListState()
+
+LazyColumn(state = lazyListState) {
+    items(items) { item ->
+        key(item.id) {
+            LazyLoadingItem(item)
+        }
+    }
+}
+
+@Composable
+fun LazyLoadingItem(item: Item) {
+    var isVisible by remember { mutableStateOf(false) }
+
+    DisposableEffect(Unit) {
+        isVisible = true
+        onDispose {
+            isVisible = false
+        }
+    }
+
+    AnimatedVisibility(
+        visible = isVisible,
+        enter = fadeIn() + expandVertically()
+    ) {
+        ItemContent(item)
+    }
+}
+```
+
+### 内存优化
+```kotlin
+class ImageCache {
+    private val cache = LruCache<String, Bitmap>(cacheSize)
+
+    fun get(key: String): Bitmap? = cache.get(key)
+    fun put(key: String, bitmap: Bitmap) = cache.put(key, bitmap)
+}
+
+@Composable
+fun CachedImage(
+    url: String,
+    imageCache: ImageCache
+) {
+    var bitmap by remember { mutableStateOf(imageCache.get(url)) }
+
+    LaunchedEffect(url) {
+        if (bitmap == null) {
+            bitmap = loadImage(url).also {
+                imageCache.put(url, it)
+            }
+        }
+    }
+
+    bitmap?.let { Image(bitmap = it.asImageBitmap(), contentDescription = null) }
+}
+```
+
+## 安全性考虑
+
+### 数据加密
+```kotlin
+class SecureStorage(private val context: Context) {
+    private val masterKey = MasterKey.Builder(context)
+        .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+        .build()
+
+    private val encryptedPreferences = EncryptedSharedPreferences.create(
+        context,
+        "secure_prefs",
+        masterKey,
+        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+    )
+
+    fun saveSecureData(key: String, value: String) {
+        encryptedPreferences.edit().putString(key, value).apply()
+    }
+
+    fun getSecureData(key: String): String? {
+        return encryptedPreferences.getString(key, null)
+    }
+}
+```
+
+### 权限处理
+```kotlin
+@Composable
+fun PermissionAwareComponent() {
+    var hasPermission by remember {
+        mutableStateOf(false)
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        hasPermission = isGranted
+    }
+
+    LaunchedEffect(Unit) {
+        permissionLauncher.launch(Manifest.permission.CAMERA)
+    }
+
+    if (hasPermission) {
+        // 显示需要权限的内容
+        PermissionGrantedContent()
+    } else {
+        // 显示权限请求UI
+        PermissionRequestContent()
+    }
+}
+```

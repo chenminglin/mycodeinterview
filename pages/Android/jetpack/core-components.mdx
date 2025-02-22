@@ -1,0 +1,180 @@
+# Jetpack核心组件面试题
+
+## ViewModel
+
+### 1. ViewModel的生命周期是怎样的？为什么它能在配置更改时保持数据？
+
+```kotlin
+class UserViewModel : ViewModel() {
+    private val _userData = MutableLiveData<User>()
+    val userData: LiveData<User> = _userData
+    
+    fun loadUser(userId: String) {
+        viewModelScope.launch {
+            val user = repository.getUser(userId)
+            _userData.value = user
+        }
+    }
+    
+    override fun onCleared() {
+        super.onCleared()
+        // 清理资源
+    }
+}
+```
+
+ViewModel的生命周期特点：
+1. 在Activity/Fragment创建时被创建
+2. 在Activity finish或Fragment detach时被销毁
+3. 在配置更改（如屏幕旋转）时保持存活
+
+### 2. LiveData的优势是什么？与其他观察者模式的区别？
+
+```kotlin
+class WeatherViewModel : ViewModel() {
+    private val _temperature = MutableLiveData<Float>()
+    val temperature: LiveData<Float> = _temperature
+    
+    fun updateTemperature(temp: Float) {
+        _temperature.value = temp
+    }
+    
+    // 转换LiveData
+    val temperatureInFahrenheit: LiveData<Float> = Transformations.map(temperature) { celsius ->
+        celsius * 9/5 + 32
+    }
+}
+```
+
+LiveData优势：
+1. 生命周期感知
+2. 自动管理订阅关系
+3. 确保组件处于活跃状态时才更新
+4. 数据一致性保证
+
+### 3. Room数据库的核心组件有哪些？如何优化查询性能？
+
+```kotlin
+@Entity(tableName = "users")
+data class User(
+    @PrimaryKey val id: Int,
+    @ColumnInfo(name = "first_name") val firstName: String,
+    @ColumnInfo(name = "last_name") val lastName: String
+)
+
+@Dao
+interface UserDao {
+    @Query("SELECT * FROM users")
+    fun getAll(): Flow<List<User>>
+    
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(user: User)
+    
+    // 使用索引优化查询
+    @Query("SELECT * FROM users WHERE first_name LIKE :search OR last_name LIKE :search")
+    suspend fun searchUsers(search: String): List<User>
+}
+```
+
+Room优化策略：
+1. 使用索引加速查询
+2. 采用异步操作
+3. 合理设计表结构
+4. 使用预编译语句
+
+### 4. DataBinding与ViewBinding的区别是什么？
+
+```kotlin
+// DataBinding示例
+class UserActivity : AppCompatActivity() {
+    private lateinit var binding: ActivityUserBinding
+    private val viewModel: UserViewModel by viewModels()
+    
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        binding = DataBindingUtil.setContentView(this, R.layout.activity_user)
+        binding.lifecycleOwner = this
+        binding.viewModel = viewModel
+    }
+}
+
+// ViewBinding示例
+class ProfileActivity : AppCompatActivity() {
+    private lateinit var binding: ActivityProfileBinding
+    
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        binding = ActivityProfileBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+        
+        binding.userName.text = "John Doe"
+    }
+}
+```
+
+主要区别：
+1. DataBinding支持双向绑定
+2. ViewBinding只支持视图引用
+3. DataBinding需要额外的编译时开销
+4. ViewBinding更轻量级
+
+### 5. Hilt依赖注入的优势和使用方式
+
+```kotlin
+@HiltAndroidApp
+class MyApplication : Application()
+
+@AndroidEntryPoint
+class MainActivity : AppCompatActivity() {
+    @Inject lateinit var analytics: AnalyticsAdapter
+    private val mainViewModel: MainViewModel by viewModels()
+    
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        analytics.logEvent("MainActivity_Created")
+    }
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
+object AnalyticsModule {
+    @Provides
+    @Singleton
+    fun provideAnalytics(): AnalyticsAdapter {
+        return FirebaseAnalytics()
+    }
+}
+```
+
+Hilt优势：
+1. 标准化依赖注入
+2. 简化配置过程
+3. 作用域管理
+4. 测试支持
+
+## 最佳实践
+
+1. ViewModel最佳实践
+- 不持有View引用
+- 使用SavedStateHandle保存状态
+- 合理使用协程作用域
+
+2. LiveData使用建议
+- 使用SingleLiveEvent处理一次性事件
+- 合理使用Transformations
+- 避免在LiveData中执行耗时操作
+
+3. Room性能优化
+- 使用事务处理批量操作
+- 采用懒加载策略
+- 合理使用索引
+- 避免复杂查询
+
+4. Hilt依赖注入
+- 遵循依赖注入原则
+- 合理使用作用域
+- 提供测试替身
+
+## 总结
+
+Jetpack组件是现代Android开发的基石，掌握这些组件的原理和最佳实践对于构建高质量的应用至关重要。在面试中，除了了解基本用法，更要深入理解其设计理念和实现原理。

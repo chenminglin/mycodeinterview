@@ -1,0 +1,279 @@
+# Android高级性能优化
+
+## 内存优化进阶
+
+### 1. 如何构建完整的内存优化体系？
+
+```java
+public class MemoryOptimizationManager {
+    private static volatile MemoryOptimizationManager sInstance;
+    private ActivityManager.MemoryInfo memoryInfo;
+    private ActivityManager activityManager;
+    
+    private MemoryOptimizationManager(Context context) {
+        activityManager = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+        memoryInfo = new ActivityManager.MemoryInfo();
+    }
+    
+    public static MemoryOptimizationManager getInstance(Context context) {
+        if (sInstance == null) {
+            synchronized (MemoryOptimizationManager.class) {
+                if (sInstance == null) {
+                    sInstance = new MemoryOptimizationManager(context.getApplicationContext());
+                }
+            }
+        }
+        return sInstance;
+    }
+    
+    // 内存监控
+    public void startMemoryMonitor() {
+        activityManager.getMemoryInfo(memoryInfo);
+        long availableMem = memoryInfo.availMem / 1024 / 1024;
+        boolean isLowMemory = memoryInfo.lowMemory;
+        
+        // 记录内存信息
+        logMemoryInfo(availableMem, isLowMemory);
+        
+        // 触发内存优化
+        if (isLowMemory) {
+            performMemoryOptimization();
+        }
+    }
+    
+    // 内存优化策略
+    private void performMemoryOptimization() {
+        // 1. 清理图片缓存
+        clearImageCache();
+        
+        // 2. 释放不必要的资源
+        releaseUnusedResources();
+        
+        // 3. 提示开发者进行垃圾回收
+        notifyGCHint();
+    }
+}
+```
+
+### 2. 大型应用的内存优化策略
+
+```kotlin
+class AdvancedMemoryOptimization {
+    // 1. 大对象池管理
+    class ObjectPool<T> {
+        private val pool = LinkedList<T>()
+        private val maxSize: Int
+        
+        fun acquire(): T? {
+            synchronized(pool) {
+                return if (pool.isNotEmpty()) pool.removeFirst() else null
+            }
+        }
+        
+        fun release(obj: T) {
+            synchronized(pool) {
+                if (pool.size < maxSize) {
+                    pool.addLast(obj)
+                }
+            }
+        }
+    }
+    
+    // 2. 智能图片加载
+    class SmartImageLoader {
+        fun loadImage(context: Context, url: String, imageView: ImageView) {
+            Glide.with(context)
+                .load(url)
+                .apply(RequestOptions()
+                    .diskCacheStrategy(DiskCacheStrategy.ALL)
+                    .format(DecodeFormat.PREFER_RGB_565) // 降低内存占用
+                    .override(Target.SIZE_ORIGINAL))
+                .into(imageView)
+        }
+    }
+}
+```
+
+## 启动优化进阶
+
+### 1. 多进程启动优化
+
+```java
+public class MultiProcessOptimization extends Application {
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        String processName = getProcessName();
+        
+        if (processName.equals(getPackageName())) {
+            // 主进程初始化
+            initMainProcess();
+        } else if (processName.endsWith(":remote")) {
+            // 远程进程初始化
+            initRemoteProcess();
+        }
+    }
+    
+    private void initMainProcess() {
+        // 1. 异步初始化
+        AsyncTask.execute(() -> {
+            // 初始化不重要的SDK
+        });
+        
+        // 2. 延迟初始化
+        new Handler().postDelayed(() -> {
+            // 延迟加载的组件
+        }, 3000);
+    }
+    
+    private String getProcessName() {
+        int pid = android.os.Process.myPid();
+        ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+        List<ActivityManager.RunningAppProcessInfo> runningApps = am.getRunningAppProcesses();
+        if (runningApps != null) {
+            for (ActivityManager.RunningAppProcessInfo procInfo : runningApps) {
+                if (procInfo.pid == pid) {
+                    return procInfo.processName;
+                }
+            }
+        }
+        return "";
+    }
+}
+```
+
+### 2. 启动速度监控
+
+```kotlin
+class StartupTracker {
+    private val startTime = AtomicLong()
+    private val endTime = AtomicLong()
+    private val stages = ConcurrentHashMap<String, Long>()
+    
+    fun trackStartup() {
+        startTime.set(System.currentTimeMillis())
+        
+        // 记录关键节点
+        trackStage("application_start")
+        
+        // 注册Activity生命周期监听
+        registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
+            override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {
+                if (activity is MainActivity) {
+                    trackStage("main_activity_created")
+                }
+            }
+            
+            override fun onActivityResumed(activity: Activity) {
+                if (activity is MainActivity) {
+                    endTime.set(System.currentTimeMillis())
+                    calculateStartupTime()
+                }
+            }
+        })
+    }
+    
+    private fun trackStage(stageName: String) {
+        stages[stageName] = System.currentTimeMillis()
+    }
+    
+    private fun calculateStartupTime() {
+        val totalTime = endTime.get() - startTime.get()
+        // 上报启动耗时
+        reportStartupMetrics(totalTime, stages)
+    }
+}
+```
+
+## 性能优化工具
+
+### 1. 自定义性能监控工具
+
+```kotlin
+class PerformanceMonitor {
+    // 1. FPS监控
+    class FPSMonitor(context: Context) {
+        private var frameCount = 0
+        private var lastTime = System.nanoTime()
+        
+        fun trackFrame() {
+            frameCount++
+            val currentTime = System.nanoTime()
+            if (currentTime - lastTime >= TimeUnit.SECONDS.toNanos(1)) {
+                val fps = frameCount
+                // 记录FPS
+                logFPS(fps)
+                frameCount = 0
+                lastTime = currentTime
+            }
+        }
+    }
+    
+    // 2. 内存泄漏检测
+    class LeakDetector {
+        private val weakRefMap = WeakHashMap<Any, String>()
+        
+        fun watch(obj: Any, desc: String) {
+            weakRefMap[obj] = desc
+        }
+        
+        fun checkLeaks() {
+            System.gc()
+            SystemClock.sleep(100)
+            
+            weakRefMap.forEach { (obj, desc) ->
+                Log.w("LeakDetector", "Potential memory leak: $desc")
+            }
+        }
+    }
+}
+```
+
+### 2. 线上性能监控
+
+```kotlin
+class OnlinePerformanceMonitor {
+    // 1. ANR监控
+    class ANRWatchDog : Thread() {
+        private val mainHandler = Handler(Looper.getMainLooper())
+        private var lastTickTime = 0L
+        
+        override fun run() {
+            while (true) {
+                lastTickTime = System.currentTimeMillis()
+                mainHandler.post { lastTickTime = System.currentTimeMillis() }
+                
+                sleep(5000)
+                
+                if (System.currentTimeMillis() - lastTickTime >= 5000) {
+                    // 发生ANR，收集信息
+                    dumpANRInfo()
+                }
+            }
+        }
+    }
+    
+    // 2. 卡顿监控
+    class BlockCanary {
+        private val mainHandler = Handler(Looper.getMainLooper())
+        private var startTime = 0L
+        
+        init {
+            Looper.getMainLooper().setMessageLogging { x ->
+                when {
+                    x.startsWith(">>>>> Dispatching") -> {
+                        startTime = System.currentTimeMillis()
+                    }
+                    x.startsWith("<<<<< Finished") -> {
+                        val costTime = System.currentTimeMillis() - startTime
+                        if (costTime > 100) {
+                            // 记录卡顿
+                            logBlockInfo(costTime)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+```

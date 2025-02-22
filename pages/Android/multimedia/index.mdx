@@ -1,0 +1,142 @@
+# Android音视频开发
+
+本章节介绍Android音视频开发的核心知识点和面试要点。
+
+## 基础概念
+
+### 1. 音视频基础
+- 视频编码格式：H.264/AVC、H.265/HEVC、VP8/VP9
+- 音频编码格式：AAC、MP3、PCM
+- 封装格式：MP4、FLV、MKV
+
+### 2. Android多媒体架构
+- **MediaPlayer**：基础播放框架
+- **ExoPlayer**：Google推荐的播放框架
+- **MediaCodec**：底层编解码接口
+- **AudioTrack**：音频播放接口
+- **Camera/Camera2**：相机采集接口
+
+## 面试重点
+
+### 1. MediaPlayer和ExoPlayer的区别
+**答案**：
+1. 功能特性：
+   - MediaPlayer：系统自带，支持基本播放功能
+   - ExoPlayer：支持DASH、HLS等流媒体协议，可扩展性强
+
+2. 性能表现：
+   - MediaPlayer：内存占用较小，适合简单场景
+   - ExoPlayer：性能更好，支持高级特性
+
+### 2. 音视频同步原理
+**答案**：
+- 以视频为主时钟源
+- 通过PTS（显示时间戳）和DTS（解码时间戳）控制
+- 音频根据视频时钟动态调整播放速率
+
+### 3. 硬编码与软编码
+**答案**：
+1. 软编码：
+   - 使用CPU进行编解码
+   - 灵活性高，适配性好
+   - CPU占用高，耗电量大
+
+2. 硬编码：
+   - 使用硬件（GPU/DSP）编解码
+   - 性能高，耗电少
+   - 兼容性可能存在问题
+
+## 实践技巧
+
+### 1. 视频录制优化
+```java
+MediaRecorder recorder = new MediaRecorder();
+recorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
+recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
+recorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
+recorder.setVideoSize(1920, 1080);
+recorder.setVideoFrameRate(30);
+recorder.setVideoEncodingBitRate(3000000);
+```
+
+### 2. ExoPlayer使用示例
+```kotlin
+val player = ExoPlayer.Builder(context).build()
+val mediaItem = MediaItem.fromUri(videoUri)
+player.setMediaItem(mediaItem)
+player.prepare()
+player.play()
+```
+
+## 性能优化
+
+1. **播放优化**
+   - 预加载机制
+   - 缓存管理
+   - 码率自适应
+
+2. **录制优化**
+   - 合理的编码参数
+   - 降采样处理
+   - 硬件加速
+
+3. **直播优化**
+   - 延迟控制
+   - 丢帧策略
+   - 弱网优化
+
+## 调试技巧
+
+1. **性能分析**
+```bash
+# 查看编解码器信息
+adb shell dumpsys media.codec
+
+# 查看媒体进程状态
+adb shell dumpsys media.player
+```
+
+2. **常见问题排查**
+- 播放卡顿：检查缓冲区大小和网络状态
+- 音画不同步：检查PTS计算逻辑
+- 内存泄漏：注意释放资源
+
+## 进阶主题
+
+1. **音视频处理**
+   - 滤镜效果
+   - 视频转码
+   - 画面拼接
+
+2. **直播技术**
+   - RTMP推流
+   - WebRTC
+   - 低延迟方案
+
+## 面试准备建议
+
+1. **基础知识**
+   - 掌握音视频编解码原理
+   - 理解Android多媒体框架
+   - 熟悉常见格式和协议
+
+2. **实战经验**
+   - 准备实际项目案例
+   - 总结优化方案
+   - 掌握问题排查方法
+
+3. **进阶技能**
+   - OpenGL ES
+   - FFmpeg
+   - 音视频算法
+
+## 总结
+
+音视频开发是Android高级开发工程师的重要技能，面试中要重点关注：
+
+- 基础概念的理解
+- 实际项目经验
+- 性能优化方案
+- 问题排查能力
+
+建议在准备面试时，结合实际项目，准备相关的技术难点和解决方案。

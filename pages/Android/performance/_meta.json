@@ -3,5 +3,12 @@
   "memory": "内存优化",
   "battery": "电池优化",
   "startup": "启动优化",
-  "ui": "UI性能优化"
+  "ui": "UI性能优化",
+  "network": "网络优化",
+  "image": "图片优化",
+  "size": "包体积优化",
+  "thread": "线程优化",
+  "io": "IO优化",
+  "cache": "缓存优化",
+  "monitor": "性能监控"
 }

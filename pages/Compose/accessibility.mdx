@@ -1,0 +1,242 @@
+# Compose 无障碍性指南
+
+## 基础概念
+
+### 无障碍属性
+```kotlin
+@Composable
+fun AccessibleButton(
+    onClick: () -> Unit,
+    contentDescription: String
+) {
+    Button(
+        onClick = onClick,
+        modifier = Modifier.semantics {
+            // 设置内容描述
+            this.contentDescription = contentDescription
+            // 设置角色
+            role = Role.Button
+        }
+    ) {
+        Text("点击我")
+    }
+}
+```
+
+### 语义树结构
+```kotlin
+@Composable
+fun SemanticStructure() {
+    Column(
+        modifier = Modifier.semantics(mergeDescendants = true) {
+            // 合并子节点的语义信息
+            heading()
+        }
+    ) {
+        Text(
+            text = "标题",
+            style = MaterialTheme.typography.h1
+        )
+        Text(
+            text = "副标题",
+            style = MaterialTheme.typography.subtitle1
+        )
+    }
+}
+```
+
+## TalkBack支持
+
+### 自定义朗读文本
+```kotlin
+@Composable
+fun CustomSpokenText() {
+    var progress by remember { mutableStateOf(0f) }
+    
+    Slider(
+        value = progress,
+        onValueChange = { progress = it },
+        modifier = Modifier.semantics {
+            // 自定义朗读文本
+            customActions = listOf(
+                CustomAccessibilityAction(
+                    label = "设置进度为50%",
+                    action = { progress = 0.5f; true }
+                )
+            )
+        }
+    )
+}
+```
+
+### 焦点管理
+```kotlin
+@Composable
+fun FocusManagement() {
+    var focusRequester = remember { FocusRequester() }
+    
+    Column {
+        TextField(
+            value = "",
+            onValueChange = {},
+            modifier = Modifier.focusRequester(focusRequester)
+        )
+        
+        Button(
+            onClick = { focusRequester.requestFocus() }
+        ) {
+            Text("聚焦到输入框")
+        }
+    }
+}
+```
+
+## 无障碍测试
+
+### 语义树测试
+```kotlin
+@Test
+fun testSemanticTree() {
+    composeTestRule.setContent {
+        AccessibleComponent()
+    }
+    
+    composeTestRule
+        .onNodeWithText("标题")
+        .assertHasRole(Role.Heading)
+        .assertIsEnabled()
+        
+    composeTestRule
+        .onNodeWithContentDescription("操作按钮")
+        .assertHasClickAction()
+}
+```
+
+### TalkBack行为测试
+```kotlin
+@Test
+fun testTalkBackBehavior() {
+    composeTestRule.setContent {
+        TalkBackComponent()
+    }
+    
+    composeTestRule
+        .onNodeWithText("自定义操作")
+        .performAccessibilityAction(AccessibilityAction.Custom("执行操作"))
+        
+    composeTestRule
+        .onNodeWithContentDescription("操作结果")
+        .assertExists()
+}
+```
+
+## 最佳实践
+
+### 语义树优化
+```kotlin
+@Composable
+fun OptimizedSemantics() {
+    Column(
+        modifier = Modifier.semantics {
+            // 设置适当的语义属性
+            contentDescription = "主要内容区域"
+            heading()
+            // 合并不必要的语义节点
+            mergeDescendants = true
+        }
+    ) {
+        // 内容
+    }
+}
+```
+
+### 无障碍性检查清单
+```kotlin
+@Composable
+fun AccessibilityChecklist() {
+    // 1. 确保所有可交互元素都有合适的内容描述
+    IconButton(
+        onClick = {},
+        modifier = Modifier.semantics {
+            contentDescription = "关闭对话框"
+        }
+    ) {
+        Icon(Icons.Default.Close, contentDescription = null)
+    }
+    
+    // 2. 提供足够的颜色对比度
+    Text(
+        text = "高对比度文本",
+        color = MaterialTheme.colors.onBackground
+    )
+    
+    // 3. 确保触摸目标足够大
+    Button(
+        onClick = {},
+        modifier = Modifier.size(48.dp)
+    ) {
+        Icon(Icons.Default.Add, contentDescription = "添加")
+    }
+    
+    // 4. 提供错误状态的替代提示
+    TextField(
+        value = "",
+        onValueChange = {},
+        isError = true,
+        modifier = Modifier.semantics {
+            error("输入格式不正确")
+        }
+    )
+}
+```
+
+### 动态字体支持
+```kotlin
+@Composable
+fun DynamicTextSize() {
+    val textStyle = MaterialTheme.typography.body1.copy(
+        fontSize = TextUnit(
+            value = 16f,
+            type = TextUnitType.Sp
+        )
+    )
+    
+    Text(
+        text = "支持动态字体大小的文本",
+        style = textStyle,
+        modifier = Modifier.semantics {
+            textSelectable()
+        }
+    )
+}
+```
+
+### 键盘导航
+```kotlin
+@Composable
+fun KeyboardNavigation() {
+    var selectedIndex by remember { mutableStateOf(0) }
+    
+    Row(
+        modifier = Modifier.selectableGroup()
+    ) {
+        RadioButton(
+            selected = selectedIndex == 0,
+            onClick = { selectedIndex = 0 },
+            modifier = Modifier.semantics {
+                selected = selectedIndex == 0
+                role = Role.RadioButton
+            }
+        )
+        
+        RadioButton(
+            selected = selectedIndex == 1,
+            onClick = { selectedIndex = 1 },
+            modifier = Modifier.semantics {
+                selected = selectedIndex == 1
+                role = Role.RadioButton
+            }
+        )
+    }
+}
+```

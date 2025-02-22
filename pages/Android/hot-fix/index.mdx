@@ -1,0 +1,196 @@
+# Android热修复技术
+
+## 知识点概述
+
+热修复是Android应用程序在不重新发版的情况下，动态修复线上问题的技术方案。本文将详细介绍Android热修复的原理和主流实现方案。
+
+## 核心要点
+
+1. **基本概念**
+   - 热修复定义
+   - 应用场景
+   - 技术原理
+   - 优势与限制
+
+2. **主流方案**
+   - Tinker
+   - Sophix
+   - AndFix
+   - Robust
+   - QFix
+
+3. **实现原理**
+   - 类加载方案
+   - 底层替换方案
+   - 资源修复方案
+   - SO库修复方案
+
+## 面试题精选
+
+### 1. 什么是热修复？它与插件化的区别是什么？
+
+**答案**：
+热修复是在不需要重新安装应用的情况下，动态修复应用程序缺陷的技术。与插件化的主要区别：
+
+- 目的不同：
+  - 热修复：主要用于修复线上bug
+  - 插件化：主要用于动态扩展功能
+
+- 实现方式：
+  - 热修复：替换已有代码或资源
+  - 插件化：加载新的功能模块
+
+- 使用场景：
+  - 热修复：紧急问题修复
+  - 插件化：功能扩展和解耦
+
+### 2. 主流热修复方案的原理和对比
+
+**答案**：
+
+| 方案 | 原理 | 优势 | 劣势 |
+|-----|------|------|------|
+| Tinker | 全量替换 | 修复范围广 | 补丁包较大 |
+| Sophix | 多种方案结合 | 兼容性好 | 商业收费 |
+| AndFix | 方法替换 | 即时生效 | 修复范围小 |
+| Robust | 预插桩 | 稳定性高 | 性能损耗 |
+
+### 3. 类加载方案的实现原理是什么？
+
+**答案**：
+类加载方案的核心原理：
+
+1. **DexElements数组**
+```java
+public class BaseDexClassLoader {
+    private final DexPathList pathList;
+    
+    class DexPathList {
+        Element[] dexElements;
+    }
+}
+```
+
+2. **查找流程**
+   - 遍历dexElements数组
+   - 按顺序加载类
+   - 优先级处理
+
+3. **补丁加载**
+```java
+// 合并补丁dex和原始dex
+private static void mergeDex(ClassLoader loader, 
+                           File patchDex) {
+    Object pathList = getPathList(loader);
+    Object[] patchElements = makeDexElements(patchDex);
+    combineDexElements(pathList, patchElements);
+}
+```
+
+### 4. 资源热修复的实现方案
+
+**答案**：
+资源热修复主要有以下实现方案：
+
+1. **构建新的AssetManager**
+```java
+AssetManager newAssetManager = new AssetManager();
+newAssetManager.addAssetPath(patchResPath);
+```
+
+2. **替换Resources**
+```java
+private void replaceResources(Context context) {
+    Resources resources = context.getResources();
+    try {
+        Field assetsFiled = Resources.class
+            .getDeclaredField("mAssets");
+        assetsFiled.setAccessible(true);
+        assetsFiled.set(resources, newAssetManager);
+    } catch (Exception e) {
+        e.printStackTrace();
+    }
+}
+```
+
+## 实践示例
+
+### Tinker接入示例
+
+1. **配置gradle**
+```groovy
+dependencies {
+    implementation("com.tencent.tinker:tinker-android-lib:${tinkerVersion}")
+    annotationProcessor("com.tencent.tinker:tinker-android-anno:${tinkerVersion}")
+}
+```
+
+2. **Application配置**
+```java
+@DefaultLifeCycle
+public class SampleApplication extends 
+    TinkerApplication {
+    
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        // 初始化Tinker
+        loadPatch();
+    }
+    
+    private void loadPatch() {
+        // 加载补丁
+        TinkerInstaller.install(this);
+    }
+}
+```
+
+## 性能优化
+
+1. **补丁加载优化**
+   - 延迟加载
+   - 分场景加载
+   - 增量更新
+
+2. **内存优化**
+   - 及时释放
+   - 内存监控
+   - Dex优化
+
+## 常见问题
+
+1. **兼容性问题**
+   - 系统版本适配
+   - 机型适配
+   - ROM适配
+
+2. **稳定性问题**
+   - 补丁校验
+   - 回滚机制
+   - 灰度发布
+
+## 最佳实践
+
+1. **研发规范**
+   - 补丁版本管理
+   - 代码规范
+   - 测试流程
+
+2. **发布流程**
+   - 补丁加密
+   - 灰度发布
+   - 监控报警
+
+3. **安全考虑**
+   - 签名校验
+   - 防篡改机制
+   - 权限控制
+
+## 总结
+
+热修复技术是Android应用维护的重要手段，掌握热修复技术需要：
+
+1. 深入理解类加载机制
+2. 熟悉各种修复方案
+3. 重视稳定性和安全性
+4. 建立完善的发布流程

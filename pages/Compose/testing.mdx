@@ -1,0 +1,226 @@
+# Compose 测试策略
+
+## 单元测试
+
+### ViewModel测试
+```kotlin
+@Test
+fun testCounterViewModel() {
+    val viewModel = CounterViewModel()
+    
+    viewModel.increment()
+    assertEquals(1, viewModel.count.value)
+    
+    viewModel.decrement()
+    assertEquals(0, viewModel.count.value)
+}
+```
+
+### 状态测试
+```kotlin
+@Test
+fun testUiState() {
+    val initialState = UiState()
+    assertTrue(initialState.isLoading)
+    assertNull(initialState.error)
+    
+    val loadedState = initialState.copy(
+        isLoading = false,
+        data = listOf("item1", "item2")
+    )
+    assertFalse(loadedState.isLoading)
+    assertEquals(2, loadedState.data.size)
+}
+```
+
+## 集成测试
+
+### ComposeTestRule使用
+```kotlin
+@get:Rule
+val composeTestRule = createComposeRule()
+
+@Test
+fun testCounter() {
+    composeTestRule.setContent {
+        Counter(count = 0, onIncrement = {})
+    }
+    
+    composeTestRule.onNodeWithText("Count: 0").assertExists()
+    composeTestRule.onNodeWithText("Increment").performClick()
+}
+```
+
+### 状态验证
+```kotlin
+@Test
+fun testLoadingState() {
+    composeTestRule.setContent {
+        LoadingScreen(isLoading = true)
+    }
+    
+    composeTestRule
+        .onNodeWithContentDescription("Loading indicator")
+        .assertExists()
+        .assertIsDisplayed()
+}
+```
+
+## UI测试
+
+### 交互测试
+```kotlin
+@Test
+fun testUserInteraction() {
+    composeTestRule.setContent {
+        UserForm(
+            username = "",
+            onUsernameChange = {},
+            onSubmit = {}
+        )
+    }
+    
+    composeTestRule
+        .onNodeWithTag("username_input")
+        .performTextInput("test_user")
+    
+    composeTestRule
+        .onNodeWithText("Submit")
+        .performClick()
+}
+```
+
+### 导航测试
+```kotlin
+@Test
+fun testNavigation() {
+    lateinit var navController: TestNavHostController
+    
+    composeTestRule.setContent {
+        navController = TestNavHostController(LocalContext.current)
+        navController.setGraph(navGraph)
+        
+        AppNavigation(navController = navController)
+    }
+    
+    composeTestRule
+        .onNodeWithText("Go to Details")
+        .performClick()
+    
+    assertEquals("details", navController.currentDestination?.route)
+}
+```
+
+## 测试最佳实践
+
+### 1. 测试隔离
+```kotlin
+@Test
+fun testIsolatedComponent() {
+    val testData = TestData()
+    val testDispatcher = StandardTestDispatcher()
+    
+    composeTestRule.setContent {
+        CompositionLocalProvider(
+            LocalData provides testData,
+            LocalCoroutineDispatcher provides testDispatcher
+        ) {
+            ComponentUnderTest()
+        }
+    }
+    
+    // 执行测试
+}
+```
+
+### 2. 异步测试
+```kotlin
+@Test
+fun testAsyncOperation() = runTest {
+    val viewModel = TestViewModel()
+    
+    composeTestRule.setContent {
+        AsyncComponent(viewModel)
+    }
+    
+    // 等待异步操作完成
+    advanceUntilIdle()
+    
+    composeTestRule
+        .onNodeWithText("Data loaded")
+        .assertExists()
+}
+```
+
+### 3. 截图测试
+```kotlin
+@Test
+fun testScreenshot() {
+    composeTestRule.setContent {
+        MyComponent()
+    }
+    
+    compareScreenshot(
+        composeTestRule,
+        "my_component"
+    )
+}
+```
+
+## 测试覆盖率
+
+### 1. 覆盖率目标
+- 视图模型：80%以上
+- UI组件：60%以上
+- 导航逻辑：90%以上
+
+### 2. 覆盖率报告
+```kotlin
+// gradle配置
+android {
+    buildTypes {
+        debug {
+            testCoverageEnabled true
+        }
+    }
+}
+
+// 运行测试并生成报告
+./gradlew createDebugCoverageReport
+```
+
+## 持续集成
+
+### 1. CI配置
+```yaml
+name: Android CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up JDK
+      uses: actions/setup-java@v2
+      with:
+        java-version: '11'
+    - name: Run Tests
+      run: ./gradlew test
+    - name: Upload Test Results
+      uses: actions/upload-artifact@v2
+      with:
+        name: test-results
+        path: app/build/reports/tests/
+```
+
+### 2. 自动化测试策略
+- 每次提交运行单元测试
+- 每日运行完整UI测试
+- 定期进行性能测试
+- 发布前进行完整测试套件

@@ -1,0 +1,168 @@
+# Android进程间通信（IPC）
+
+## 知识点概述
+
+进程间通信（IPC）是Android系统中实现跨进程数据交换和功能调用的重要机制。本文将详细介绍Android中的IPC机制及其实现方式。
+
+## 核心要点
+
+1. **基本概念**
+   - 进程隔离原理
+   - 跨进程通信的必要性
+   - Android IPC机制的特点
+
+2. **Binder机制**
+   - Binder架构
+   - Binder通信原理
+   - Binder协议
+   - ServiceManager的角色
+
+3. **常见IPC方式**
+   - Intent
+   - AIDL
+   - Messenger
+   - ContentProvider
+   - Socket
+   - 文件共享
+
+## 面试题精选
+
+### 1. 什么是Android的进程间通信？为什么需要IPC？
+
+**答案**：
+Android的进程间通信（IPC）是指Android系统中不同进程之间进行数据交换和方法调用的机制。需要IPC的主要原因包括：
+
+- 安全性：Android系统为每个应用分配独立进程，实现进程隔离
+- 功能需求：多进程协作完成复杂任务
+- 系统架构：系统服务与应用进程的通信需求
+- 资源共享：不同应用间需要共享数据和功能
+
+### 2. 请详细解释Binder机制的工作原理
+
+**答案**：
+Binder机制是Android专有的跨进程通信方案，其工作原理如下：
+
+1. **内存映射**
+   - Binder驱动在内核空间创建数据接收缓存区
+   - 通过内存映射，实现进程间零拷贝传输
+
+2. **代理模式**
+   - 客户端通过Proxy对象发送请求
+   - 服务端通过Stub对象处理请求
+
+3. **请求过程**
+   - 客户端发起请求
+   - Binder驱动转发请求
+   - 服务端处理请求
+   - 返回结果
+
+### 3. AIDL的使用场景和实现步骤是什么？
+
+**答案**：
+AIDL（Android Interface Definition Language）主要用于复杂的跨进程通信场景。
+
+**使用场景**：
+- 多进程间的复杂数据传输
+- 远程服务调用
+- 多应用间的接口定义
+
+**实现步骤**：
+1. 创建AIDL接口文件
+2. 实现服务端Stub类
+3. 创建Service并暴露接口
+4. 客户端绑定Service
+5. 调用远程方法
+
+### 4. 各种IPC方式的对比和选择
+
+**答案**：
+
+| IPC方式 | 优点 | 缺点 | 适用场景 |
+|---------|------|------|----------|
+| Intent | 简单易用 | 传输数据量小 | 简单数据传递 |
+| AIDL | 功能强大 | 实现复杂 | 复杂数据传输 |
+| Messenger | 串行化处理 | 不支持并发 | 简单远程调用 |
+| ContentProvider | 数据共享方便 | 主要用于数据共享 | 数据共享场景 |
+| Socket | 通用性好 | 开发成本高 | 网络通信场景 |
+
+## 实践示例
+
+### AIDL实现示例
+
+1. 定义AIDL接口
+```java
+// IBookManager.aidl
+interface IBookManager {
+    List<Book> getBookList();
+    void addBook(in Book book);
+}
+```
+
+2. 服务端实现
+```java
+private final IBookManager.Stub mBinder = new IBookManager.Stub() {
+    @Override
+    public List<Book> getBookList() {
+        return bookList;
+    }
+    
+    @Override
+    public void addBook(Book book) {
+        bookList.add(book);
+    }
+};
+```
+
+3. 客户端调用
+```java
+IBookManager bookManager = IBookManager.Stub.asInterface(service);
+List<Book> books = bookManager.getBookList();
+```
+
+## 性能优化
+
+1. **序列化优化**
+   - 使用Parcelable代替Serializable
+   - 减少跨进程传输数据量
+
+2. **通信优化**
+   - 合理设计通信频率
+   - 使用缓存机制
+   - 批量处理请求
+
+## 常见问题
+
+1. **进程死亡处理**
+   - DeathRecipient监听
+   - 重新绑定服务
+
+2. **权限控制**
+   - 自定义权限声明
+   - 权限验证实现
+
+3. **并发处理**
+   - 线程同步
+   - 数据一致性
+
+## 最佳实践
+
+1. **选择合适的IPC方式**
+   - 根据场景复杂度选择
+   - 考虑性能和开发成本
+
+2. **异常处理**
+   - 处理远程调用异常
+   - 实现进程死亡重连
+
+3. **安全性考虑**
+   - 实现权限控制
+   - 数据校验
+
+## 总结
+
+Android IPC机制是实现跨进程通信的核心技术，掌握IPC不仅对于日常开发很重要，在面试中也是高频考点。建议开发者：
+
+1. 深入理解Binder机制
+2. 熟练掌握各种IPC方式
+3. 注重实践经验积累
+4. 关注性能和安全性

@@ -1,0 +1,206 @@
+# Android支付集成指南
+
+## 支付集成概述
+
+移动支付是现代应用不可或缺的功能之一。本文将详细介绍Android平台主流支付方式的接入方案和实践经验。
+
+## 核心面试题
+
+### 1. Android常见支付方式有哪些？如何选择？
+
+主流支付方式及其特点：
+
+1. 支付宝支付
+```kotlin
+// 1. 配置支付宝SDK
+class AlipayManager(private val activity: Activity) {
+    private val handler = Handler(Looper.getMainLooper())
+    
+    fun pay(orderInfo: String) {
+        Thread {
+            // 构建支付请求
+            val alipay = PayTask(activity)
+            val result = alipay.payV2(orderInfo, true)
+            
+            handler.post {
+                // 处理支付结果
+                when (result["resultStatus"]) {
+                    "9000" -> // 支付成功
+                    "6001" -> // 用户取消
+                    else -> // 支付失败
+                }
+            }
+        }.start()
+    }
+}
+```
+
+2. 微信支付
+```kotlin
+// 注册微信支付
+class WXPayEntryActivity : Activity(), IWXAPIEventHandler {
+    private lateinit var api: IWXAPI
+    
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        api = WXAPIFactory.createWXAPI(this, WXAPP_ID)
+        api.handleIntent(intent, this)
+    }
+    
+    override fun onResp(resp: BaseResp) {
+        when (resp.errCode) {
+            BaseResp.ErrCode.ERR_OK -> // 支付成功
+            BaseResp.ErrCode.ERR_USER_CANCEL -> // 用户取消
+            else -> // 支付失败
+        }
+        finish()
+    }
+}
+```
+
+### 2. 如何保证支付安全？
+
+1. 签名验证
+```kotlin
+class PaymentSecurity {
+    fun verifySign(params: Map<String, String>, sign: String): Boolean {
+        // 按字母顺序排序参数
+        val sortedParams = params.toSortedMap()
+        
+        // 构建签名字符串
+        val signStr = sortedParams.map { "${it.key}=${it.value}" }
+            .joinToString("&")
+        
+        // 验证签名
+        return calculateSign(signStr) == sign
+    }
+    
+    private fun calculateSign(content: String): String {
+        val key = "YOUR_PRIVATE_KEY"
+        return MessageDigest.getInstance("SHA-256")
+            .digest((content + key).toByteArray())
+            .joinToString("") { "%02x".format(it) }
+    }
+}
+```
+
+2. 订单校验
+```kotlin
+class OrderVerification {
+    suspend fun verifyOrder(orderId: String): Boolean {
+        return withContext(Dispatchers.IO) {
+            // 请求服务器验证订单
+            val response = api.verifyOrder(orderId)
+            response.isSuccess && response.amount == originalAmount
+        }
+    }
+}
+```
+
+### 3. 如何处理支付结果？
+
+1. 统一支付结果处理
+```kotlin
+sealed class PaymentResult {
+    data class Success(val orderId: String, val amount: Double) : PaymentResult()
+    data class Failure(val errorCode: String, val errorMsg: String) : PaymentResult()
+    object Cancelled : PaymentResult()
+}
+
+class PaymentCallback {
+    fun handlePaymentResult(result: PaymentResult) {
+        when (result) {
+            is PaymentResult.Success -> {
+                // 更新订单状态
+                updateOrderStatus(result.orderId)
+                // 发送支付成功事件
+                EventBus.getDefault().post(PaymentSuccessEvent(result))
+            }
+            is PaymentResult.Failure -> {
+                // 处理支付失败
+                handlePaymentError(result.errorCode, result.errorMsg)
+            }
+            PaymentResult.Cancelled -> {
+                // 处理用户取消
+                handleUserCancelled()
+            }
+        }
+    }
+}
+```
+
+## 最佳实践
+
+1. 支付流程封装
+```kotlin
+class PaymentManager {
+    private val paymentMethods = mutableMapOf<PaymentType, PaymentStrategy>()
+    
+    init {
+        paymentMethods[PaymentType.ALIPAY] = AlipayStrategy()
+        paymentMethods[PaymentType.WECHAT] = WeChatStrategy()
+    }
+    
+    fun startPayment(
+        context: Context,
+        paymentType: PaymentType,
+        orderInfo: OrderInfo,
+        callback: PaymentCallback
+    ) {
+        paymentMethods[paymentType]?.pay(context, orderInfo, callback)
+            ?: throw IllegalArgumentException("Unsupported payment type")
+    }
+}
+```
+
+2. 订单管理
+```kotlin
+class OrderManager {
+    private val orderCache = LruCache<String, OrderInfo>(100)
+    
+    fun cacheOrder(orderInfo: OrderInfo) {
+        orderCache.put(orderInfo.orderId, orderInfo)
+    }
+    
+    fun getOrder(orderId: String): OrderInfo? {
+        return orderCache.get(orderId)
+    }
+    
+    fun clearOrder(orderId: String) {
+        orderCache.remove(orderId)
+    }
+}
+```
+
+3. 支付状态同步
+```kotlin
+class PaymentSynchronizer {
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    
+    fun syncPaymentStatus(orderId: String) {
+        scope.launch {
+            // 轮询检查支付状态
+            repeat(MAX_RETRY_COUNT) {
+                val status = checkPaymentStatus(orderId)
+                if (status.isFinished) {
+                    updateLocalStatus(orderId, status)
+                    return@launch
+                }
+                delay(RETRY_INTERVAL)
+            }
+        }
+    }
+}
+```
+
+## 总结
+
+支付功能的实现需要注意以下关键点：
+
+- 严格的安全验证机制
+- 完善的错误处理
+- 统一的支付接口封装
+- 可靠的订单管理
+- 健壮的状态同步机制
+
+通过合理的架构设计和严格的安全措施，可以为用户提供安全、可靠的支付体验。

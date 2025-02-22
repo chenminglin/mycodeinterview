@@ -1,0 +1,164 @@
+# Android PackageManagerService 深入解析
+
+## 核心概念
+
+### PMS的本质
+
+PackageManagerService是Android系统中最核心的服务之一，它主要负责应用的安装、卸载、查询等操作，是应用管理的中枢系统。
+
+## 源码分析
+
+### 1. PMS的启动流程
+
+```java
+public class PackageManagerService extends IPackageManager.Stub {
+    // 1. 构造函数初始化
+    public PackageManagerService(Context context) {
+        // 创建系统目录
+        createSystemDirs();
+        
+        // 初始化Settings对象
+        mSettings = new Settings();
+        
+        // 扫描系统和应用目录
+        scanDirLI(new File("/system/app"), 0);
+        scanDirLI(new File("/data/app"), 0);
+    }
+    
+    // 2. 目录扫描过程
+    private void scanDirLI(File dir, int flags) {
+        File[] files = dir.listFiles();
+        for (File file : files) {
+            scanPackageLI(file, flags);
+        }
+    }
+}
+```
+
+### 2. 应用安装流程
+
+```java
+public class PackageInstaller {
+    public void installPackage(String apkPath) {
+        // 1. 复制APK到临时目录
+        File tempFile = copyPackage(apkPath);
+        
+        // 2. 解析APK信息
+        PackageParser.Package pkg = parsePackage(tempFile);
+        
+        // 3. 签名校验
+        verifySignatures(pkg);
+        
+        // 4. 安装到系统目录
+        installPackageInner(pkg);
+        
+        // 5. 发送安装完成广播
+        sendPackageAddedBroadcast();
+    }
+}
+```
+
+## 核心机制
+
+### 1. 权限管理机制
+
+```java
+class PackageManagerService {
+    private final class PermissionManager {
+        // 权限授予
+        void grantPermission(String packageName, String permission) {
+            // 检查权限合法性
+            if (!isPermissionValid(permission)) {
+                return;
+            }
+            
+            // 更新权限状态
+            updatePermissionFlags(packageName, permission, true);
+            
+            // 持久化权限信息
+            mSettings.writePersistentPermissionsLPr();
+        }
+        
+        // 权限撤销
+        void revokePermission(String packageName, String permission) {
+            updatePermissionFlags(packageName, permission, false);
+            mSettings.writePersistentPermissionsLPr();
+        }
+    }
+}
+```
+
+### 2. APK解析机制
+
+```java
+public class PackageParser {
+    public Package parsePackage(File packageFile) {
+        // 1. 解析AndroidManifest.xml
+        parseManifest();
+        
+        // 2. 解析资源文件
+        parseResources();
+        
+        // 3. 解析签名信息
+        collectCertificates();
+        
+        // 4. 生成Package对象
+        return generatePackageInfo();
+    }
+}
+```
+
+## 性能优化
+
+### 1. PMS启动优化
+
+```kotlin
+class PMSOptimization {
+    // 1. 延迟加载优化
+    fun optimizeStartup() {
+        // 延迟扫描非系统应用
+        Handler().postDelayed({
+            scanNonSystemApps()
+        }, 3000)
+    }
+    
+    // 2. 包信息缓存
+    class PackageCache {
+        private val packageInfoCache = LruCache<String, PackageInfo>(100)
+        
+        fun cachePackageInfo(packageName: String, info: PackageInfo) {
+            packageInfoCache.put(packageName, info)
+        }
+    }
+}
+```
+
+### 2. 应用安装优化
+
+```kotlin
+class InstallOptimization {
+    // 1. 增量更新实现
+    fun performIncrementalUpdate(oldApk: File, patch: File): File {
+        // 使用bsdiff算法进行增量更新
+        return BsDiff.patch(oldApk, patch)
+    }
+    
+    // 2. 并行安装优化
+    fun parallelInstall(apkList: List<File>) {
+        val executor = Executors.newFixedThreadPool(3)
+        apkList.forEach { apk ->
+            executor.execute {
+                installPackage(apk)
+            }
+        }
+    }
+}
+```
+
+## 实践建议
+
+1. 安装APK时注意处理各种异常情况
+2. 合理使用增量更新机制减少用户下载量
+3. 注意权限管理的安全性
+4. 优化安装过程提升用户体验
+5. 做好异常情况的降级处理

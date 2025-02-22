@@ -8,5 +8,11 @@
   "gesture": "手势交互",
   "custom": "自定义组件",
   "performance": "性能优化",
-  "best-practices": "最佳实践"
+  "best-practices": "最佳实践",
+  "architecture": "架构集成",
+  "coroutines": "协程集成",
+  "flow-integration": "Flow集成",
+  "material3": "Material Design 3",
+  "advanced-animation": "高级动画",
+  "deep-optimization": "深度性能优化"
 }

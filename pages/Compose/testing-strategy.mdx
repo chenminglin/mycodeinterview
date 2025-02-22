@@ -1,0 +1,233 @@
+# Compose 测试策略
+
+## 单元测试
+
+### 组件测试
+```kotlin
+@Test
+fun testCounter() {
+    val count = mutableStateOf(0)
+    composeTestRule.setContent {
+        Counter(
+            count = count.value,
+            onIncrement = { count.value++ }
+        )
+    }
+
+    // 验证初始状态
+    composeTestRule.onNodeWithText("Count: 0").assertExists()
+
+    // 执行点击操作
+    composeTestRule.onNodeWithText("Increment").performClick()
+
+    // 验证更新后的状态
+    composeTestRule.onNodeWithText("Count: 1").assertExists()
+}
+```
+
+### ViewModel测试
+```kotlin
+class CounterViewModelTest {
+    @get:Rule
+    val mainDispatcherRule = MainDispatcherRule()
+
+    private lateinit var viewModel: CounterViewModel
+
+    @Before
+    fun setup() {
+        viewModel = CounterViewModel()
+    }
+
+    @Test
+    fun increment_updatesState() = runTest {
+        // 初始状态验证
+        assertEquals(0, viewModel.count.value)
+
+        // 执行操作
+        viewModel.increment()
+
+        // 验证状态更新
+        assertEquals(1, viewModel.count.value)
+    }
+}
+```
+
+## 集成测试
+
+### 导航测试
+```kotlin
+@Test
+fun testNavigation() {
+    composeTestRule.setContent {
+        AppNavigation()
+    }
+
+    // 验证初始屏幕
+    composeTestRule.onNodeWithText("Home").assertExists()
+
+    // 执行导航操作
+    composeTestRule.onNodeWithText("Go to Details").performClick()
+
+    // 验证导航结果
+    composeTestRule.onNodeWithText("Details Screen").assertExists()
+}
+```
+
+### 状态集成测试
+```kotlin
+@Test
+fun testStateIntegration() {
+    val testRepository = TestRepository()
+    composeTestRule.setContent {
+        CompositionLocalProvider(
+            LocalRepository provides testRepository
+        ) {
+            MainScreen()
+        }
+    }
+
+    // 触发数据加载
+    composeTestRule.onNodeWithText("Refresh").performClick()
+
+    // 验证加载状态
+    composeTestRule.onNodeWithTag("loading").assertExists()
+
+    // 等待数据加载完成
+    composeTestRule.waitUntil {
+        composeTestRule
+            .onAllNodesWithTag("item")
+            .fetchSemanticsNodes().size == 3
+    }
+
+    // 验证数据显示
+    composeTestRule.onNodeWithText("Item 1").assertExists()
+}
+```
+
+## UI测试
+
+### 交互测试
+```kotlin
+@Test
+fun testUserInteraction() {
+    composeTestRule.setContent {
+        UserForm()
+    }
+
+    // 输入文本
+    composeTestRule
+        .onNodeWithTag("name_input")
+        .performTextInput("John Doe")
+
+    // 选择选项
+    composeTestRule
+        .onNodeWithTag("options_dropdown")
+        .performClick()
+    composeTestRule
+        .onNodeWithText("Option 1")
+        .performClick()
+
+    // 提交表单
+    composeTestRule
+        .onNodeWithText("Submit")
+        .performClick()
+
+    // 验证提交后的状态
+    composeTestRule
+        .onNodeWithText("Form submitted successfully")
+        .assertExists()
+}
+```
+
+### 可访问性测试
+```kotlin
+@Test
+fun testAccessibility() {
+    composeTestRule.setContent {
+        AccessibleComponent()
+    }
+
+    // 验证内容描述
+    composeTestRule
+        .onNodeWithTag("image")
+        .assertContentDescriptionContains("Profile picture")
+
+    // 验证可点击状态
+    composeTestRule
+        .onNodeWithTag("button")
+        .assertHasClickAction()
+
+    // 验证语义树结构
+    composeTestRule
+        .onRoot()
+        .printToLog("AccessibilityTree")
+}
+```
+
+## 测试最佳实践
+
+### 测试规则配置
+```kotlin
+class ComposeTest {
+    @get:Rule
+    val composeTestRule = createComposeRule()
+
+    @get:Rule
+    val mainDispatcherRule = MainDispatcherRule()
+
+    @Before
+    fun setup() {
+        // 配置测试环境
+        Dispatchers.setMain(mainDispatcherRule.testDispatcher)
+    }
+
+    @After
+    fun teardown() {
+        // 清理测试环境
+        Dispatchers.resetMain()
+    }
+}
+```
+
+### 测试工具类
+```kotlin
+// 自定义测试工具
+fun ComposeContentTestRule.waitUntilExists(
+    matcher: SemanticsMatcher,
+    timeoutMillis: Long = 1000
+) {
+    waitUntil(timeoutMillis) {
+        onAllNodes(matcher).fetchSemanticsNodes().isNotEmpty()
+    }
+}
+
+// 测试数据生成器
+object TestDataFactory {
+    fun createTestItems(count: Int): List<Item> =
+        List(count) { index ->
+            Item(
+                id = index,
+                title = "Item $index",
+                description = "Description $index"
+            )
+        }
+}
+```
+
+### 快照测试
+```kotlin
+@Test
+fun testComponentSnapshot() {
+    composeTestRule.setContent {
+        MyComponent()
+    }
+
+    // 捕获组件快照
+    val snapshot = composeTestRule
+        .onRoot()
+        .captureToImage()
+
+    // 比较快照
+    snapshot.assertAgainstGolden("my_component")
+}
+```

@@ -1,0 +1,231 @@
+# Compose 架构集成
+
+## MVI 架构
+
+### 基本概念
+```kotlin
+// Intent（用户意图）
+sealed class TodoIntent {
+    data class AddTodo(val text: String) : TodoIntent()
+    data class ToggleTodo(val id: Int) : TodoIntent()
+    object LoadTodos : TodoIntent()
+}
+
+// State（状态）
+data class TodoState(
+    val todos: List<Todo> = emptyList(),
+    val isLoading: Boolean = false,
+    val error: String? = null
+)
+
+// ViewModel实现
+class TodoViewModel : ViewModel() {
+    private val _state = MutableStateFlow(TodoState())
+    val state: StateFlow<TodoState> = _state.asStateFlow()
+
+    fun processIntent(intent: TodoIntent) {
+        when (intent) {
+            is TodoIntent.AddTodo -> addTodo(intent.text)
+            is TodoIntent.ToggleTodo -> toggleTodo(intent.id)
+            is TodoIntent.LoadTodos -> loadTodos()
+        }
+    }
+}
+
+// UI实现
+@Composable
+fun TodoScreen(viewModel: TodoViewModel) {
+    val state by viewModel.state.collectAsState()
+
+    Column {
+        TodoInput { text ->
+            viewModel.processIntent(TodoIntent.AddTodo(text))
+        }
+        TodoList(
+            todos = state.todos,
+            onToggle = { id ->
+                viewModel.processIntent(TodoIntent.ToggleTodo(id))
+            }
+        )
+    }
+}
+```
+
+## Clean Architecture
+
+### 分层设计
+```kotlin
+// Domain Layer - Use Cases
+class GetTodosUseCase @Inject constructor(
+    private val repository: TodoRepository
+) {
+    suspend operator fun invoke(): Flow<List<Todo>> =
+        repository.getTodos()
+}
+
+// Data Layer - Repository
+class TodoRepositoryImpl @Inject constructor(
+    private val localDataSource: TodoLocalDataSource,
+    private val remoteDataSource: TodoRemoteDataSource
+) : TodoRepository {
+    override fun getTodos(): Flow<List<Todo>> =
+        localDataSource.getTodos()
+            .combine(remoteDataSource.getTodos()) { local, remote ->
+                // 合并本地和远程数据
+                mergeTodos(local, remote)
+            }
+}
+
+// Presentation Layer - ViewModel
+class TodoViewModel @Inject constructor(
+    private val getTodosUseCase: GetTodosUseCase,
+    private val addTodoUseCase: AddTodoUseCase
+) : ViewModel() {
+    private val _uiState = MutableStateFlow(TodoUiState())
+    val uiState: StateFlow<TodoUiState> = _uiState.asStateFlow()
+
+    init {
+        loadTodos()
+    }
+
+    private fun loadTodos() {
+        viewModelScope.launch {
+            getTodosUseCase()
+                .onStart { _uiState.update { it.copy(isLoading = true) } }
+                .catch { error ->
+                    _uiState.update { it.copy(error = error.message) }
+                }
+                .collect { todos ->
+                    _uiState.update { it.copy(
+                        todos = todos,
+                        isLoading = false
+                    ) }
+                }
+        }
+    }
+}
+```
+
+## 依赖注入
+
+### Hilt集成
+```kotlin
+@HiltAndroidApp
+class TodoApplication : Application()
+
+@AndroidEntryPoint
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent {
+            TodoTheme {
+                TodoApp()
+            }
+        }
+    }
+}
+
+@Composable
+fun TodoApp(
+    viewModel: TodoViewModel = hiltViewModel()
+) {
+    val uiState by viewModel.uiState.collectAsState()
+    TodoScreen(uiState = uiState)
+}
+
+// 依赖注入模块
+@Module
+@InstallIn(SingletonComponent::class)
+object TodoModule {
+    @Provides
+    @Singleton
+    fun provideTodoRepository(
+        localDataSource: TodoLocalDataSource,
+        remoteDataSource: TodoRemoteDataSource
+    ): TodoRepository =
+        TodoRepositoryImpl(localDataSource, remoteDataSource)
+}
+```
+
+## 测试策略
+
+### ViewModel测试
+```kotlin
+@RunWith(MockitoJUnitRunner::class)
+class TodoViewModelTest {
+    @get:Rule
+    val mainDispatcherRule = MainDispatcherRule()
+
+    @Mock
+    private lateinit var getTodosUseCase: GetTodosUseCase
+
+    private lateinit var viewModel: TodoViewModel
+
+    @Before
+    fun setup() {
+        viewModel = TodoViewModel(getTodosUseCase)
+    }
+
+    @Test
+    fun `load todos success`() = runTest {
+        // Given
+        val todos = listOf(Todo(1, "Test"))
+        whenever(getTodosUseCase())
+            .thenReturn(flowOf(todos))
+
+        // When
+        viewModel.loadTodos()
+
+        // Then
+        val state = viewModel.uiState.value
+        assertThat(state.todos).isEqualTo(todos)
+        assertThat(state.isLoading).isFalse()
+        assertThat(state.error).isNull()
+    }
+}
+```
+
+### UI测试
+```kotlin
+@HiltAndroidTest
+class TodoScreenTest {
+    @get:Rule
+    val composeTestRule = createAndroidComposeRule<MainActivity>()
+
+    @Test
+    fun displayTodos() {
+        // Given
+        val todos = listOf(
+            Todo(1, "Learn Compose"),
+            Todo(2, "Write Tests")
+        )
+
+        // When
+        composeTestRule.setContent {
+            TodoScreen(todos = todos)
+        }
+
+        // Then
+        composeTestRule.onNodeWithText("Learn Compose").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Write Tests").assertIsDisplayed()
+    }
+}
+```
+
+## 最佳实践
+
+1. **架构原则**
+   - 保持单向数据流
+   - 分离关注点
+   - 使用不可变状态
+   - 避免副作用
+
+2. **性能考虑**
+   - 合理使用remember和rememberSaveable
+   - 避免不必要的重组
+   - 使用适当的协程作用域
+
+3. **测试建议**
+   - 编写单元测试验证业务逻辑
+   - 使用UI测试验证界面交互
+   - 模拟依赖进行隔离测试

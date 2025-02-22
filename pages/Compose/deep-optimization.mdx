@@ -1,0 +1,240 @@
+# Compose 深度性能优化
+
+## 编译优化
+
+### 稳定性注解
+```kotlin
+@Stable
+class ComplexState(
+    val data: List<Item>,
+    val config: Config
+) {
+    // 确保属性变更时正确触发重组
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is ComplexState) return false
+        return data == other.data && config == other.config
+    }
+    
+    override fun hashCode(): Int {
+        return 31 * data.hashCode() + config.hashCode()
+    }
+}
+
+@Immutable
+data class Config(
+    val theme: Theme,
+    val settings: Settings
+)
+```
+
+### 跳过优化
+```kotlin
+@Composable
+fun OptimizedList(
+    items: List<Item>,
+    modifier: Modifier = Modifier
+) {
+    val sortedItems by remember(items) {
+        derivedStateOf { items.sortedBy { it.priority } }
+    }
+    
+    LazyColumn(
+        modifier = modifier
+    ) {
+        items(
+            items = sortedItems,
+            key = { it.id },
+            contentType = { it.type }
+        ) { item ->
+            key(item.id) {
+                ItemRow(item)
+            }
+        }
+    }
+}
+```
+
+## 内存优化
+
+### 状态管理
+```kotlin
+class OptimizedViewModel : ViewModel() {
+    private val _items = MutableStateFlow<List<Item>>(emptyList())
+    val items: StateFlow<List<Item>> = _items.asStateFlow()
+    
+    // 使用StateFlow避免不必要的重组
+    private val _filteredItems = _items.map { items ->
+        items.filter { it.isValid }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+    
+    // 使用remember和key优化计算
+    @Composable
+    fun FilteredItems() {
+        val items by _filteredItems.collectAsState()
+        val sortedItems by remember(items) {
+            derivedStateOf { items.sortedBy { it.priority } }
+        }
+        
+        ItemsList(sortedItems)
+    }
+}
+```
+
+### 资源释放
+```kotlin
+@Composable
+fun ResourceManagement() {
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    var bitmap by remember { mutableStateOf<Bitmap?>(null) }
+    
+    DisposableEffect(Unit) {
+        onDispose {
+            bitmap?.recycle()
+            bitmap = null
+        }
+    }
+    
+    LaunchedEffect(Unit) {
+        bitmap = withContext(Dispatchers.IO) {
+            context.assets.open("image.jpg").use {
+                BitmapFactory.decodeStream(it)
+            }
+        }
+    }
+}
+```
+
+## 渲染优化
+
+### 布局优化
+```kotlin
+@Composable
+fun OptimizedLayout() {
+    BoxWithConstraints {
+        val screenWidth = maxWidth
+        val itemWidth = remember(screenWidth) {
+            // 计算最优列数
+            val columns = (screenWidth / 120.dp).toInt()
+            screenWidth / columns
+        }
+        
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(itemWidth),
+            contentPadding = PaddingValues(8.dp)
+        ) {
+            items(100) { index ->
+                ItemCard(index)
+            }
+        }
+    }
+}
+
+@Composable
+fun ItemCard(index: Int) {
+    Card(
+        modifier = Modifier
+            .padding(4.dp)
+            .fillMaxWidth()
+            .aspectRatio(1f)
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text("Item $index")
+        }
+    }
+}
+```
+
+### 绘制优化
+```kotlin
+@Composable
+fun OptimizedDrawing() {
+    var isAnimating by remember { mutableStateOf(false) }
+    val transition = updateTransition(isAnimating)
+    
+    val offset by transition.animateFloat {
+        if (it) 100f else 0f
+    }
+    
+    Canvas(
+        modifier = Modifier
+            .fillMaxSize()
+            .graphicsLayer {
+                // 使用graphicsLayer优化绘制
+                translationX = offset
+                // 避免不必要的alpha合成
+                alpha = 1f
+            }
+    ) {
+        // 优化绘制操作
+        withSaveLayer(bounds = size.toRect()) {
+            // 复杂绘制逻辑
+        }
+    }
+}
+```
+
+## 工具和监控
+
+### 性能监控
+```kotlin
+@Composable
+fun PerformanceMonitoring() {
+    val density = LocalDensity.current
+    val frameTimeNanos = remember { mutableStateOf(0L) }
+    
+    DisposableEffect(Unit) {
+        val choreographer = Choreographer.getInstance()
+        val frameCallback = object : Choreographer.FrameCallback {
+            override fun doFrame(frameTimeNanos: Long) {
+                frameTimeNanos.value = frameTimeNanos
+                choreographer.postFrameCallback(this)
+            }
+        }
+        
+        choreographer.postFrameCallback(frameCallback)
+        onDispose {
+            choreographer.removeFrameCallback(frameCallback)
+        }
+    }
+    
+    // 显示性能指标
+    Text(
+        text = "Frame Time: ${frameTimeNanos.value / 1_000_000}ms",
+        modifier = Modifier.padding(8.dp)
+    )
+}
+```
+
+### 调试工具
+```kotlin
+@Composable
+fun DebugTools() {
+    val composition = currentComposer
+    val recompositionCount = remember { mutableStateOf(0) }
+    
+    SideEffect {
+        recompositionCount.value++
+    }
+    
+    if (BuildConfig.DEBUG) {
+        Column {
+            Text("重组次数: ${recompositionCount.value}")
+            
+            // 显示布局边界
+            Box(
+                modifier = Modifier
+                    .border(1.dp, Color.Red)
+                    .padding(8.dp)
+            ) {
+                // 内容
+            }
+        }
+    }
+}
+```

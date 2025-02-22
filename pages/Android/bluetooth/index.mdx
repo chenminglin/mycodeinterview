@@ -1,0 +1,207 @@
+# Android蓝牙开发
+
+## 概述
+
+蓝牙开发是Android应用开发中的重要组成部分，涉及设备连接、数据传输等关键功能。本章节将系统地介绍Android蓝牙开发的核心知识和实践经验。
+
+## 核心知识点
+
+### 1. 蓝牙基础
+
+#### Q: Android蓝牙开发中的关键概念有哪些？
+A: 主要包括：
+- BluetoothAdapter：表示本地蓝牙适配器
+- BluetoothDevice：表示远程蓝牙设备
+- BluetoothSocket：用于数据传输的通信通道
+- BluetoothServerSocket：用于接受连接请求
+- BluetoothGatt：用于BLE（低功耗蓝牙）通信
+
+#### Q: 蓝牙通信的工作模式有哪些？
+A: Android支持以下蓝牙工作模式：
+1. 经典蓝牙（Classic Bluetooth）
+2. 低功耗蓝牙（Bluetooth Low Energy, BLE）
+3. 双模蓝牙（Dual-mode Bluetooth）
+
+### 2. 权限处理
+
+#### Q: 蓝牙开发需要哪些权限？
+A: 主要需要以下权限：
+```xml
+<!-- 基本蓝牙权限 -->
+<uses-permission android:name="android.permission.BLUETOOTH" />
+<uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+
+<!-- Android 12及以上版本需要 -->
+<uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+<uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+<uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
+
+<!-- 定位权限（扫描蓝牙设备需要） -->
+<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+```
+
+### 3. 设备扫描
+
+#### Q: 如何实现蓝牙设备扫描？
+A: 基本步骤如下：
+```java
+private BluetoothAdapter bluetoothAdapter;
+private boolean scanning;
+private Handler handler = new Handler();
+
+// 扫描超时时间
+private static final long SCAN_PERIOD = 10000;
+
+private void scanLeDevice(final boolean enable) {
+    if (enable) {
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                scanning = false;
+                bluetoothAdapter.stopLeScan(leScanCallback);
+            }
+        }, SCAN_PERIOD);
+
+        scanning = true;
+        bluetoothAdapter.startLeScan(leScanCallback);
+    } else {
+        scanning = false;
+        bluetoothAdapter.stopLeScan(leScanCallback);
+    }
+}
+
+// 扫描回调
+private BluetoothAdapter.LeScanCallback leScanCallback =
+        new BluetoothAdapter.LeScanCallback() {
+    @Override
+    public void onLeScan(final BluetoothDevice device, int rssi,
+            byte[] scanRecord) {
+        // 处理扫描结果
+    }
+};
+```
+
+### 4. 设备连接
+
+#### Q: 如何建立蓝牙连接？
+A: 建立连接的主要步骤：
+1. 获取BluetoothDevice对象
+2. 创建BluetoothSocket
+3. 建立连接
+4. 进行数据传输
+
+示例代码：
+```java
+private class ConnectThread extends Thread {
+    private final BluetoothSocket mmSocket;
+    private final BluetoothDevice mmDevice;
+
+    public ConnectThread(BluetoothDevice device) {
+        BluetoothSocket tmp = null;
+        mmDevice = device;
+
+        try {
+            tmp = device.createRfcommSocketToServiceRecord(MY_UUID);
+        } catch (IOException e) {
+            Log.e(TAG, "Socket创建失败", e);
+        }
+        mmSocket = tmp;
+    }
+
+    public void run() {
+        bluetoothAdapter.cancelDiscovery();
+
+        try {
+            mmSocket.connect();
+        } catch (IOException connectException) {
+            try {
+                mmSocket.close();
+            } catch (IOException closeException) {
+                Log.e(TAG, "关闭连接失败", closeException);
+            }
+            return;
+        }
+
+        // 连接成功，进行管理
+        manageConnectedSocket(mmSocket);
+    }
+}
+```
+
+### 5. 数据传输
+
+#### Q: 如何实现蓝牙数据传输？
+A: 数据传输的关键点：
+1. 使用输入输出流
+2. 处理数据格式
+3. 实现可靠传输
+4. 错误处理
+
+## 面试重点
+
+1. **蓝牙协议栈**
+   - 协议层次结构
+   - 各层功能职责
+   - 数据封装过程
+
+2. **连接管理**
+   - 设备配对
+   - 连接建立
+   - 连接维护
+
+3. **性能优化**
+   - 电量优化
+   - 传输速度优化
+   - 连接稳定性
+
+## 最佳实践
+
+1. 开发建议
+   - 正确处理生命周期
+   - 实现重连机制
+   - 做好异常处理
+
+2. 性能考虑
+   - 合理控制扫描频率
+   - 及时释放资源
+   - 优化数据包大小
+
+3. 用户体验
+   - 提供清晰的连接状态
+   - 实现优雅的错误提示
+   - 支持自动重连
+
+## 进阶主题
+
+1. BLE特性服务开发
+2. 多设备连接管理
+3. 蓝牙Mesh网络
+4. 蓝牙安全机制
+5. 跨平台蓝牙开发
+
+## 常见问题
+
+#### Q: 蓝牙连接不稳定如何处理？
+A: 可以采取以下措施：
+1. 实现自动重连机制
+2. 监控信号强度
+3. 优化数据传输策略
+4. 处理各种异常情况
+
+#### Q: 如何提高蓝牙传输速度？
+A: 主要优化方向：
+1. 选择合适的传输模式
+2. 优化数据包大小
+3. 实现数据压缩
+4. 使用并发传输
+
+## 相关资源
+
+- [Android蓝牙开发指南](https://developer.android.com/guide/topics/connectivity/bluetooth)
+- [蓝牙SIG官网](https://www.bluetooth.com/)
+- [Android BLE开发实践](https://developer.android.com/guide/topics/connectivity/bluetooth-le)
+
+## 总结
+
+蓝牙开发是Android应用开发中的重要领域，需要深入理解蓝牙协议、熟悉Android蓝牙API，并注意性能优化和用户体验。通过本章节的学习，您应该能够掌握蓝牙开发的核心知识，并能够开发出稳定可靠的蓝牙应用。

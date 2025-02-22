@@ -1,0 +1,299 @@
+# Android相机开发
+
+## 相机基础
+
+### 相机API概述
+
+Android提供了两套相机API：
+
+1. Camera API（旧版API）
+2. Camera2 API（新版API，Android 5.0引入）
+3. CameraX（Jetpack组件，推荐使用）
+
+## Camera2 API使用
+
+### 1. 基础配置
+
+```kotlin
+class Camera2Helper(private val context: Context) {
+    private lateinit var cameraManager: CameraManager
+    private lateinit var cameraDevice: CameraDevice
+    private lateinit var captureSession: CameraCaptureSession
+    
+    init {
+        cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+    }
+    
+    fun openCamera() {
+        if (checkCameraPermission()) {
+            cameraManager.openCamera(getCameraId(), object : CameraDevice.StateCallback() {
+                override fun onOpened(camera: CameraDevice) {
+                    cameraDevice = camera
+                    createCaptureSession()
+                }
+                
+                override fun onDisconnected(camera: CameraDevice) {
+                    camera.close()
+                }
+                
+                override fun onError(camera: CameraDevice, error: Int) {
+                    camera.close()
+                }
+            }, null)
+        }
+    }
+}
+```
+
+### 2. 预览实现
+
+```kotlin
+fun startPreview(surface: Surface) {
+    val previewRequestBuilder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
+    previewRequestBuilder.addTarget(surface)
+    
+    cameraDevice.createCaptureSession(listOf(surface),
+        object : CameraCaptureSession.StateCallback() {
+            override fun onConfigured(session: CameraCaptureSession) {
+                captureSession = session
+                captureSession.setRepeatingRequest(
+                    previewRequestBuilder.build(),
+                    null,
+                    null
+                )
+            }
+            
+            override fun onConfigureFailed(session: CameraCaptureSession) {
+                // 处理配置失败
+            }
+        }, null)
+}
+```
+
+## CameraX使用
+
+### 1. 添加依赖
+
+```gradle
+dependencies {
+    def camerax_version = "1.2.0"
+    implementation "androidx.camera:camera-core:$camerax_version"
+    implementation "androidx.camera:camera-camera2:$camerax_version"
+    implementation "androidx.camera:camera-lifecycle:$camerax_version"
+    implementation "androidx.camera:camera-view:$camerax_version"
+}
+```
+
+### 2. 实现预览
+
+```kotlin
+class CameraXActivity : AppCompatActivity() {
+    private lateinit var preview: Preview
+    private lateinit var imageCapture: ImageCapture
+    private lateinit var cameraProvider: ProcessCameraProvider
+    
+    private fun startCamera() {
+        val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
+        cameraProviderFuture.addListener({
+            cameraProvider = cameraProviderFuture.get()
+            
+            preview = Preview.Builder().build()
+            imageCapture = ImageCapture.Builder().build()
+            
+            val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+            
+            try {
+                cameraProvider.unbindAll()
+                cameraProvider.bindToLifecycle(
+                    this,
+                    cameraSelector,
+                    preview,
+                    imageCapture
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "相机绑定失败", e)
+            }
+        }, ContextCompat.getMainExecutor(this))
+    }
+}
+```
+
+## 图像处理
+
+### 1. 图片捕获
+
+```kotlin
+fun captureImage() {
+    val outputFile = File(getOutputDirectory(), "${System.currentTimeMillis()}.jpg")
+    val outputOptions = ImageCapture.OutputFileOptions.Builder(outputFile).build()
+    
+    imageCapture.takePicture(
+        outputOptions,
+        ContextCompat.getMainExecutor(context),
+        object : ImageCapture.OnImageSavedCallback {
+            override fun onImageSaved(output: ImageCapture.OutputFileResults) {
+                // 图片保存成功
+            }
+            
+            override fun onError(exc: ImageCaptureException) {
+                // 处理错误
+            }
+        }
+    )
+}
+```
+
+### 2. 图像分析
+
+```kotlin
+class LuminosityAnalyzer : ImageAnalysis.Analyzer {
+    override fun analyze(image: ImageProxy) {
+        val buffer = image.planes[0].buffer
+        val data = buffer.toByteArray()
+        val pixels = data.map { it.toInt() & 0xFF }
+        val luma = pixels.average()
+        
+        Log.d(TAG, "平均亮度: $luma")
+        
+        image.close()
+    }
+}
+```
+
+## 常见面试题
+
+1. **Q: Camera1和Camera2 API的主要区别是什么？**
+
+A:
+- Camera2提供更细粒度的相机控制
+- Camera2支持RAW格式输出
+- Camera2可以同时捕获多个目标
+- Camera2提供更好的性能和更低的延迟
+
+2. **Q: CameraX的优势是什么？**
+
+A:
+- 生命周期感知
+- 设备兼容性处理
+- 易用的API设计
+- 更少的代码量
+- 内置常用功能
+
+3. **Q: 如何处理相机权限？**
+
+A:
+```kotlin
+private fun checkCameraPermission(): Boolean {
+    return ContextCompat.checkSelfPermission(
+        context,
+        Manifest.permission.CAMERA
+    ) == PackageManager.PERMISSION_GRANTED
+}
+
+private fun requestCameraPermission() {
+    ActivityCompat.requestPermissions(
+        activity,
+        arrayOf(Manifest.permission.CAMERA),
+        CAMERA_PERMISSION_REQUEST_CODE
+    )
+}
+```
+
+## 性能优化
+
+### 1. 内存优化
+
+```kotlin
+class ImageProcessor {
+    private val imagePool = ObjectPool<Bitmap>(5) {
+        Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    }
+    
+    fun processBitmap(input: Bitmap) {
+        val workingBitmap = imagePool.acquire()
+        try {
+            // 处理图像
+        } finally {
+            imagePool.release(workingBitmap)
+        }
+    }
+}
+```
+
+### 2. 预览优化
+
+```kotlin
+fun optimizePreview() {
+    // 选择合适的预览尺寸
+    val optimalSize = getOptimalPreviewSize(
+        supportedSizes,
+        targetWidth,
+        targetHeight
+    )
+    
+    // 设置预览参数
+    previewRequestBuilder.set(
+        CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE,
+        getOptimalRange(availableFpsRanges)
+    )
+}
+```
+
+## 实战技巧
+
+### 1. 自定义相机界面
+
+```kotlin
+class CustomCameraView @JvmOverloads constructor(
+    context: Context,
+    attrs: AttributeSet? = null,
+    defStyleAttr: Int = 0
+) : FrameLayout(context, attrs, defStyleAttr) {
+    
+    private val previewView: PreviewView
+    private val controlPanel: ViewGroup
+    
+    init {
+        LayoutInflater.from(context).inflate(R.layout.custom_camera_view, this, true)
+        previewView = findViewById(R.id.preview_view)
+        controlPanel = findViewById(R.id.control_panel)
+        
+        setupUI()
+    }
+    
+    private fun setupUI() {
+        // 实现自定义UI逻辑
+    }
+}
+```
+
+### 2. 相机特效处理
+
+```kotlin
+class CameraEffectProcessor {
+    private val glSurfaceView: GLSurfaceView
+    private val renderer: CameraRenderer
+    
+    fun applyEffect(effect: CameraEffect) {
+        when (effect) {
+            is BeautyEffect -> applyBeautyEffect(effect)
+            is FilterEffect -> applyFilterEffect(effect)
+            is StickerEffect -> applyStickerEffect(effect)
+        }
+    }
+    
+    private fun applyBeautyEffect(effect: BeautyEffect) {
+        // 实现美颜效果
+    }
+}
+```
+
+## 总结
+
+相机开发需要注意以下几点：
+
+1. API选择
+2. 权限处理
+3. 生命周期管理
+4. 性能优化
+5. 兼容性处理

@@ -1,0 +1,229 @@
+# Android性能分析工具指南
+
+## 系统自带工具
+
+### 1. Android Profiler
+
+```kotlin
+class ProfilerExample {
+    fun memoryProfile() {
+        // 1. 添加内存分析点
+        Debug.startMethodTracing("memory_trace")
+        
+        // 执行需要分析的代码
+        heavyOperation()
+        
+        // 停止分析
+        Debug.stopMethodTracing()
+    }
+    
+    fun cpuProfile() {
+        // CPU分析
+        TraceCompat.beginSection("cpu_intensive_operation")
+        try {
+            // 执行CPU密集型操作
+            processingData()
+        } finally {
+            TraceCompat.endSection()
+        }
+    }
+}
+```
+
+### 2. Systrace
+
+```kotlin
+class SystraceExample {
+    fun addSystraceTag() {
+        // 添加自定义跟踪标记
+        Trace.beginSection("custom_operation")
+        try {
+            // 执行需要跟踪的操作
+            complexCalculation()
+        } finally {
+            Trace.endSection()
+        }
+    }
+}
+```
+
+## 自定义性能监控工具
+
+### 1. 应用启动时间监控
+
+```kotlin
+class AppStartupMonitor {
+    private var startTime: Long = 0
+    private val timePoints = mutableMapOf<String, Long>()
+    
+    fun recordStartTime() {
+        startTime = System.currentTimeMillis()
+    }
+    
+    fun recordTimePoint(point: String) {
+        timePoints[point] = System.currentTimeMillis() - startTime
+    }
+    
+    fun getStartupReport(): String {
+        return buildString {
+            append("应用启动性能报告:\n")
+            timePoints.forEach { (point, time) ->
+                append("$point: ${time}ms\n")
+            }
+        }
+    }
+}
+```
+
+### 2. FPS监控工具
+
+```kotlin
+class FPSMonitor(private val context: Context) {
+    private var frameCount = 0
+    private var lastTime = System.nanoTime()
+    private var fps = 0
+    
+    private val choreographer = Choreographer.getInstance()
+    private val frameCallback = object : Choreographer.FrameCallback {
+        override fun doFrame(frameTimeNanos: Long) {
+            calculateFPS(frameTimeNanos)
+            choreographer.postFrameCallback(this)
+        }
+    }
+    
+    fun start() {
+        choreographer.postFrameCallback(frameCallback)
+    }
+    
+    fun stop() {
+        choreographer.removeFrameCallback(frameCallback)
+    }
+    
+    private fun calculateFPS(frameTimeNanos: Long) {
+        frameCount++
+        if (frameTimeNanos - lastTime >= TimeUnit.SECONDS.toNanos(1)) {
+            fps = frameCount
+            frameCount = 0
+            lastTime = frameTimeNanos
+            // 记录或上报FPS
+            logFPS(fps)
+        }
+    }
+}
+```
+
+### 3. 内存泄漏检测工具
+
+```kotlin
+class MemoryLeakDetector {
+    private val weakRefMap = WeakHashMap<Any, String>()
+    private val gcTrigger = ByteArray(1024 * 1024) // 1MB
+    
+    fun watch(obj: Any, description: String) {
+        weakRefMap[obj] = "$description at ${System.currentTimeMillis()}"
+    }
+    
+    fun checkLeaks() {
+        // 触发GC
+        gcTrigger.fill(0)
+        System.gc()
+        System.runFinalization()
+        
+        // 检查泄漏
+        weakRefMap.forEach { (obj, desc) ->
+            Log.w("MemoryLeak", "Potential memory leak: $desc")
+        }
+    }
+}
+```
+
+## 性能优化工具最佳实践
+
+### 1. 卡顿监控
+
+```kotlin
+class BlockCanary {
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var startTime: Long = 0
+    private val threshold = 100L // 卡顿阈值，单位毫秒
+    
+    init {
+        Looper.getMainLooper().setMessageLogging { log ->
+            when {
+                log.startsWith(">>>>> Dispatching") -> {
+                    startTime = System.nanoTime()
+                }
+                log.startsWith("<<<<< Finished") -> {
+                    val costTime = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime)
+                    if (costTime > threshold) {
+                        // 记录卡顿
+                        reportBlockInfo(costTime)
+                    }
+                }
+            }
+        }
+    }
+    
+    private fun reportBlockInfo(costTime: Long) {
+        // 获取堆栈信息
+        val stackTrace = Thread.currentThread().stackTrace
+        // 上报卡顿信息
+        Log.w("BlockCanary", "UI blocked for ${costTime}ms\n${stackTrace.joinToString("\n")}")
+    }
+}
+```
+
+### 2. 网络性能监控
+
+```kotlin
+class NetworkMonitor {
+    class NetworkInterceptor : Interceptor {
+        override fun intercept(chain: Interceptor.Chain): Response {
+            val startTime = System.nanoTime()
+            val request = chain.request()
+            
+            return try {
+                val response = chain.proceed(request)
+                val costTime = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime)
+                
+                // 记录网络请求信息
+                logNetworkInfo(request.url.toString(), costTime, response.code)
+                
+                response
+            } catch (e: Exception) {
+                // 记录失败信息
+                logNetworkError(request.url.toString(), e)
+                throw e
+            }
+        }
+    }
+    
+    private fun logNetworkInfo(url: String, costTime: Long, code: Int) {
+        Log.i("NetworkMonitor", "Request: $url\nTime: ${costTime}ms\nCode: $code")
+    }
+    
+    private fun logNetworkError(url: String, error: Exception) {
+        Log.e("NetworkMonitor", "Request failed: $url\nError: ${error.message}")
+    }
+}
+```
+
+## 总结
+
+性能分析工具的使用对于提升应用质量至关重要：
+
+1. 系统工具的使用
+   - Android Profiler用于全面性能分析
+   - Systrace用于系统级跟踪
+
+2. 自定义工具的开发
+   - 启动时间监控
+   - FPS监控
+   - 内存泄漏检测
+   - 卡顿监控
+   - 网络性能监控
+
+3. 最佳实践
+   - 及时发现和解决性能问题
+   - 建立性能监控体系
+   - 持续优化用户体验

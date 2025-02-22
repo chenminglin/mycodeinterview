@@ -1,0 +1,270 @@
+# Android高级动画开发
+
+## 动画类型概述
+
+### 1. 属性动画（Property Animation）
+
+```kotlin
+class PropertyAnimationDemo {
+    fun createValueAnimator() {
+        ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 1000
+            interpolator = AccelerateDecelerateInterpolator()
+            addUpdateListener { animator ->
+                val value = animator.animatedValue as Float
+                // 使用动画值更新UI
+            }
+            start()
+        }
+    }
+    
+    fun createObjectAnimator(view: View) {
+        ObjectAnimator.ofFloat(view, "alpha", 0f, 1f).apply {
+            duration = 1000
+            start()
+        }
+    }
+}
+```
+
+### 2. 过渡动画（Transition）
+
+```kotlin
+class TransitionDemo : AppCompatActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        
+        // 启用Activity过渡
+        window.requestFeature(Window.FEATURE_ACTIVITY_TRANSITIONS)
+        
+        // 设置进入和退出过渡
+        window.enterTransition = Slide()
+        window.exitTransition = Fade()
+    }
+    
+    fun startActivityWithTransition(intent: Intent, view: View) {
+        val options = ActivityOptionsCompat.makeSceneTransitionAnimation(
+            this,
+            view,
+            "shared_element"
+        )
+        startActivity(intent, options.toBundle())
+    }
+}
+```
+
+### 3. 矢量动画（Vector Animation）
+
+```xml
+<!-- animated_vector.xml -->
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/vector_drawable">
+    <target
+        android:name="path_name"
+        android:animation="@animator/path_animator" />
+</animated-vector>
+```
+
+```kotlin
+class VectorAnimationDemo {
+    fun playVectorAnimation(view: ImageView) {
+        val animatedDrawable = view.drawable as AnimatedVectorDrawable
+        animatedDrawable.start()
+    }
+}
+```
+
+## 高级动画技巧
+
+### 1. 自定义插值器
+
+```kotlin
+class CustomInterpolator : TimeInterpolator {
+    override fun getInterpolation(input: Float): Float {
+        // 自定义插值算法
+        return (1 - Math.cos(input * Math.PI)) / 2
+    }
+}
+```
+
+### 2. 复杂动画组合
+
+```kotlin
+class ComplexAnimationDemo {
+    fun createAnimatorSet(view: View) {
+        val scaleX = ObjectAnimator.ofFloat(view, "scaleX", 1f, 1.5f)
+        val scaleY = ObjectAnimator.ofFloat(view, "scaleY", 1f, 1.5f)
+        val rotate = ObjectAnimator.ofFloat(view, "rotation", 0f, 360f)
+        
+        AnimatorSet().apply {
+            playTogether(scaleX, scaleY)
+            playSequentially(rotate)
+            duration = 1000
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    // 动画结束处理
+                }
+            })
+            start()
+        }
+    }
+}
+```
+
+## 性能优化
+
+### 1. 硬件加速
+
+```kotlin
+class AnimationOptimization {
+    fun optimizeAnimation(view: View) {
+        // 开启硬件加速
+        view.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+        
+        // 执行动画
+        view.animate()
+            .scaleX(1.5f)
+            .scaleY(1.5f)
+            .withEndAction {
+                // 动画结束后关闭硬件加速
+                view.setLayerType(View.LAYER_TYPE_NONE, null)
+            }
+    }
+}
+```
+
+### 2. 内存管理
+
+```kotlin
+class AnimationMemoryManagement {
+    private var animator: ValueAnimator? = null
+    
+    fun startAnimation() {
+        // 确保之前的动画被清理
+        animator?.cancel()
+        
+        animator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 1000
+            start()
+        }
+    }
+    
+    fun cleanup() {
+        animator?.cancel()
+        animator = null
+    }
+}
+```
+
+## 常见面试题
+
+### 1. 属性动画和视图动画的区别是什么？
+
+A: 主要区别如下：
+
+1. **实现原理**
+   - 视图动画：仅改变视图的绘制效果，不改变视图的实际属性
+   - 属性动画：真实改变对象的属性值，实现更真实的动画效果
+
+2. **功能特性**
+   - 视图动画：只能实现简单的缩放、平移、旋转和透明度动画
+   - 属性动画：可以对任何对象的任何属性进行动画，更加灵活
+
+3. **交互效果**
+   - 视图动画：动画后的位置与实际点击位置可能不一致
+   - 属性动画：动画后的位置就是实际的点击位置
+
+### 2. 如何优化动画性能？
+
+A: 动画性能优化的关键点：
+
+1. **使用硬件加速**
+```kotlin
+// 在需要的View上开启硬件加速
+view.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+```
+
+2. **避免过度绘制**
+```kotlin
+// 使用clipRect减少绘制区域
+override fun onDraw(canvas: Canvas) {
+    canvas.clipRect(animationBounds)
+    super.onDraw(canvas)
+}
+```
+
+3. **使用属性动画代替视图动画**
+```kotlin
+// 使用属性动画
+ObjectAnimator.ofFloat(view, "translationX", 0f, 100f)
+    .setDuration(300)
+    .start()
+```
+
+4. **及时清理动画资源**
+```kotlin
+// 在适当的生命周期中清理动画
+override fun onDestroy() {
+    animator?.cancel()
+    super.onDestroy()
+}
+```
+
+## 实战案例
+
+### 1. 自定义路径动画
+
+```kotlin
+class PathAnimation {
+    fun createPathAnimation(view: View, path: Path) {
+        val pathMeasure = PathMeasure(path, false)
+        val length = pathMeasure.length
+        val coordinates = FloatArray(2)
+        
+        ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 1000
+            addUpdateListener { animator ->
+                val distance = length * animator.animatedValue as Float
+                pathMeasure.getPosTan(distance, coordinates, null)
+                view.translationX = coordinates[0]
+                view.translationY = coordinates[1]
+            }
+            start()
+        }
+    }
+}
+```
+
+### 2. 状态动画
+
+```kotlin
+class StateAnimationDemo {
+    fun createStateListAnimator(view: View) {
+        val stateListAnimator = StateListAnimator()
+        
+        // 按下状态动画
+        stateListAnimator.addState(
+            intArrayOf(android.R.attr.state_pressed),
+            ObjectAnimator.ofFloat(view, "translationZ", 0f, 8f)
+        )
+        
+        // 正常状态动画
+        stateListAnimator.addState(
+            intArrayOf(),
+            ObjectAnimator.ofFloat(view, "translationZ", 8f, 0f)
+        )
+        
+        view.stateListAnimator = stateListAnimator
+    }
+}
+```
+
+## 总结
+
+高级动画开发需要注意以下几点：
+
+1. 选择合适的动画类型
+2. 注重性能优化
+3. 合理管理动画资源
+4. 处理动画生命周期
+5. 优化用户体验

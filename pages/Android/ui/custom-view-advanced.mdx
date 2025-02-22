@@ -1,0 +1,227 @@
+# Android自定义View进阶指南
+
+## 面试题
+
+### 1. 自定义View的高级特性有哪些？
+
+自定义View的高级特性主要包括：事件处理、动画效果、状态管理等。
+
+```java
+public class AdvancedCustomView extends View {
+    // 1. 状态管理
+    private static final int[] STATE_PRESSED = new int[]{android.R.attr.state_pressed};
+    private boolean mPressed;
+    
+    @Override
+    protected int[] onCreateDrawableState(int extraSpace) {
+        final int[] drawableState = super.onCreateDrawableState(extraSpace + 1);
+        if (mPressed) {
+            mergeDrawableStates(drawableState, STATE_PRESSED);
+        }
+        return drawableState;
+    }
+    
+    // 2. 事件处理
+    private float lastX, lastY;
+    
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        float x = event.getX();
+        float y = event.getY();
+        
+        switch (event.getAction()) {
+            case MotionEvent.ACTION_DOWN:
+                lastX = x;
+                lastY = y;
+                mPressed = true;
+                refreshDrawableState();
+                break;
+            case MotionEvent.ACTION_MOVE:
+                float deltaX = x - lastX;
+                float deltaY = y - lastY;
+                // 处理移动逻辑
+                break;
+            case MotionEvent.ACTION_UP:
+                mPressed = false;
+                refreshDrawableState();
+                break;
+        }
+        return true;
+    }
+}
+```
+
+### 2. 如何实现自定义View的动画效果？
+
+1. 属性动画
+```java
+public class AnimatedCustomView extends View {
+    private float progress;
+    private ValueAnimator animator;
+    
+    public void startAnimation() {
+        animator = ValueAnimator.ofFloat(0, 1);
+        animator.setDuration(1000);
+        animator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            @Override
+            public void onAnimationUpdate(ValueAnimator animation) {
+                progress = (float) animation.getAnimatedValue();
+                invalidate();
+            }
+        });
+        animator.start();
+    }
+    
+    @Override
+    protected void onDraw(Canvas canvas) {
+        super.onDraw(canvas);
+        // 根据progress绘制动画效果
+    }
+}
+```
+
+2. 自定义动画评估器
+```java
+public class CustomEvaluator implements TypeEvaluator<Point> {
+    @Override
+    public Point evaluate(float fraction, Point startValue, Point endValue) {
+        float x = startValue.x + fraction * (endValue.x - startValue.x);
+        float y = startValue.y + fraction * (endValue.y - startValue.y);
+        return new Point((int)x, (int)y);
+    }
+}
+```
+
+### 3. 如何优化自定义View的性能？
+
+1. 绘制优化
+```java
+public class OptimizedCustomView extends View {
+    private Bitmap mCacheBitmap;
+    private Canvas mCacheCanvas;
+    private boolean mCacheValid;
+    
+    private void createCache() {
+        mCacheBitmap = Bitmap.createBitmap(getWidth(), getHeight(), Bitmap.Config.ARGB_8888);
+        mCacheCanvas = new Canvas(mCacheBitmap);
+    }
+    
+    @Override
+    protected void onDraw(Canvas canvas) {
+        if (!mCacheValid) {
+            // 只在需要时重新绘制缓存
+            drawToCache();
+            mCacheValid = true;
+        }
+        canvas.drawBitmap(mCacheBitmap, 0, 0, null);
+    }
+    
+    private void drawToCache() {
+        // 绘制复杂的内容到缓存
+    }
+}
+```
+
+2. 事件处理优化
+```java
+public class GestureCustomView extends View {
+    private GestureDetector mGestureDetector;
+    
+    public GestureCustomView(Context context) {
+        super(context);
+        initGestureDetector();
+    }
+    
+    private void initGestureDetector() {
+        mGestureDetector = new GestureDetector(getContext(),
+            new GestureDetector.SimpleOnGestureListener() {
+                @Override
+                public boolean onScroll(MotionEvent e1, MotionEvent e2,
+                                      float distanceX, float distanceY) {
+                    // 处理滑动事件
+                    return true;
+                }
+                
+                @Override
+                public boolean onFling(MotionEvent e1, MotionEvent e2,
+                                     float velocityX, float velocityY) {
+                    // 处理快速滑动事件
+                    return true;
+                }
+            });
+    }
+    
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        return mGestureDetector.onTouchEvent(event);
+    }
+}
+```
+
+### 4. 如何实现自定义ViewGroup？
+
+```java
+public class CustomViewGroup extends ViewGroup {
+    @Override
+    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        int count = getChildCount();
+        int maxHeight = 0;
+        int maxWidth = 0;
+        
+        // 测量所有子View
+        measureChildren(widthMeasureSpec, heightMeasureSpec);
+        
+        // 计算ViewGroup的大小
+        for (int i = 0; i < count; i++) {
+            View child = getChildAt(i);
+            if (child.getVisibility() != GONE) {
+                maxWidth = Math.max(maxWidth, child.getMeasuredWidth());
+                maxHeight = Math.max(maxHeight, child.getMeasuredHeight());
+            }
+        }
+        
+        maxWidth += getPaddingLeft() + getPaddingRight();
+        maxHeight += getPaddingTop() + getPaddingBottom();
+        
+        setMeasuredDimension(
+            resolveSize(maxWidth, widthMeasureSpec),
+            resolveSize(maxHeight, heightMeasureSpec));
+    }
+    
+    @Override
+    protected void onLayout(boolean changed, int l, int t, int r, int b) {
+        int count = getChildCount();
+        int curLeft = getPaddingLeft();
+        int curTop = getPaddingTop();
+        
+        // 布局所有子View
+        for (int i = 0; i < count; i++) {
+            View child = getChildAt(i);
+            if (child.getVisibility() != GONE) {
+                int width = child.getMeasuredWidth();
+                int height = child.getMeasuredHeight();
+                
+                child.layout(curLeft, curTop, curLeft + width, curTop + height);
+                curLeft += width;
+            }
+        }
+    }
+}
+```
+
+## 最佳实践
+
+1. 自定义View开发规范
+- 继承合适的View类
+- 处理好生命周期
+- 提供自定义属性
+
+2. 性能优化要点
+- 合理使用硬件加速
+- 避免过度绘制
+- 使用缓存机制
+
+3. 交互设计建议
+- 遵循Material Design规范
+- 提供适当的反馈
+- 保持交互的连贯性
