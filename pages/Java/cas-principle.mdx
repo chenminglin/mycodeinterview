@@ -1,0 +1,197 @@
+# Java CAS原理详解
+
+## CAS基础概念
+
+### 1. CAS的本质
+
+```plaintext
+问：什么是CAS（Compare And Swap）？它在并发编程中的作用是什么？
+
+答：CAS的核心概念：
+
+1. 基本定义
+   - 比较并交换操作
+   - CPU级别的原子操作
+   - 乐观锁的实现基础
+
+2. 工作原理
+   - 比较当前值和期望值
+   - 相等则更新为新值
+   - 不相等则操作失败
+
+3. 应用场景
+   - 原子类的实现
+   - 自旋锁的实现
+   - 无锁数据结构
+```
+
+### 2. CAS实现示例
+
+```java
+public class CASExample {
+    private AtomicInteger value = new AtomicInteger(0);
+    
+    public void increment() {
+        int oldValue;
+        do {
+            oldValue = value.get();
+        } while (!value.compareAndSet(oldValue, oldValue + 1));
+    }
+    
+    public static void main(String[] args) {
+        CASExample example = new CASExample();
+        // 创建多个线程进行自增操作
+        for (int i = 0; i < 3; i++) {
+            new Thread(() -> {
+                for (int j = 0; j < 1000; j++) {
+                    example.increment();
+                }
+            }).start();
+        }
+    }
+}
+```
+
+## CAS的优缺点
+
+### 1. CAS的优势
+
+```plaintext
+问：CAS相比传统锁机制有哪些优势和局限性？
+
+答：CAS的特点分析：
+
+1. 优势
+   - 无需线程阻塞
+   - 性能较高
+   - 不会死锁
+
+2. 局限性
+   - ABA问题
+   - 自旋开销
+   - 只能保证单个变量的原子性
+
+3. 使用场景
+   - 竞争不激烈时
+   - 等待时间短
+   - 变量独立操作
+```
+
+### 2. ABA问题解决
+
+```java
+public class ABAExample {
+    private AtomicStampedReference<Integer> value = 
+        new AtomicStampedReference<>(0, 0);
+    
+    public boolean casUpdate(int expect, int update) {
+        int stamp = value.getStamp();
+        return value.compareAndSet(expect, update, stamp, stamp + 1);
+    }
+    
+    public static void main(String[] args) {
+        ABAExample example = new ABAExample();
+        // 模拟ABA问题的解决
+        new Thread(() -> {
+            int stamp = example.value.getStamp();
+            int value = example.value.getReference();
+            System.out.println("Thread 1: " + value + ", stamp: " + stamp);
+            // 确保带有版本号的更新
+            example.value.compareAndSet(value, value + 1, stamp, stamp + 1);
+        }).start();
+    }
+}
+```
+
+## 实践应用
+
+### 1. 原子类的使用
+
+```plaintext
+问：Java中的原子类是如何利用CAS实现的？有哪些常用的原子类？
+
+答：原子类的实现机制：
+
+1. 常用原子类
+   - AtomicInteger
+   - AtomicLong
+   - AtomicReference
+   - AtomicStampedReference
+
+2. 实现原理
+   - 基于Unsafe类
+   - 利用CAS操作
+   - volatile变量保证可见性
+
+3. 使用场景
+   - 计数器
+   - 序列号生成
+   - 原子更新对象
+```
+
+### 2. 自定义原子类
+
+```java
+public class CustomAtomic<V> {
+    private volatile V value;
+    private static final Unsafe unsafe;
+    private static final long valueOffset;
+    
+    static {
+        try {
+            Field f = Unsafe.class.getDeclaredField("theUnsafe");
+            f.setAccessible(true);
+            unsafe = (Unsafe) f.get(null);
+            valueOffset = unsafe.objectFieldOffset
+                (CustomAtomic.class.getDeclaredField("value"));
+        } catch (Exception ex) { throw new Error(ex); }
+    }
+    
+    public final boolean compareAndSet(V expect, V update) {
+        return unsafe.compareAndSwapObject(this, valueOffset, expect, update);
+    }
+}
+```
+
+## 性能优化
+
+### 1. CAS最佳实践
+
+1. **使用建议**
+   - 适合竞争度低的场景
+   - 控制自旋次数
+   - 考虑ABA问题
+
+2. **优化方向**
+   - 减少竞争
+   - 合理设置重试次数
+   - 使用合适的原子类
+
+### 2. 常见问题
+
+1. **性能问题**
+   - 自旋开销过大
+   - 竞争激烈时性能下降
+   - 内存开销
+
+2. **使用注意**
+   - 防止死循环
+   - 避免长时间自旋
+   - 合理使用退避策略
+
+## 面试重点
+
+1. **CAS原理**
+   - 实现机制
+   - 原子性保证
+   - CPU指令支持
+
+2. **实际应用**
+   - 原子类使用
+   - ABA问题处理
+   - 性能优化策略
+
+3. **对比分析**
+   - 与synchronized对比
+   - 与ReentrantLock对比
+   - 适用场景分析

@@ -1,0 +1,221 @@
+# Java高级并发编程
+
+## 线程池深度解析
+
+### 1. 线程池的工作原理
+
+```plaintext
+问：请详细说明ThreadPoolExecutor的工作流程和任务调度机制？
+
+答：线程池的核心工作原理：
+
+1. 任务提交流程
+   - 判断核心线程数是否已满
+   - 检查工作队列是否已满
+   - 判断最大线程数是否已达到
+   - 执行拒绝策略
+
+2. 线程管理机制
+   - 核心线程的创建和复用
+   - 非核心线程的动态调整
+   - 空闲线程的超时回收
+
+3. 任务队列策略
+   - 直接提交队列
+   - 有界任务队列
+   - 无界任务队列
+   - 优先任务队列
+```
+
+### 2. 线程池最佳实践
+
+```java
+public class ThreadPoolExample {
+    private static final int CORE_POOL_SIZE = 5;
+    private static final int MAX_POOL_SIZE = 10;
+    private static final int QUEUE_CAPACITY = 100;
+    private static final Long KEEP_ALIVE_TIME = 1L;
+    
+    public static ThreadPoolExecutor createThreadPool() {
+        return new ThreadPoolExecutor(
+            CORE_POOL_SIZE,
+            MAX_POOL_SIZE,
+            KEEP_ALIVE_TIME,
+            TimeUnit.SECONDS,
+            new LinkedBlockingQueue<>(QUEUE_CAPACITY),
+            new ThreadPoolExecutor.CallerRunsPolicy()
+        );
+    }
+    
+    public static void main(String[] args) {
+        ThreadPoolExecutor executor = createThreadPool();
+        
+        for (int i = 0; i < 10; i++) {
+            executor.execute(() -> {
+                System.out.println("当前线程: " + Thread.currentThread().getName());
+                try {
+                    Thread.sleep(2000);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            });
+        }
+        
+        executor.shutdown();
+    }
+}
+```
+
+## 阻塞队列详解
+
+### 1. 常见阻塞队列的实现原理
+
+```plaintext
+问：ArrayBlockingQueue和LinkedBlockingQueue的实现原理和区别是什么？
+
+答：两种阻塞队列的对比：
+
+1. ArrayBlockingQueue
+   - 基于数组的有界队列
+   - 一把锁实现同步
+   - 适合固定大小场景
+
+2. LinkedBlockingQueue
+   - 基于链表的可选有界队列
+   - 两把锁实现同步
+   - 吞吐量更高
+
+3. 性能特点
+   - ArrayBlockingQueue：内存占用小
+   - LinkedBlockingQueue：并发度更高
+```
+
+### 2. 阻塞队列应用示例
+
+```java
+public class ProducerConsumerExample {
+    private static BlockingQueue<String> queue = new ArrayBlockingQueue<>(10);
+    
+    static class Producer implements Runnable {
+        @Override
+        public void run() {
+            try {
+                for (int i = 0; i < 20; i++) {
+                    String data = "数据-" + i;
+                    queue.put(data);
+                    System.out.println("生产: " + data);
+                    Thread.sleep(100);
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+    
+    static class Consumer implements Runnable {
+        @Override
+        public void run() {
+            try {
+                while (true) {
+                    String data = queue.take();
+                    System.out.println("消费: " + data);
+                    Thread.sleep(200);
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+    
+    public static void main(String[] args) {
+        new Thread(new Producer()).start();
+        new Thread(new Consumer()).start();
+    }
+}
+```
+
+## 锁优化策略
+
+### 1. 锁优化的核心技术
+
+```plaintext
+问：JVM中的锁优化技术有哪些？如何减少锁竞争？
+
+答：主要的锁优化技术：
+
+1. 锁消除
+   - JIT即时编译优化
+   - 逃逸分析
+   - 栈上分配
+
+2. 锁粗化
+   - 合并相邻同步块
+   - 减少锁请求次数
+
+3. 锁升级
+   - 偏向锁
+   - 轻量级锁
+   - 重量级锁
+```
+
+### 2. 实践中的锁优化
+
+```java
+public class LockOptimizationExample {
+    private static final int THREAD_COUNT = 10;
+    private static final int EXECUTION_TIMES = 100000;
+    
+    // 使用ThreadLocal避免锁竞争
+    private static ThreadLocal<SimpleDateFormat> dateFormat =
+        ThreadLocal.withInitial(() -> new SimpleDateFormat("yyyy-MM-dd"));
+    
+    // 使用ConcurrentHashMap替代同步的HashMap
+    private static Map<String, Integer> cache = new ConcurrentHashMap<>();
+    
+    public static String formatDate(Date date) {
+        return dateFormat.get().format(date);
+    }
+    
+    public static void updateCache(String key, Integer value) {
+        cache.put(key, value);
+    }
+    
+    public static void main(String[] args) throws InterruptedException {
+        ExecutorService executor = Executors.newFixedThreadPool(THREAD_COUNT);
+        CountDownLatch latch = new CountDownLatch(THREAD_COUNT);
+        
+        for (int i = 0; i < THREAD_COUNT; i++) {
+            executor.execute(() -> {
+                try {
+                    for (int j = 0; j < EXECUTION_TIMES; j++) {
+                        formatDate(new Date());
+                        updateCache("key-" + j, j);
+                    }
+                } finally {
+                    latch.countDown();
+                }
+            });
+        }
+        
+        latch.await();
+        executor.shutdown();
+    }
+}
+```
+
+## 面试重点
+
+1. **线程池核心参数**
+   - 核心线程数的设置原则
+   - 最大线程数的计算方法
+   - 任务队列的选择策略
+
+2. **阻塞队列的选择**
+   - 不同队列的适用场景
+   - 性能和内存的权衡
+   - 常见问题的处理方案
+
+3. **锁优化实践**
+   - 减少锁粒度
+   - 避免锁竞争
+   - 合理使用乐观锁

@@ -1,0 +1,157 @@
+# Java线程池详解
+
+## 线程池核心原理
+
+### 1. 线程池的工作原理
+
+```plaintext
+问：请详细说明线程池的核心工作原理和参数配置？
+
+答：线程池的核心实现原理：
+
+1. 核心参数
+   - corePoolSize：核心线程数
+   - maximumPoolSize：最大线程数
+   - keepAliveTime：线程存活时间
+   - workQueue：工作队列
+   - threadFactory：线程工厂
+   - handler：拒绝策略
+
+2. 工作流程
+   - 任务优先使用核心线程
+   - 核心线程满后进入队列
+   - 队列满后创建临时线程
+   - 超出最大线程数触发拒绝策略
+
+3. 线程管理
+   - 线程复用机制
+   - 任务调度策略
+   - 线程回收机制
+```
+
+### 2. 线程池实现示例
+
+```java
+public class ThreadPoolExample {
+    public static void main(String[] args) {
+        // 创建线程池
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(
+            2,                      // 核心线程数
+            4,                      // 最大线程数
+            60L,                    // 线程存活时间
+            TimeUnit.SECONDS,       // 时间单位
+            new LinkedBlockingQueue<>(100),  // 工作队列
+            Executors.defaultThreadFactory(), // 线程工厂
+            new ThreadPoolExecutor.CallerRunsPolicy() // 拒绝策略
+        );
+        
+        // 提交任务
+        for (int i = 0; i < 10; i++) {
+            final int taskId = i;
+            executor.execute(() -> {
+                System.out.println("执行任务: " + taskId);
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            });
+        }
+        
+        // 关闭线程池
+        executor.shutdown();
+    }
+}
+```
+
+## 线程池最佳实践
+
+### 1. 线程池参数配置
+
+1. **核心线程数设置**
+   - CPU密集型：CPU核心数 + 1
+   - IO密集型：CPU核心数 * 2
+   - 混合型：根据场景调优
+
+2. **队列容量选择**
+   - 有界队列防止OOM
+   - 合理设置容量阈值
+   - 监控队列积压情况
+
+### 2. 线程池监控
+
+```java
+public class ThreadPoolMonitor {
+    private static void monitorThreadPool(ThreadPoolExecutor executor) {
+        // 监控线程池状态
+        System.out.println("活跃线程数: " + executor.getActiveCount());
+        System.out.println("核心线程数: " + executor.getCorePoolSize());
+        System.out.println("最大线程数: " + executor.getMaximumPoolSize());
+        System.out.println("线程池大小: " + executor.getPoolSize());
+        System.out.println("队列任务数: " + executor.getQueue().size());
+        System.out.println("已完成任务: " + executor.getCompletedTaskCount());
+        System.out.println("总任务数: " + executor.getTaskCount());
+    }
+}
+```
+
+## 常见问题解析
+
+### 1. 线程池异常处理
+
+```java
+public class ThreadPoolExceptionHandler {
+    public static void main(String[] args) {
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(
+            2, 4, 60L, TimeUnit.SECONDS,
+            new LinkedBlockingQueue<>(100),
+            new ThreadFactory() {
+                @Override
+                public Thread newThread(Runnable r) {
+                    Thread t = new Thread(r);
+                    // 设置异常处理器
+                    t.setUncaughtExceptionHandler(
+                        (thread, ex) -> System.err.println("线程异常: " + ex.getMessage())
+                    );
+                    return t;
+                }
+            },
+            new ThreadPoolExecutor.AbortPolicy()
+        );
+        
+        // 提交可能抛出异常的任务
+        executor.execute(() -> {
+            throw new RuntimeException("任务执行失败");
+        });
+    }
+}
+```
+
+### 2. 线程池关闭策略
+
+1. **优雅关闭**
+   - shutdown()：等待任务完成
+   - shutdownNow()：立即中断
+   - awaitTermination()：限时等待
+
+2. **实践建议**
+   - 优先使用shutdown()
+   - 设置合理的等待时间
+   - 确保资源释放
+
+## 面试重点
+
+1. **线程池原理**
+   - 线程复用机制
+   - 任务调度流程
+   - 参数配置原则
+
+2. **性能调优**
+   - 线程数优化
+   - 队列选择策略
+   - 拒绝策略选择
+
+3. **实践经验**
+   - 异常处理方案
+   - 监控指标设置
+   - 优雅关闭策略

@@ -1,0 +1,151 @@
+# PackageManagerService核心原理
+
+## 基础概念
+
+PackageManagerService（简称PMS）是Android系统中最核心的系统服务之一，主要负责应用的安装、卸载、查询等操作。本文将深入分析PMS的工作原理和核心机制。
+
+## 核心机制
+
+### 1. PMS的启动流程
+
+```java
+public class PackageManagerService extends IPackageManager.Stub {
+    public PackageManagerService(Context context) {
+        // 1. 创建系统目录
+        createSystemDirs();
+        
+        // 2. 初始化Settings对象
+        mSettings = new Settings();
+        
+        // 3. 扫描系统应用
+        scanDirLI(new File("/system/app"), 0);
+        
+        // 4. 扫描第三方应用
+        scanDirLI(new File("/data/app"), 0);
+    }
+    
+    private void scanDirLI(File dir, int flags) {
+        File[] files = dir.listFiles();
+        for (File file : files) {
+            scanPackageLI(file, flags);
+        }
+    }
+}
+```
+
+### 2. 应用安装流程
+
+```java
+public class PackageInstaller {
+    public void installPackage(String apkPath) {
+        // 1. 复制APK到临时目录
+        File tempFile = copyPackage(apkPath);
+        
+        // 2. 解析APK信息
+        PackageParser.Package pkg = parsePackage(tempFile);
+        
+        // 3. 签名校验
+        verifySignatures(pkg);
+        
+        // 4. 安装到系统目录
+        installPackageInner(pkg);
+        
+        // 5. 发送安装完成广播
+        sendPackageAddedBroadcast();
+    }
+}
+```
+
+### 3. 权限管理机制
+
+```java
+public class PermissionManagerService {
+    // 权限授予
+    public void grantPermission(String packageName, String permission) {
+        // 1. 检查权限合法性
+        if (!isPermissionValid(permission)) {
+            return;
+        }
+        
+        // 2. 更新权限状态
+        updatePermissionFlags(packageName, permission, true);
+        
+        // 3. 持久化权限信息
+        mSettings.writePersistentPermissionsLPr();
+    }
+    
+    // 权限撤销
+    public void revokePermission(String packageName, String permission) {
+        // 1. 更新权限状态
+        updatePermissionFlags(packageName, permission, false);
+        
+        // 2. 持久化权限信息
+        mSettings.writePersistentPermissionsLPr();
+    }
+}
+```
+
+## 性能优化
+
+### 1. PMS启动优化
+
+```kotlin
+class PMSOptimization {
+    fun optimizeStartup() {
+        // 1. 延迟扫描非系统应用
+        Handler().postDelayed({
+            scanNonSystemApps()
+        }, 3000)
+        
+        // 2. 并行扫描优化
+        coroutineScope.launch {
+            withContext(Dispatchers.IO) {
+                parallelScanApps()
+            }
+        }
+    }
+}
+```
+
+### 2. 应用安装优化
+
+```kotlin
+class InstallOptimization {
+    fun optimizeInstallation() {
+        // 1. 增量更新优化
+        implementIncrementalUpdate()
+        
+        // 2. 并行dex优化
+        optimizeDexParallel()
+        
+        // 3. 智能分包
+        implementSmartSplits()
+    }
+}
+```
+
+## 实践经验
+
+### 1. 常见问题解决
+
+1. 应用安装失败
+   - 检查签名是否正确
+   - 验证APK完整性
+   - 确保存储空间充足
+
+2. 权限问题处理
+   - 运行时权限动态申请
+   - 特殊权限处理
+   - 权限组管理
+
+### 2. 最佳实践
+
+1. 安装优化
+   - 使用App Bundle
+   - 实现智能分包
+   - 优化dex2oat过程
+
+2. 启动优化
+   - 延迟初始化
+   - 并行扫描
+   - 构建包信息缓存

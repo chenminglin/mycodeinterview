@@ -1,0 +1,222 @@
+# Java锁机制详解
+
+## 锁的基本概念
+
+### 1. Java中的锁分类
+
+```plaintext
+问：Java中有哪些类型的锁？它们的使用场景和性能特点是什么？
+
+答：Java锁的主要分类：
+
+1. 悲观锁 vs 乐观锁
+   - 悲观锁：假设会发生冲突
+   - 乐观锁：假设不会发生冲突
+   - 使用场景对比
+
+2. 公平锁 vs 非公平锁
+   - 公平锁：按申请顺序获取
+   - 非公平锁：抢占式获取
+   - 性能和使用选择
+
+3. 可重入锁 vs 不可重入锁
+   - 可重入特性
+   - 实现机制
+   - 应用场景
+```
+
+### 2. 锁的实现示例
+
+```java
+public class LockExample {
+    // ReentrantLock示例
+    private final ReentrantLock fairLock = new ReentrantLock(true);
+    private final ReentrantLock nonFairLock = new ReentrantLock(false);
+    
+    public void fairLockMethod() {
+        fairLock.lock();
+        try {
+            // 临界区代码
+            System.out.println("Using fair lock");
+        } finally {
+            fairLock.unlock();
+        }
+    }
+    
+    // synchronized示例
+    private final Object syncObj = new Object();
+    
+    public synchronized void synchronizedMethod() {
+        // 同步方法
+        System.out.println("Synchronized method");
+    }
+    
+    public void synchronizedBlock() {
+        synchronized(syncObj) {
+            // 同步代码块
+            System.out.println("Synchronized block");
+        }
+    }
+}
+```
+
+## 锁的底层实现
+
+### 1. synchronized原理
+
+```plaintext
+问：synchronized的底层实现原理是什么？锁升级过程是怎样的？
+
+答：synchronized实现机制：
+
+1. 锁的实现方式
+   - 对象头Mark Word
+   - monitor机制
+   - 字节码指令
+
+2. 锁的升级过程
+   - 偏向锁
+   - 轻量级锁
+   - 重量级锁
+
+3. 性能优化
+   - 锁消除
+   - 锁粗化
+   - 自旋锁
+```
+
+### 2. ReentrantLock原理
+
+```java
+public class ReentrantLockAnalysis {
+    private final ReentrantLock lock = new ReentrantLock();
+    
+    public void lockMechanism() {
+        // 获取锁
+        lock.lock();
+        try {
+            // 可重入性演示
+            nestedMethod();
+        } finally {
+            // 释放锁
+            lock.unlock();
+        }
+    }
+    
+    private void nestedMethod() {
+        // 可重入锁允许重复获取
+        lock.lock();
+        try {
+            System.out.println("Nested lock acquisition");
+        } finally {
+            lock.unlock();
+        }
+    }
+}
+```
+
+## 锁的性能优化
+
+### 1. 优化策略
+
+```plaintext
+问：如何优化Java程序中的锁性能？有哪些常用策略？
+
+答：锁优化策略：
+
+1. 减少锁范围
+   - 细粒度锁
+   - 锁分离
+   - 分段锁
+
+2. 降低锁竞争
+   - 减少锁持有时间
+   - 锁分段
+   - 避免热点
+
+3. 替代方案
+   - 无锁算法
+   - 乐观锁
+   - 并发集合
+```
+
+### 2. 优化实例
+
+```java
+public class LockOptimizationExample {
+    // 使用多个锁分离不同业务
+    private final Object readLock = new Object();
+    private final Object writeLock = new Object();
+    
+    public void optimizedRead() {
+        synchronized(readLock) {
+            // 读操作
+        }
+    }
+    
+    public void optimizedWrite() {
+        synchronized(writeLock) {
+            // 写操作
+        }
+    }
+    
+    // 使用StampedLock优化读写性能
+    private final StampedLock stampedLock = new StampedLock();
+    
+    public void optimizedReadWrite() {
+        long stamp = stampedLock.tryOptimisticRead();
+        // 读取共享变量
+        if (!stampedLock.validate(stamp)) {
+            stamp = stampedLock.readLock();
+            try {
+                // 重新读取
+            } finally {
+                stampedLock.unlockRead(stamp);
+            }
+        }
+    }
+}
+```
+
+## 实践建议
+
+### 1. 锁的选择
+
+1. **场景考虑**
+   - 并发度要求
+   - 性能要求
+   - 公平性要求
+
+2. **实现方式**
+   - synchronized vs ReentrantLock
+   - 显式锁 vs 隐式锁
+   - 锁粒度选择
+
+### 2. 常见问题
+
+1. **死锁预防**
+   - 锁顺序控制
+   - 超时机制
+   - 死锁检测
+
+2. **性能问题**
+   - 锁竞争激烈
+   - 锁粒度过大
+   - 锁持有时间过长
+
+## 面试重点
+
+1. **锁的原理**
+   - 实现机制
+   - 升级过程
+   - 性能特点
+
+2. **使用场景**
+   - 适用条件
+   - 性能影响
+   - 注意事项
+
+3. **优化方案**
+   - 代码层面优化
+   - JVM层面优化
+   - 架构层面优化

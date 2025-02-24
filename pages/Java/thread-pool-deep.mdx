@@ -1,0 +1,161 @@
+# Java线程池深度剖析
+
+## 线程池核心原理
+
+### 1. 线程池参数详解
+
+```plaintext
+问：请详细解释ThreadPoolExecutor的核心参数及其作用？
+
+答：ThreadPoolExecutor的核心参数包括：
+
+1. 核心参数
+   - corePoolSize：核心线程数
+   - maximumPoolSize：最大线程数
+   - keepAliveTime：线程存活时间
+   - workQueue：任务队列
+   - threadFactory：线程工厂
+   - handler：拒绝策略
+
+2. 参数作用
+   - 控制线程创建和销毁
+   - 管理任务排队和执行
+   - 处理任务溢出情况
+```
+
+### 2. 线程池工作流程
+
+```java
+public class ThreadPoolWorkflow {
+    public static void main(String[] args) {
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(
+            2,                      // 核心线程数
+            4,                      // 最大线程数
+            60L,                    // 线程存活时间
+            TimeUnit.SECONDS,       // 时间单位
+            new LinkedBlockingQueue<>(100),  // 任务队列
+            Executors.defaultThreadFactory(), // 线程工厂
+            new ThreadPoolExecutor.CallerRunsPolicy() // 拒绝策略
+        );
+        
+        // 提交任务
+        executor.execute(() -> {
+            System.out.println("Task executed by " + 
+                Thread.currentThread().getName());
+        });
+    }
+}
+```
+
+## 线程池状态管理
+
+### 1. 线程池生命周期
+
+```plaintext
+问：线程池有哪些状态？各状态之间如何转换？
+
+答：线程池状态及转换：
+
+1. 状态定义
+   - RUNNING：接收新任务
+   - SHUTDOWN：不接收新任务
+   - STOP：中断正在执行的任务
+   - TIDYING：所有任务终止
+   - TERMINATED：线程池彻底终止
+
+2. 状态转换
+   - RUNNING -> SHUTDOWN：调用shutdown()
+   - RUNNING -> STOP：调用shutdownNow()
+   - SHUTDOWN -> TIDYING：队列和线程池为空
+   - STOP -> TIDYING：线程池为空
+   - TIDYING -> TERMINATED：钩子方法terminated()
+```
+
+### 2. 线程池监控
+
+```java
+public class ThreadPoolMonitor {
+    private static void monitorThreadPool(ThreadPoolExecutor executor) {
+        System.out.println("核心线程数：" + executor.getCorePoolSize());
+        System.out.println("当前线程数：" + executor.getPoolSize());
+        System.out.println("队列任务数：" + executor.getQueue().size());
+        System.out.println("已完成任务：" + executor.getCompletedTaskCount());
+        System.out.println("活跃线程数：" + executor.getActiveCount());
+    }
+}
+```
+
+## 线程池调优实践
+
+### 1. 线程池参数配置
+
+```plaintext
+问：如何合理配置线程池参数？需要考虑哪些因素？
+
+答：线程池参数配置考虑因素：
+
+1. 任务特性
+   - CPU密集型任务
+   - IO密集型任务
+   - 混合型任务
+
+2. 系统资源
+   - CPU核心数
+   - 内存容量
+   - 网络带宽
+
+3. 性能指标
+   - 响应时间
+   - 吞吐量
+   - 资源利用率
+```
+
+### 2. 常见问题及优化
+
+```java
+public class ThreadPoolOptimization {
+    public static ThreadPoolExecutor createOptimizedPool() {
+        int processors = Runtime.getRuntime().availableProcessors();
+        return new ThreadPoolExecutor(
+            processors,                // CPU核心数
+            processors * 2,           // 最大线程数
+            60L,                      // 线程存活时间
+            TimeUnit.SECONDS,         // 时间单位
+            new ArrayBlockingQueue<>(500), // 有界队列
+            new ThreadPoolExecutor.CallerRunsPolicy() // 调用者运行策略
+        );
+    }
+    
+    public static void optimizeThreadPool(ThreadPoolExecutor executor) {
+        // 动态调整核心线程数
+        executor.setCorePoolSize(4);
+        
+        // 预热线程池
+        executor.prestartAllCoreThreads();
+        
+        // 设置线程工厂
+        executor.setThreadFactory(r -> {
+            Thread t = new Thread(r);
+            t.setDaemon(true);
+            return t;
+        });
+    }
+}
+```
+
+## 面试重点
+
+1. **线程池原理**
+   - 线程池状态管理
+   - 任务提交流程
+   - 线程复用机制
+
+2. **参数配置**
+   - 核心线程配置
+   - 队列大小选择
+   - 拒绝策略选择
+
+3. **实践经验**
+   - 性能调优方法
+   - 监控指标选择
+   - 常见问题处理

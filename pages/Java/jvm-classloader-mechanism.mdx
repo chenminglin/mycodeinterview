@@ -1,0 +1,191 @@
+# JVM类加载机制详解
+
+## 类加载过程
+
+### 1. 类加载的五个阶段
+
+```plaintext
+问：请详细说明JVM类加载的五个阶段及其特点？
+
+答：类加载的五个阶段：
+
+1. 加载（Loading）
+   - 通过类名获取二进制字节流
+   - 将字节流代表的静态存储结构转化为方法区的运行时数据结构
+   - 在内存中生成Class对象
+
+2. 验证（Verification）
+   - 文件格式验证
+   - 元数据验证
+   - 字节码验证
+   - 符号引用验证
+
+3. 准备（Preparation）
+   - 为类变量分配内存
+   - 设置类变量初始值
+   - 仅包含static修饰的变量
+
+4. 解析（Resolution）
+   - 将符号引用转为直接引用
+   - 解析类或接口
+   - 解析字段
+   - 解析方法
+
+5. 初始化（Initialization）
+   - 执行类构造器<clinit>方法
+   - 初始化类变量和静态代码块
+   - 保证线程安全
+```
+
+### 2. 类加载器
+
+```java
+public class ClassLoaderExample {
+    public static void main(String[] args) {
+        // 获取类加载器
+        ClassLoader systemClassLoader = ClassLoader.getSystemClassLoader();
+        ClassLoader extClassLoader = systemClassLoader.getParent();
+        ClassLoader bootstrapClassLoader = extClassLoader.getParent();
+        
+        System.out.println("系统类加载器：" + systemClassLoader);
+        System.out.println("扩展类加载器：" + extClassLoader);
+        System.out.println("启动类加载器：" + bootstrapClassLoader);
+        
+        // 加载自定义类
+        try {
+            Class<?> clazz = systemClassLoader.loadClass("com.example.MyClass");
+            System.out.println("加载的类：" + clazz.getName());
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+    }
+}
+```
+
+## 双亲委派模型
+
+### 1. 双亲委派原理
+
+```plaintext
+问：什么是双亲委派模型？它的工作原理和优势是什么？
+
+答：双亲委派模型的核心机制：
+
+1. 工作原理
+   - 向上委托：子加载器收到加载请求时，先委托父加载器加载
+   - 向下查找：父加载器无法加载时，由子加载器完成加载
+   - 层级关系：Bootstrap ClassLoader -> Extension ClassLoader -> Application ClassLoader
+
+2. 优势
+   - 避免类的重复加载
+   - 保证Java核心类的安全性
+   - 保证类加载的层次性
+
+3. 应用场景
+   - Java核心类库加载
+   - 应用程序类加载
+   - 自定义类加载器实现
+```
+
+### 2. 自定义类加载器
+
+```java
+public class CustomClassLoader extends ClassLoader {
+    @Override
+    protected Class<?> findClass(String name) throws ClassNotFoundException {
+        try {
+            // 加载类文件
+            byte[] classData = loadClassData(name);
+            // 将二进制数据转换为Class对象
+            return defineClass(name, classData, 0, classData.length);
+        } catch (IOException e) {
+            throw new ClassNotFoundException("Could not load class: " + name, e);
+        }
+    }
+    
+    private byte[] loadClassData(String className) throws IOException {
+        // 实现从自定义位置加载类文件的逻辑
+        String path = className.replace('.', '/') + ".class";
+        try (InputStream is = getClass().getClassLoader().getResourceAsStream(path)) {
+            ByteArrayOutputStream os = new ByteArrayOutputStream();
+            int b;
+            while ((b = is.read()) != -1) {
+                os.write(b);
+            }
+            return os.toByteArray();
+        }
+    }
+}
+```
+
+## 类加载优化
+
+### 1. 类加载性能优化
+
+```plaintext
+问：如何优化类加载性能？有哪些常用的优化策略？
+
+答：类加载性能优化策略：
+
+1. 延迟加载
+   - 按需加载类
+   - 避免一次性加载过多类
+   - 使用懒加载机制
+
+2. 并行加载
+   - 多线程加载类
+   - 利用ClassLoader并行能力
+   - 控制并发数量
+
+3. 缓存优化
+   - 缓存已加载的类
+   - 重用ClassLoader实例
+   - 合理设置缓存大小
+```
+
+### 2. 优化实践
+
+```java
+public class ClassLoadingOptimization {
+    private static final Map<String, Class<?>> CLASS_CACHE = new ConcurrentHashMap<>();
+    
+    public static Class<?> loadClass(String className) {
+        // 从缓存中获取
+        return CLASS_CACHE.computeIfAbsent(className, name -> {
+            try {
+                return Class.forName(name);
+            } catch (ClassNotFoundException e) {
+                throw new RuntimeException("Failed to load class: " + name, e);
+            }
+        });
+    }
+    
+    public static void preloadClasses(List<String> classNames) {
+        // 并行加载类
+        classNames.parallelStream().forEach(className -> {
+            try {
+                loadClass(className);
+            } catch (Exception e) {
+                System.err.println("Failed to preload class: " + className);
+            }
+        });
+    }
+}
+```
+
+## 面试重点
+
+1. **类加载过程**
+   - 五个阶段的特点
+   - 每个阶段的作用
+   - 关键步骤的实现
+
+2. **双亲委派模型**
+   - 工作原理
+   - 优势特点
+   - 破坏场景
+
+3. **类加载优化**
+   - 性能瓶颈
+   - 优化策略
+   - 最佳实践

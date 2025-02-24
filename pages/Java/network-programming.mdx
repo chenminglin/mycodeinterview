@@ -1,0 +1,180 @@
+# Java网络编程详解
+
+## 网络编程基础
+
+### 1. Socket编程基础
+
+```plaintext
+问：请详细解释Java Socket编程的核心概念和基本工作流程？
+
+答：Socket编程的核心概念：
+
+1. Socket通信原理
+   - 客户端/服务器模型
+   - TCP/UDP协议支持
+   - 网络字节序处理
+
+2. 基本工作流程
+   - 创建Socket连接
+   - 数据传输
+   - 关闭连接
+
+3. 核心API
+   - ServerSocket
+   - Socket
+   - InputStream/OutputStream
+```
+
+### 2. Socket编程实例
+
+```java
+// TCP服务器端示例
+public class TCPServer {
+    public static void main(String[] args) throws IOException {
+        ServerSocket serverSocket = new ServerSocket(8080);
+        System.out.println("服务器启动，等待连接...")
+        
+        while (true) {
+            Socket socket = serverSocket.accept();
+            new Thread(() -> {
+                try (InputStream in = socket.getInputStream();
+                     OutputStream out = socket.getOutputStream()) {
+                    // 读取客户端数据
+                    byte[] buffer = new byte[1024];
+                    int len = in.read(buffer);
+                    String message = new String(buffer, 0, len);
+                    System.out.println("收到客户端消息：" + message);
+                    
+                    // 发送响应数据
+                    out.write("服务器已收到消息".getBytes());
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }).start();
+        }
+    }
+}
+```
+
+## NIO编程模型
+
+### 1. NIO核心组件
+
+```plaintext
+问：Java NIO的核心组件有哪些？各自的作用是什么？
+
+答：NIO核心组件分析：
+
+1. Buffer（缓冲区）
+   - 数据容器
+   - 读写模式切换
+   - 标记和重置
+
+2. Channel（通道）
+   - 双向数据传输
+   - 异步I/O支持
+   - 零拷贝特性
+
+3. Selector（选择器）
+   - 多路复用
+   - 事件监听
+   - 非阻塞I/O
+```
+
+### 2. NIO实现示例
+
+```java
+public class NIOServer {
+    public static void main(String[] args) throws IOException {
+        // 创建ServerSocketChannel
+        ServerSocketChannel serverChannel = ServerSocketChannel.open();
+        serverChannel.socket().bind(new InetSocketAddress(8080));
+        serverChannel.configureBlocking(false);
+        
+        // 创建Selector
+        Selector selector = Selector.open();
+        serverChannel.register(selector, SelectionKey.OP_ACCEPT);
+        
+        while (true) {
+            selector.select();
+            Set<SelectionKey> selectedKeys = selector.selectedKeys();
+            Iterator<SelectionKey> it = selectedKeys.iterator();
+            
+            while (it.hasNext()) {
+                SelectionKey key = it.next();
+                
+                if (key.isAcceptable()) {
+                    // 处理新的连接
+                    ServerSocketChannel server = (ServerSocketChannel) key.channel();
+                    SocketChannel client = server.accept();
+                    client.configureBlocking(false);
+                    client.register(selector, SelectionKey.OP_READ);
+                } else if (key.isReadable()) {
+                    // 处理读事件
+                    SocketChannel client = (SocketChannel) key.channel();
+                    ByteBuffer buffer = ByteBuffer.allocate(1024);
+                    client.read(buffer);
+                    buffer.flip();
+                    System.out.println("收到数据：" + new String(buffer.array()));
+                }
+                
+                it.remove();
+            }
+        }
+    }
+}
+```
+
+## 网络通信模型
+
+### 1. 常见通信模型
+
+```plaintext
+问：Java网络编程中常见的通信模型有哪些？各自的特点是什么？
+
+答：主要通信模型分析：
+
+1. BIO（阻塞I/O）
+   - 同步阻塞
+   - 一个连接一个线程
+   - 适合连接数少
+
+2. NIO（非阻塞I/O）
+   - 同步非阻塞
+   - 多路复用
+   - 高并发处理
+
+3. AIO（异步I/O）
+   - 异步非阻塞
+   - 回调机制
+   - 适合长连接
+```
+
+### 2. 性能优化建议
+
+1. **连接池管理**
+   - 复用连接
+   - 控制并发数
+   - 超时处理
+
+2. **数据传输优化**
+   - 使用直接缓冲区
+   - 零拷贝技术
+   - 批量数据处理
+
+## 面试重点
+
+1. **Socket编程**
+   - TCP/UDP区别
+   - 连接建立过程
+   - 异常处理机制
+
+2. **NIO技术**
+   - Buffer工作原理
+   - Channel使用场景
+   - Selector多路复用
+
+3. **网络模型**
+   - BIO/NIO/AIO对比
+   - 性能优化方案
+   - 实际应用场景

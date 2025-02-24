@@ -1,0 +1,188 @@
+# Java并发集合详解
+
+## ConcurrentHashMap原理
+
+### 1. 底层实现机制
+
+```plaintext
+问：ConcurrentHashMap是如何实现线程安全的？与HashMap和HashTable的区别是什么？
+
+答：ConcurrentHashMap的实现原理：
+
+1. 数据结构
+   - 分段锁设计
+   - Node数组+链表+红黑树
+   - 并发级别优化
+
+2. 线程安全机制
+   - CAS操作
+   - synchronized同步
+   - volatile变量
+
+3. 性能优化
+   - 读操作无锁
+   - 写操作分段锁
+   - 扩容优化
+```
+
+### 2. 源码分析
+
+```java
+public class ConcurrentHashMapAnalysis {
+    public static void explainStructure() {
+        ConcurrentHashMap<String, String> map = new ConcurrentHashMap<>();
+        
+        // 写操作
+        map.put("key", "value");  // CAS + synchronized
+        
+        // 读操作
+        String value = map.get("key");  // 无锁操作
+        
+        // 原子操作
+        map.putIfAbsent("key", "value");  // 原子性保证
+    }
+}
+```
+
+## CopyOnWriteArrayList实现
+
+### 1. 实现原理
+
+```plaintext
+问：CopyOnWriteArrayList的实现原理是什么？适用于哪些场景？
+
+答：CopyOnWriteArrayList特点：
+
+1. 实现机制
+   - 写时复制
+   - 快照读取
+   - 内存一致性
+
+2. 性能特点
+   - 读操作性能高
+   - 写操作开销大
+   - 内存占用较多
+
+3. 应用场景
+   - 读多写少
+   - 实时性要求不高
+   - 数据量较小
+```
+
+### 2. 实践示例
+
+```java
+public class CopyOnWriteArrayListExample {
+    private final CopyOnWriteArrayList<String> list = new CopyOnWriteArrayList<>();
+    
+    public void demonstrate() {
+        // 添加元素
+        list.add("item1");
+        
+        // 遍历操作（快照读取）
+        for (String item : list) {
+            System.out.println(item);
+        }
+        
+        // 批量操作
+        list.addAll(Arrays.asList("item2", "item3"));
+    }
+}
+```
+
+## BlockingQueue实现类
+
+### 1. 常见实现
+
+```plaintext
+问：Java中的BlockingQueue有哪些实现？各自的特点是什么？
+
+答：BlockingQueue实现类比较：
+
+1. ArrayBlockingQueue
+   - 有界队列
+   - 循环数组实现
+   - 公平/非公平锁
+
+2. LinkedBlockingQueue
+   - 可选有界
+   - 链表实现
+   - 分离锁设计
+
+3. PriorityBlockingQueue
+   - 优先级队列
+   - 堆实现
+   - 自动扩容
+```
+
+### 2. 使用示例
+
+```java
+public class BlockingQueueExample {
+    public static void demonstrateQueues() {
+        // ArrayBlockingQueue示例
+        BlockingQueue<String> arrayQueue = new ArrayBlockingQueue<>(100);
+        
+        // LinkedBlockingQueue示例
+        BlockingQueue<String> linkedQueue = new LinkedBlockingQueue<>();
+        
+        // PriorityBlockingQueue示例
+        BlockingQueue<Integer> priorityQueue = new PriorityBlockingQueue<>();
+        
+        try {
+            // 阻塞操作
+            arrayQueue.put("element");
+            String element = arrayQueue.take();
+            
+            // 非阻塞操作
+            boolean success = linkedQueue.offer("element", 1, TimeUnit.SECONDS);
+            element = linkedQueue.poll(1, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+}
+```
+
+## 并发集合最佳实践
+
+### 1. 选择建议
+
+1. **场景匹配**
+   - 读写比例
+   - 数据规模
+   - 实时性要求
+
+2. **性能考虑**
+   - 内存占用
+   - 并发度要求
+   - CPU开销
+
+### 2. 常见问题
+
+1. **内存泄漏**
+   - 集合清理
+   - 引用处理
+   - 容量限制
+
+2. **性能问题**
+   - 锁竞争
+   - 扩容开销
+   - GC影响
+
+## 面试重点
+
+1. **实现原理**
+   - 数据结构
+   - 线程安全机制
+   - 性能优化
+
+2. **应用场景**
+   - 适用条件
+   - 最佳实践
+   - 注意事项
+
+3. **性能分析**
+   - 并发度
+   - 内存开销
+   - CPU利用

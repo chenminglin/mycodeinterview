@@ -1,0 +1,177 @@
+# JVM垃圾回收机制详解
+
+## 垃圾回收基础
+
+### 1. 垃圾回收算法
+
+```plaintext
+问：请详细介绍JVM中的垃圾回收算法及其适用场景？
+
+答：JVM主要的垃圾回收算法：
+
+1. 标记-清除算法
+   - 标记阶段：标记出所有需要回收的对象
+   - 清除阶段：回收被标记的对象
+   - 特点：效率不高，会产生内存碎片
+
+2. 复制算法
+   - 将内存分为两块
+   - 存活对象复制到另一块
+   - 特点：效率高，但浪费空间
+
+3. 标记-整理算法
+   - 标记阶段：同标记-清除
+   - 整理阶段：将存活对象向一端移动
+   - 特点：解决内存碎片问题
+
+4. 分代收集算法
+   - 新生代：复制算法
+   - 老年代：标记-整理
+   - 特点：根据对象存活周期选择合适的算法
+```
+
+### 2. 垃圾收集器
+
+```java
+// 垃圾收集器的使用示例
+public class GCExample {
+    public static void main(String[] args) {
+        // 显式指定垃圾收集器
+        // -XX:+UseSerialGC
+        // -XX:+UseParallelGC
+        // -XX:+UseConcMarkSweepGC
+        // -XX:+UseG1GC
+        
+        // 分配大对象
+        byte[] allocation = new byte[4 * 1024 * 1024];
+        // 触发GC
+        System.gc();
+    }
+}
+```
+
+## 垃圾回收器详解
+
+### 1. 常见垃圾收集器
+
+```plaintext
+问：JVM中有哪些垃圾收集器？它们的特点是什么？
+
+答：主要的垃圾收集器：
+
+1. Serial收集器
+   - 单线程收集器
+   - 简单高效
+   - 适用于单CPU环境
+
+2. ParNew收集器
+   - Serial的多线程版本
+   - 适用于多CPU环境
+   - 常与CMS配合使用
+
+3. Parallel Scavenge收集器
+   - 关注吞吐量
+   - 可控制的吞吐量
+   - 适用于后台运算
+
+4. CMS收集器
+   - 最短停顿时间
+   - 并发收集
+   - 适用于互联网应用
+
+5. G1收集器
+   - 分区收集
+   - 可预测停顿
+   - 适用于大内存应用
+```
+
+### 2. G1收集器工作原理
+
+```java
+public class G1GCExample {
+    public static void main(String[] args) {
+        // G1收集器配置
+        // -XX:+UseG1GC
+        // -XX:MaxGCPauseMillis=200
+        // -XX:G1HeapRegionSize=2m
+        
+        // 模拟内存分配
+        List<byte[]> list = new ArrayList<>();
+        while (true) {
+            list.add(new byte[1024 * 1024]); // 1MB
+            Thread.sleep(100);
+        }
+    }
+}
+```
+
+## 垃圾回收调优
+
+### 1. GC调优策略
+
+```plaintext
+问：如何进行JVM的GC调优？有哪些关键指标？
+
+答：GC调优的主要策略：
+
+1. 调优目标
+   - 降低停顿时间
+   - 提高吞吐量
+   - 控制内存占用
+
+2. 调优参数
+   - 堆大小设置
+   - 收集器选择
+   - 分代空间比例
+
+3. 监控指标
+   - GC频率
+   - 停顿时间
+   - 内存使用率
+```
+
+### 2. 调优实践
+
+```java
+public class GCTuningExample {
+    public static void main(String[] args) {
+        // GC调优参数示例
+        // 堆大小设置
+        // -Xms6g -Xmx6g
+        
+        // 新生代大小
+        // -Xmn2g
+        
+        // 垃圾收集器
+        // -XX:+UseG1GC
+        
+        // GC日志
+        // -XX:+PrintGCDetails
+        // -XX:+PrintGCDateStamps
+        
+        // 模拟业务场景
+        simulateBusinessScenario();
+    }
+    
+    private static void simulateBusinessScenario() {
+        // 模拟实际业务场景的内存使用
+    }
+}
+```
+
+## 面试重点
+
+1. **垃圾回收算法**
+   - 各种算法的原理
+   - 优缺点比较
+   - 适用场景
+
+2. **垃圾收集器**
+   - 收集器特点
+   - 工作原理
+   - 使用场景
+
+3. **GC调优**
+   - 调优目标
+   - 调优参数
+   - 最佳实践

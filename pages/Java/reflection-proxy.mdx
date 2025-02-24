@@ -1,0 +1,203 @@
+# Java反射与动态代理
+
+## 反射机制深入解析
+
+### 1. 反射的核心原理
+
+```plaintext
+问：请详细解释Java反射机制的工作原理以及性能开销？
+
+答：反射机制的核心原理：
+
+1. 类加载过程
+   - 加载类的字节码到内存
+   - 创建Class对象
+   - 解析类的结构信息
+
+2. 反射操作原理
+   - 通过Class对象获取类信息
+   - 动态调用方法和访问字段
+   - JIT编译器优化
+
+3. 性能开销
+   - 动态解析类型
+   - 访问检查开销
+   - 装箱拆箱操作
+```
+
+### 2. 反射的实践应用
+
+```java
+public class ReflectionExample {
+    public static void main(String[] args) throws Exception {
+        // 获取类的Class对象
+        Class<?> clazz = Class.forName("com.example.User");
+        
+        // 创建实例
+        Object obj = clazz.getDeclaredConstructor().newInstance();
+        
+        // 获取私有字段并修改
+        Field field = clazz.getDeclaredField("name");
+        field.setAccessible(true);
+        field.set(obj, "张三");
+        
+        // 调用私有方法
+        Method method = clazz.getDeclaredMethod("privateMethod");
+        method.setAccessible(true);
+        method.invoke(obj);
+    }
+}
+```
+
+## 注解处理器
+
+### 1. 自定义注解处理器
+
+```plaintext
+问：如何实现一个自定义的注解处理器？处理器的生命周期是什么？
+
+答：实现注解处理器的步骤：
+
+1. 定义注解
+   - 设置元注解
+   - 定义注解属性
+
+2. 创建处理器
+   - 继承AbstractProcessor
+   - 实现process方法
+   - 注册处理器
+
+3. 处理器生命周期
+   - 初始化
+   - 处理注解
+   - 生成代码
+```
+
+### 2. 注解处理器示例
+
+```java
+@SupportedAnnotationTypes("com.example.AutoGenerate")
+@SupportedSourceVersion(SourceVersion.RELEASE_8)
+public class CustomProcessor extends AbstractProcessor {
+    @Override
+    public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
+        for (TypeElement annotation : annotations) {
+            Set<? extends Element> elements = roundEnv.getElementsAnnotatedWith(annotation);
+            // 处理注解元素
+            processAnnotatedElements(elements);
+        }
+        return true;
+    }
+    
+    private void processAnnotatedElements(Set<? extends Element> elements) {
+        // 生成相应的代码
+    }
+}
+```
+
+## 动态代理
+
+### 1. 动态代理的实现方式
+
+```plaintext
+问：JDK动态代理和CGLIB动态代理的区别是什么？各自的应用场景？
+
+答：两种动态代理的比较：
+
+1. JDK动态代理
+   - 基于接口实现
+   - 生成代理类实现目标接口
+   - 通过InvocationHandler实现
+
+2. CGLIB动态代理
+   - 基于继承实现
+   - 生成目标类的子类
+   - 通过MethodInterceptor实现
+
+3. 应用场景
+   - JDK：目标类有接口时
+   - CGLIB：目标类无接口时
+```
+
+### 2. 动态代理实现示例
+
+```java
+// JDK动态代理示例
+public class JDKProxyExample {
+    interface UserService {
+        void save();
+    }
+    
+    static class UserServiceImpl implements UserService {
+        @Override
+        public void save() {
+            System.out.println("保存用户");
+        }
+    }
+    
+    static class LogHandler implements InvocationHandler {
+        private final Object target;
+        
+        public LogHandler(Object target) {
+            this.target = target;
+        }
+        
+        @Override
+        public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+            System.out.println("开始执行：" + method.getName());
+            Object result = method.invoke(target, args);
+            System.out.println("执行结束：" + method.getName());
+            return result;
+        }
+    }
+    
+    public static void main(String[] args) {
+        UserService target = new UserServiceImpl();
+        UserService proxy = (UserService) Proxy.newProxyInstance(
+            target.getClass().getClassLoader(),
+            target.getClass().getInterfaces(),
+            new LogHandler(target)
+        );
+        proxy.save();
+    }
+}
+```
+
+## 最佳实践
+
+### 1. 反射优化建议
+
+1. **缓存反射对象**
+   - 重复使用Class对象
+   - 缓存Constructor/Method/Field
+
+2. **适当使用setAccessible**
+   - 提高反射性能
+   - 注意安全影响
+
+### 2. 动态代理使用建议
+
+1. **选择合适的代理方式**
+   - 有接口优先用JDK动态代理
+   - 考虑CGLIB的限制
+
+2. **性能优化**
+   - 合理缓存代理类
+   - 避免重复创建代理对象
+
+## 面试重点
+
+1. **反射机制**
+   - Class类的特点
+   - 反射的性能影响
+   - 反射的应用场景
+
+2. **注解处理**
+   - 注解的原理
+   - 处理器的实现
+   - 编译时注解vs运行时注解
+
+3. **动态代理**
+   - 两种代理方式的对比
+   - 代理的实现原理
+   - AOP的实现方式

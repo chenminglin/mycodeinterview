@@ -1,0 +1,242 @@
+# Java NIO与网络编程
+
+## NIO基础概念
+
+### 1. NIO核心组件
+
+```plaintext
+问：请详细介绍Java NIO的核心组件及其工作原理？
+
+答：Java NIO的核心组件包括：
+
+1. Buffer（缓冲区）
+   - 数据的容器
+   - 读写模式切换
+   - 标记和重置功能
+
+2. Channel（通道）
+   - 双向数据传输
+   - 异步I/O操作
+   - 直接内存访问
+
+3. Selector（选择器）
+   - 多路复用
+   - 事件监听
+   - 非阻塞I/O
+```
+
+### 2. Buffer详解
+
+```java
+public class BufferExample {
+    public static void main(String[] args) {
+        // 创建Buffer
+        ByteBuffer buffer = ByteBuffer.allocate(1024);
+        
+        // 写入数据
+        String data = "Hello NIO";
+        buffer.put(data.getBytes());
+        
+        // 切换到读模式
+        buffer.flip();
+        
+        // 读取数据
+        byte[] bytes = new byte[buffer.limit()];
+        buffer.get(bytes);
+        System.out.println(new String(bytes));
+        
+        // 清空缓冲区
+        buffer.clear();
+    }
+}
+```
+
+## 网络编程基础
+
+### 1. NIO网络通信模型
+
+```plaintext
+问：NIO在网络编程中的优势是什么？如何实现高性能的网络通信？
+
+答：NIO网络编程的优势：
+
+1. 非阻塞I/O
+   - 提高线程利用率
+   - 减少资源占用
+   - 支持高并发
+
+2. 多路复用
+   - 单线程处理多连接
+   - 事件驱动模型
+   - 高效的I/O处理
+
+3. 直接内存传输
+   - 零拷贝技术
+   - 更高的I/O性能
+```
+
+### 2. NIO服务器实现
+
+```java
+public class NIOServer {
+    private Selector selector;
+    private ServerSocketChannel serverSocket;
+    
+    public void start() throws IOException {
+        // 创建Selector
+        selector = Selector.open();
+        
+        // 创建ServerSocketChannel
+        serverSocket = ServerSocketChannel.open();
+        serverSocket.bind(new InetSocketAddress(8080));
+        serverSocket.configureBlocking(false);
+        
+        // 注册接受连接事件
+        serverSocket.register(selector, SelectionKey.OP_ACCEPT);
+        
+        while (true) {
+            // 等待事件发生
+            selector.select();
+            
+            // 处理所有事件
+            Set<SelectionKey> selectedKeys = selector.selectedKeys();
+            Iterator<SelectionKey> it = selectedKeys.iterator();
+            
+            while (it.hasNext()) {
+                SelectionKey key = it.next();
+                
+                if (key.isAcceptable()) {
+                    handleAccept();
+                } else if (key.isReadable()) {
+                    handleRead(key);
+                }
+                
+                it.remove();
+            }
+        }
+    }
+    
+    private void handleAccept() throws IOException {
+        SocketChannel client = serverSocket.accept();
+        client.configureBlocking(false);
+        client.register(selector, SelectionKey.OP_READ);
+    }
+    
+    private void handleRead(SelectionKey key) throws IOException {
+        SocketChannel client = (SocketChannel) key.channel();
+        ByteBuffer buffer = ByteBuffer.allocate(1024);
+        
+        try {
+            int bytesRead = client.read(buffer);
+            if (bytesRead == -1) {
+                client.close();
+                key.cancel();
+                return;
+            }
+            
+            buffer.flip();
+            // 处理接收到的数据
+            // ...
+        } catch (IOException e) {
+            client.close();
+            key.cancel();
+        }
+    }
+}
+```
+
+## 高级特性
+
+### 1. 零拷贝技术
+
+```plaintext
+问：什么是零拷贝？它如何提升I/O性能？
+
+答：零拷贝技术分析：
+
+1. 传统I/O的问题
+   - 多次内存拷贝
+   - 用户态与内核态切换
+   - CPU资源浪费
+
+2. 零拷贝优势
+   - 减少数据拷贝
+   - 降低CPU负载
+   - 提高传输效率
+
+3. 实现方式
+   - mmap内存映射
+   - sendfile系统调用
+   - DirectBuffer使用
+```
+
+### 2. 异步通道
+
+```java
+public class AsyncChannelExample {
+    public static void main(String[] args) throws Exception {
+        AsynchronousFileChannel channel = AsynchronousFileChannel.open(
+            Paths.get("test.txt"), StandardOpenOption.READ);
+        
+        ByteBuffer buffer = ByteBuffer.allocate(1024);
+        
+        channel.read(buffer, 0, buffer, new CompletionHandler<Integer, ByteBuffer>() {
+            @Override
+            public void completed(Integer result, ByteBuffer attachment) {
+                attachment.flip();
+                byte[] data = new byte[attachment.limit()];
+                attachment.get(data);
+                System.out.println(new String(data));
+            }
+            
+            @Override
+            public void failed(Throwable exc, ByteBuffer attachment) {
+                exc.printStackTrace();
+            }
+        });
+    }
+}
+```
+
+## 最佳实践
+
+### 1. 性能优化
+
+1. **Buffer管理**
+   - 合理的Buffer大小
+   - 使用直接内存
+   - 避免频繁创建
+
+2. **Channel使用**
+   - 正确的关闭资源
+   - 异常处理
+   - 超时机制
+
+### 2. 设计模式
+
+1. **Reactor模式**
+   - 事件分发
+   - 处理器链
+   - 线程模型
+
+2. **生产者消费者模式**
+   - 数据缓冲
+   - 线程协作
+   - 流量控制
+
+## 面试重点
+
+1. **NIO基础**
+   - Buffer的工作原理
+   - Channel的特性
+   - Selector的使用
+
+2. **网络编程**
+   - 非阻塞模型
+   - 多路复用
+   - 性能优化
+
+3. **高级特性**
+   - 零拷贝
+   - 异步通道
+   - 直接内存

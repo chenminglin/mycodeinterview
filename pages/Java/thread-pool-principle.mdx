@@ -1,0 +1,179 @@
+# Java线程池实现原理
+
+## 线程池核心组件
+
+### 1. 线程池状态与工作线程
+
+```plaintext
+问：请详细说明线程池的核心状态以及工作线程的生命周期？
+
+答：线程池的核心组成：
+
+1. 线程池状态
+   - RUNNING：接收新任务并处理队列中的任务
+   - SHUTDOWN：不接收新任务，但处理队列中的任务
+   - STOP：不接收新任务，不处理队列中的任务
+   - TIDYING：所有任务已终止，工作线程数为0
+   - TERMINATED：terminated()方法执行完成
+
+2. 工作线程生命周期
+   - 创建：达到核心线程数时创建
+   - 运行：执行任务
+   - 等待：任务队列为空时等待
+   - 超时：超过keepAliveTime时销毁
+   - 终止：线程池关闭时终止
+```
+
+### 2. 任务队列管理
+
+```java
+public class ThreadPoolExample {
+    public static void main(String[] args) {
+        // 创建线程池
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(
+            2,                      // 核心线程数
+            4,                      // 最大线程数
+            60L,                    // 空闲线程存活时间
+            TimeUnit.SECONDS,       // 时间单位
+            new LinkedBlockingQueue<>(100)  // 任务队列
+        );
+        
+        // 提交任务
+        executor.execute(() -> {
+            System.out.println("Task is running in " + 
+                Thread.currentThread().getName());
+        });
+        
+        // 关闭线程池
+        executor.shutdown();
+    }
+}
+```
+
+## 任务调度策略
+
+### 1. 核心调度流程
+
+```plaintext
+问：线程池是如何调度任务的？各个参数如何影响调度策略？
+
+答：任务调度策略：
+
+1. 提交任务时的处理流程
+   - 工作线程数 < 核心线程数：创建新线程
+   - 任务队列未满：加入队列
+   - 工作线程数 < 最大线程数：创建新线程
+   - 以上都不满足：执行拒绝策略
+
+2. 参数影响
+   - corePoolSize：决定基本线程数
+   - maximumPoolSize：决定峰值线程数
+   - keepAliveTime：影响线程回收
+   - workQueue：决定任务排队策略
+```
+
+### 2. 拒绝策略实现
+
+```java
+public class CustomRejectedExecutionHandler implements RejectedExecutionHandler {
+    @Override
+    public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
+        // 自定义拒绝策略
+        System.out.println("Task rejected: " + r.toString());
+        
+        if (!executor.isShutdown()) {
+            // 重试提交任务
+            r.run();
+        }
+    }
+}
+```
+
+## 线程池监控与调优
+
+### 1. 性能指标监控
+
+1. **关键指标**
+   - 活跃线程数
+   - 队列大小
+   - 任务完成数
+   - 任务拒绝数
+
+2. **监控实现**
+   - 继承ThreadPoolExecutor
+   - 重写beforeExecute/afterExecute
+   - 收集执行统计信息
+
+### 2. 调优建议
+
+1. **线程池大小设置**
+   - CPU密集型：N + 1
+   - IO密集型：2N
+   - 混合型：N * (1 + WT/ST)
+
+2. **队列策略选择**
+   - ArrayBlockingQueue：有界队列，适合限制任务数
+   - LinkedBlockingQueue：无界队列，需要注意内存
+   - SynchronousQueue：直接交付，适合快速响应
+
+## 最佳实践
+
+### 1. 线程池创建建议
+
+```java
+public class ThreadPoolBuilder {
+    public static ThreadPoolExecutor build() {
+        return new ThreadPoolExecutor(
+            Runtime.getRuntime().availableProcessors(),
+            Runtime.getRuntime().availableProcessors() * 2,
+            60L,
+            TimeUnit.SECONDS,
+            new ArrayBlockingQueue<>(1000),
+            new ThreadPoolExecutor.CallerRunsPolicy()
+        );
+    }
+}
+```
+
+### 2. 异常处理
+
+```java
+public class ThreadPoolExceptionHandler {
+    public static void main(String[] args) {
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(
+            2, 4, 60L, TimeUnit.SECONDS,
+            new LinkedBlockingQueue<>(100)
+        ) {
+            @Override
+            protected void afterExecute(Runnable r, Throwable t) {
+                super.afterExecute(r, t);
+                if (t != null) {
+                    System.out.println("Task failed with exception: " + t);
+                }
+            }
+        };
+        
+        // 提交可能抛出异常的任务
+        executor.execute(() -> {
+            throw new RuntimeException("Task failed");
+        });
+    }
+}
+```
+
+## 面试重点
+
+1. **线程池原理**
+   - 线程池状态转换
+   - 任务调度流程
+   - 线程复用机制
+
+2. **性能调优**
+   - 线程池参数配置
+   - 任务队列选择
+   - 拒绝策略定制
+
+3. **实践经验**
+   - 异常处理方案
+   - 监控指标设置
+   - 动态调整策略

@@ -1,0 +1,191 @@
+# Java反射高级应用
+
+## 反射性能优化
+
+### 1. 反射调用的性能开销
+
+```plaintext
+问：反射调用相比直接方法调用有哪些性能开销？如何优化？
+
+答：反射调用的性能开销主要包括：
+
+1. 类型检查开销
+   - 方法参数类型检查
+   - 返回值类型转换
+   - 异常检查
+
+2. 访问权限检查
+   - 方法可见性检查
+   - 字段访问权限验证
+
+3. 实例化开销
+   - Class对象加载
+   - 构造器调用
+   - 对象创建
+
+4. 优化方案
+   - 缓存反射对象
+   - 关闭访问检查
+   - 使用MethodHandle
+```
+
+### 2. 反射缓存实践
+
+```java
+public class ReflectionCache {
+    // 缓存Class对象
+    private static final Map<String, Class<?>> CLASS_CACHE = new ConcurrentHashMap<>();
+    // 缓存Method对象
+    private static final Map<String, Method> METHOD_CACHE = new ConcurrentHashMap<>();
+    
+    public static Class<?> getClass(String className) throws ClassNotFoundException {
+        return CLASS_CACHE.computeIfAbsent(className, name -> {
+            try {
+                return Class.forName(name);
+            } catch (ClassNotFoundException e) {
+                throw new RuntimeException(e);
+            }
+        });
+    }
+    
+    public static Method getMethod(Class<?> clazz, String methodName, Class<?>... paramTypes) {
+        String key = clazz.getName() + "#" + methodName;
+        return METHOD_CACHE.computeIfAbsent(key, k -> {
+            try {
+                Method method = clazz.getDeclaredMethod(methodName, paramTypes);
+                method.setAccessible(true);
+                return method;
+            } catch (NoSuchMethodException e) {
+                throw new RuntimeException(e);
+            }
+        });
+    }
+}
+```
+
+## 反射安全性
+
+### 1. 反射与安全管理器
+
+```plaintext
+问：在使用反射时需要注意哪些安全问题？如何防范反射攻击？
+
+答：反射安全性考虑：
+
+1. 安全风险
+   - 绕过访问控制
+   - 修改私有字段
+   - 执行敏感操作
+
+2. 防范措施
+   - 使用SecurityManager
+   - 限制反射权限
+   - 校验反射调用
+
+3. 最佳实践
+   - 谨慎使用setAccessible
+   - 验证反射参数
+   - 记录反射操作
+```
+
+### 2. 安全管理器示例
+
+```java
+public class ReflectionSecurityExample {
+    public static void main(String[] args) {
+        // 安装安全管理器
+        System.setSecurityManager(new SecurityManager() {
+            @Override
+            public void checkPermission(Permission perm) {
+                if (perm instanceof ReflectPermission) {
+                    throw new SecurityException("反射操作被禁止");
+                }
+            }
+        });
+        
+        try {
+            // 尝试反射访问
+            Class<?> clazz = Class.forName("java.lang.String");
+            Method method = clazz.getDeclaredMethod("length");
+            method.setAccessible(true); // 将抛出SecurityException
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}
+```
+
+## 反射与泛型
+
+### 1. 泛型类型擦除与反射
+
+```plaintext
+问：如何在运行时获取泛型类型信息？Type体系有哪些重要接口？
+
+答：泛型与反射：
+
+1. Type体系
+   - Class：原始类型
+   - ParameterizedType：参数化类型
+   - TypeVariable：类型变量
+   - WildcardType：通配符类型
+   - GenericArrayType：泛型数组
+
+2. 获取泛型信息
+   - getGenericSuperclass()
+   - getGenericInterfaces()
+   - getActualTypeArguments()
+
+3. 应用场景
+   - JSON序列化
+   - ORM框架
+   - 泛型容器
+```
+
+### 2. 泛型反射工具
+
+```java
+public class GenericTypeResolver {
+    public static Class<?> getGenericType(Class<?> clazz) {
+        Type type = clazz.getGenericSuperclass();
+        if (type instanceof ParameterizedType) {
+            ParameterizedType paramType = (ParameterizedType) type;
+            Type[] types = paramType.getActualTypeArguments();
+            return (Class<?>) types[0];
+        }
+        return Object.class;
+    }
+    
+    public static List<Class<?>> getGenericTypes(Field field) {
+        List<Class<?>> classes = new ArrayList<>();
+        Type type = field.getGenericType();
+        if (type instanceof ParameterizedType) {
+            ParameterizedType paramType = (ParameterizedType) type;
+            Type[] types = paramType.getActualTypeArguments();
+            for (Type t : types) {
+                if (t instanceof Class) {
+                    classes.add((Class<?>) t);
+                }
+            }
+        }
+        return classes;
+    }
+}
+```
+
+## 面试重点
+
+1. **反射性能优化**
+   - 缓存反射对象的重要性
+   - 访问控制的性能影响
+   - 反射调用的开销分析
+
+2. **反射安全性**
+   - SecurityManager的作用
+   - 反射攻击的防范
+   - 安全编码实践
+
+3. **泛型反射**
+   - 类型擦除的影响
+   - 泛型信息的获取方式
+   - 实际应用场景

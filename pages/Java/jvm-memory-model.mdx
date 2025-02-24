@@ -1,0 +1,163 @@
+# JVM内存模型详解
+
+## 内存模型基础
+
+### 1. JMM（Java Memory Model）核心概念
+
+```plaintext
+问：请详细解释Java内存模型（JMM）的核心概念及其作用？
+
+答：Java内存模型的核心概念：
+
+1. 主内存与工作内存
+   - 主内存：所有线程共享的内存区域
+   - 工作内存：每个线程私有的内存区域
+   - 变量值的传递需要通过主内存
+
+2. 内存交互操作
+   - read（读取）：从主内存读取到工作内存
+   - load（载入）：将读取的值载入工作内存
+   - use（使用）：从工作内存读取变量
+   - assign（赋值）：将值赋给工作内存变量
+   - store（存储）：将工作内存值写入主内存
+   - write（写入）：将store的值写入主内存变量
+
+3. 重排序规则
+   - 编译器重排序
+   - 处理器重排序
+   - happens-before原则
+```
+
+### 2. 内存模型实现
+
+```java
+public class JMMExample {
+    private int x = 0;
+    private boolean flag = false;
+    
+    public void writer() {
+        x = 42;                // 1
+        flag = true;           // 2
+    }
+    
+    public void reader() {
+        if (flag) {           // 3
+            System.out.println(x);  // 4
+        }
+    }
+}
+```
+
+## 内存屏障
+
+### 1. 内存屏障类型
+
+```plaintext
+问：Java内存模型中的内存屏障有哪些类型？各自的作用是什么？
+
+答：内存屏障的主要类型：
+
+1. LoadLoad屏障
+   - 确保Load1数据的装载先于Load2
+   - 防止读操作重排序
+
+2. StoreStore屏障
+   - 确保Store1数据对其他处理器可见
+   - 防止写操作重排序
+
+3. LoadStore屏障
+   - 确保Load操作先于Store操作
+   - 防止读写重排序
+
+4. StoreLoad屏障
+   - 确保Store1数据对其他处理器可见
+   - 防止写后读重排序
+```
+
+### 2. volatile关键字实现
+
+```java
+public class VolatileExample {
+    private volatile boolean flag = false;
+    private int count = 0;
+    
+    public void writer() {
+        count = 1;            // 1
+        flag = true;          // 2 StoreStore屏障
+    }
+    
+    public void reader() {
+        if (flag) {          // 3 LoadLoad屏障
+            int temp = count; // 4
+        }
+    }
+}
+```
+
+## 原子性、可见性、有序性
+
+### 1. 三大特性解析
+
+```plaintext
+问：请详细说明JMM如何保证原子性、可见性和有序性？
+
+答：JMM的三大特性保证机制：
+
+1. 原子性保证
+   - synchronized关键字
+   - CAS操作
+   - 原子类（java.util.concurrent.atomic）
+
+2. 可见性保证
+   - volatile关键字
+   - synchronized关键字
+   - final关键字
+
+3. 有序性保证
+   - volatile关键字
+   - synchronized关键字
+   - happens-before规则
+```
+
+### 2. 实现示例
+
+```java
+public class MemoryVisibility {
+    private volatile boolean flag = false;
+    private final int finalValue;
+    private int normalValue;
+    
+    public MemoryVisibility() {
+        finalValue = 42;      // final字段初始化
+    }
+    
+    public synchronized void update() {
+        normalValue = 100;    // synchronized保证原子性和可见性
+        flag = true;          // volatile保证可见性和有序性
+    }
+    
+    public void check() {
+        if (flag) {
+            // 可以安全地读取normalValue
+            System.out.println(normalValue);
+        }
+    }
+}
+```
+
+## 面试重点
+
+1. **JMM核心概念**
+   - 主内存与工作内存的关系
+   - 内存交互操作的规则
+   - 重排序的类型和限制
+
+2. **内存屏障**
+   - 四种屏障类型的作用
+   - volatile的实现原理
+   - 屏障的性能影响
+
+3. **三大特性**
+   - 原子性的实现方式
+   - 可见性的保证机制
+   - 有序性的保证手段

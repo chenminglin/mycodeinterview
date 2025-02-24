@@ -1,0 +1,222 @@
+# Java反射机制性能优化
+
+## 反射性能分析
+
+### 1. 性能开销来源
+
+```plaintext
+问：Java反射机制的主要性能开销来自哪里？如何优化？
+
+答：反射性能开销分析：
+
+1. 类型检查
+   - 方法参数验证
+   - 返回值类型转换
+   - 访问权限检查
+
+2. 实例创建
+   - Class对象加载
+   - 构造器调用
+   - 对象初始化
+
+3. 方法调用
+   - 参数包装和解包
+   - 方法查找和分派
+   - 异常处理
+```
+
+### 2. 性能测试示例
+
+```java
+public class ReflectionPerformanceTest {
+    private static final int ITERATIONS = 1000000;
+    
+    // 直接调用
+    public void directCall() {
+        TestClass test = new TestClass();
+        for (int i = 0; i < ITERATIONS; i++) {
+            test.method();
+        }
+    }
+    
+    // 反射调用
+    public void reflectionCall() throws Exception {
+        TestClass test = new TestClass();
+        Method method = TestClass.class.getDeclaredMethod("method");
+        for (int i = 0; i < ITERATIONS; i++) {
+            method.invoke(test);
+        }
+    }
+    
+    // 优化后的反射调用
+    public void optimizedReflectionCall() throws Exception {
+        TestClass test = new TestClass();
+        Method method = TestClass.class.getDeclaredMethod("method");
+        method.setAccessible(true);
+        for (int i = 0; i < ITERATIONS; i++) {
+            method.invoke(test);
+        }
+    }
+}
+```
+
+## 优化策略
+
+### 1. 缓存机制
+
+```java
+public class ReflectionCache {
+    private static final Map<String, Class<?>> CLASS_CACHE = new ConcurrentHashMap<>();
+    private static final Map<String, Method> METHOD_CACHE = new ConcurrentHashMap<>();
+    private static final Map<String, Field> FIELD_CACHE = new ConcurrentHashMap<>();
+    
+    public static Class<?> getClass(String className) {
+        return CLASS_CACHE.computeIfAbsent(className, k -> {
+            try {
+                return Class.forName(k);
+            } catch (ClassNotFoundException e) {
+                throw new RuntimeException(e);
+            }
+        });
+    }
+    
+    public static Method getMethod(Class<?> clazz, String methodName, Class<?>... paramTypes) {
+        String key = clazz.getName() + "#" + methodName;
+        return METHOD_CACHE.computeIfAbsent(key, k -> {
+            try {
+                Method method = clazz.getDeclaredMethod(methodName, paramTypes);
+                method.setAccessible(true);
+                return method;
+            } catch (NoSuchMethodException e) {
+                throw new RuntimeException(e);
+            }
+        });
+    }
+}
+```
+
+### 2. 访问控制优化
+
+```java
+public class AccessControlOptimization {
+    public static void optimizeAccess(AccessibleObject object) {
+        if (!object.isAccessible()) {
+            object.setAccessible(true);
+        }
+    }
+    
+    public static void batchOptimizeAccess(AccessibleObject[] objects) {
+        AccessibleObject.setAccessible(objects, true);
+    }
+}
+```
+
+## 最佳实践
+
+### 1. 动态代理优化
+
+```java
+public class OptimizedProxyFactory {
+    private static final Map<Class<?>, Class<?>> PROXY_CACHE = new ConcurrentHashMap<>();
+    
+    @SuppressWarnings("unchecked")
+    public static <T> T createProxy(T target, InvocationHandler handler) {
+        Class<?> targetClass = target.getClass();
+        
+        // 从缓存获取代理类
+        Class<?> proxyClass = PROXY_CACHE.computeIfAbsent(targetClass,
+            k -> Proxy.getProxyClass(k.getClassLoader(), k.getInterfaces()));
+        
+        try {
+            Constructor<?> constructor = proxyClass.getConstructor(InvocationHandler.class);
+            return (T) constructor.newInstance(handler);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
+```
+
+### 2. 方法句柄优化
+
+```java
+public class MethodHandleExample {
+    private static final MethodHandles.Lookup lookup = MethodHandles.lookup();
+    
+    public static MethodHandle getMethodHandle(Class<?> clazz, String methodName) {
+        try {
+            return lookup.findVirtual(clazz, methodName, 
+                MethodType.methodType(void.class));
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+    
+    public static void invokeMethod(Object target, MethodHandle handle) {
+        try {
+            handle.invoke(target);
+        } catch (Throwable e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
+```
+
+## 性能对比
+
+### 1. 不同调用方式对比
+
+```plaintext
+问：不同反射调用方式的性能差异如何？
+
+答：性能对比分析：
+
+1. 直接调用
+   - 最快，JIT可优化
+   - 无额外开销
+   - 编译期类型检查
+
+2. 反射调用
+   - 较慢，有查找开销
+   - 需要权限检查
+   - 运行时类型检查
+
+3. 优化后反射
+   - 关闭访问检查
+   - 使用缓存机制
+   - 接近直接调用性能
+```
+
+### 2. 优化建议
+
+1. **缓存反射对象**
+   - 重用Class对象
+   - 缓存Method/Field
+   - 避免重复查找
+
+2. **减少安全检查**
+   - 合理使用setAccessible
+   - 批量设置访问权限
+   - 注意安全影响
+
+3. **选择合适方式**
+   - 高频调用用缓存
+   - 考虑MethodHandle
+   - 权衡性能和维护性
+
+## 面试重点
+
+1. **性能优化**
+   - 缓存策略
+   - 访问控制
+   - 调用方式选择
+
+2. **实践经验**
+   - 优化场景
+   - 注意事项
+   - 最佳实践
+
+3. **原理掌握**
+   - 性能开销分析
+   - 优化原理
+   - JVM层面优化

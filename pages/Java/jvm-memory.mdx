@@ -1,0 +1,167 @@
+# JVM内存管理
+
+## 内存分配机制
+
+### 1. 对象的内存分配策略
+
+```plaintext
+问：JVM是如何为对象分配内存的？有哪些分配策略？
+
+答：JVM的对象内存分配策略：
+
+1. 优先分配到Eden区
+   - 大多数对象优先在Eden区分配
+   - 当Eden区没有足够空间时触发Minor GC
+
+2. 大对象直接进入老年代
+   - 大对象是指需要大量连续内存空间的对象
+   - 通过-XX:PretenureSizeThreshold参数设置
+
+3. 长期存活对象进入老年代
+   - 对象年龄计数器
+   - 默认15次GC后进入老年代
+   - 通过-XX:MaxTenuringThreshold设置
+
+4. 动态对象年龄判定
+   - 如果相同年龄对象大小总和大于Survivor空间的一半
+   - 年龄大于或等于该年龄的对象直接进入老年代
+```
+
+### 2. TLAB（线程本地分配缓冲区）
+
+```java
+public class TLABExample {
+    // TLAB分配示例
+    public void allocateObjects() {
+        for (int i = 0; i < 1000; i++) {
+            Object obj = new Object(); // 优先在TLAB中分配
+        }
+    }
+}
+```
+
+## 内存回收机制
+
+### 1. 垃圾回收算法的选择
+
+```plaintext
+问：不同分代使用什么垃圾回收算法？为什么？
+
+答：分代垃圾回收算法选择：
+
+1. 新生代
+   - 复制算法
+   - 原因：新生代对象存活率低，复制成本小
+   - Eden和Survivor区的比例配置
+
+2. 老年代
+   - 标记-整理算法
+   - 原因：老年代对象存活率高，避免复制
+   - 内存整理，避免碎片化
+
+3. 特殊情况
+   - CMS使用标记-清除
+   - G1使用区域化分代收集
+```
+
+### 2. 垃圾回收器组合
+
+```java
+public class GCExample {
+    public static void main(String[] args) {
+        // 垃圾回收器配置示例
+        // -XX:+UseParallelGC 年轻代使用Parallel Scavenge
+        // -XX:+UseParallelOldGC 老年代使用Parallel Old
+        
+        List<byte[]> list = new ArrayList<>();
+        while (true) {
+            list.add(new byte[1024 * 1024]); // 1MB
+        }
+    }
+}
+```
+
+## 内存问题诊断
+
+### 1. 内存溢出的排查
+
+```plaintext
+问：如何排查和解决内存溢出问题？
+
+答：内存溢出排查步骤：
+
+1. 确定问题类型
+   - 堆内存溢出(OutOfMemoryError: Java heap space)
+   - 永久代溢出(OutOfMemoryError: PermGen space)
+   - 直接内存溢出(OutOfMemoryError: Direct buffer memory)
+
+2. 收集信息
+   - 添加-XX:+HeapDumpOnOutOfMemoryError参数
+   - 使用jmap命令生成堆转储文件
+   - 收集GC日志
+
+3. 分析方法
+   - 使用MAT等工具分析堆转储文件
+   - 查看对象的引用链
+   - 分析内存泄漏点
+```
+
+### 2. 性能调优实践
+
+```java
+public class MemoryTuning {
+    public static void main(String[] args) {
+        // JVM参数调优示例
+        // -Xms4g -Xmx4g -Xmn2g
+        // -XX:SurvivorRatio=8
+        // -XX:MaxTenuringThreshold=15
+        // -XX:+UseG1GC
+        
+        // 模拟内存密集型操作
+        Cache cache = new Cache();
+        for (int i = 0; i < 1000000; i++) {
+            cache.put("key" + i, new byte[1024]);
+        }
+    }
+}
+```
+
+## 最佳实践
+
+### 1. 内存分配优化
+
+1. **合理设置堆大小**
+   - 避免堆大小频繁调整
+   - 根据应用特点设置新生代和老年代大小
+
+2. **TLAB优化**
+   - 合理设置TLAB大小
+   - 监控TLAB使用情况
+
+### 2. GC优化建议
+
+1. **选择合适的GC组合**
+   - 响应时间优先选择CMS
+   - 吞吐量优先选择Parallel GC
+   - 大内存优先选择G1
+
+2. **GC参数调优**
+   - 合理设置触发GC的阈值
+   - 优化GC停顿时间
+
+## 面试重点
+
+1. **内存分配**
+   - 对象分配策略
+   - TLAB工作原理
+   - 内存分配优化
+
+2. **垃圾回收**
+   - 垃圾回收算法
+   - 垃圾回收器特点
+   - GC调优方法
+
+3. **问题诊断**
+   - 内存溢出排查
+   - 性能调优经验
+   - 工具使用方法

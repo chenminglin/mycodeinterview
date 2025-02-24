@@ -1,0 +1,205 @@
+# Java线程池工作机制详解
+
+## 线程池的核心原理
+
+### 1. 线程池的工作流程
+
+```plaintext
+问：请详细说明线程池的工作原理和任务调度流程？
+
+答：线程池的工作机制：
+
+1. 任务提交流程
+   - 核心线程创建
+   - 任务队列存储
+   - 最大线程处理
+   - 拒绝策略执行
+
+2. 线程管理机制
+   - 线程复用
+   - 空闲回收
+   - 动态扩缩容
+
+3. 任务调度策略
+   - 优先级排序
+   - 公平/非公平调度
+   - 任务超时处理
+```
+
+### 2. 线程池的核心参数
+
+```java
+public class ThreadPoolExample {
+    public static ThreadPoolExecutor createThreadPool() {
+        return new ThreadPoolExecutor(
+            2,                      // 核心线程数
+            4,                      // 最大线程数
+            60L,                    // 空闲线程存活时间
+            TimeUnit.SECONDS,       // 时间单位
+            new LinkedBlockingQueue<>(1000),  // 任务队列
+            new ThreadFactory() {    // 线程工厂
+                @Override
+                public Thread newThread(Runnable r) {
+                    Thread thread = new Thread(r);
+                    thread.setName("CustomThread-" + thread.getId());
+                    return thread;
+                }
+            },
+            new ThreadPoolExecutor.CallerRunsPolicy()  // 拒绝策略
+        );
+    }
+}
+```
+
+## 线程池的任务处理机制
+
+### 1. 任务提交流程分析
+
+```plaintext
+问：线程池在接收到任务后，具体的处理流程是什么？
+
+答：任务处理流程：
+
+1. 提交任务判断
+   - 核心线程是否已满
+   - 任务队列是否已满
+   - 最大线程是否已达
+
+2. 任务执行策略
+   - 创建新线程执行
+   - 加入任务队列
+   - 触发拒绝策略
+
+3. 异常处理机制
+   - 任务异常捕获
+   - 线程异常恢复
+   - 资源释放处理
+```
+
+### 2. 实践示例
+
+```java
+public class ThreadPoolTaskExample {
+    private final ThreadPoolExecutor executor;
+    
+    public ThreadPoolTaskExample() {
+        this.executor = new ThreadPoolExecutor(
+            2, 4, 60L, TimeUnit.SECONDS,
+            new ArrayBlockingQueue<>(100),
+            Executors.defaultThreadFactory(),
+            new ThreadPoolExecutor.AbortPolicy()
+        );
+    }
+    
+    public void submitTask(Runnable task) {
+        try {
+            executor.execute(task);
+        } catch (RejectedExecutionException e) {
+            // 处理任务拒绝
+            System.out.println("Task rejected: " + e.getMessage());
+        }
+    }
+    
+    public void monitorThreadPool() {
+        System.out.println("Active threads: " + executor.getActiveCount());
+        System.out.println("Pool size: " + executor.getPoolSize());
+        System.out.println("Task count: " + executor.getTaskCount());
+    }
+}
+```
+
+## 线程池的监控与调优
+
+### 1. 性能指标监控
+
+```plaintext
+问：如何对线程池进行监控和性能优化？
+
+答：线程池监控与优化：
+
+1. 关键指标
+   - 活跃线程数
+   - 队列积压量
+   - 任务执行时间
+   - 拒绝任务数
+
+2. 调优策略
+   - 线程数动态调整
+   - 队列容量优化
+   - 拒绝策略选择
+
+3. 监控方案
+   - JMX监控
+   - 日志记录
+   - 报警机制
+```
+
+### 2. 监控实现
+
+```java
+public class ThreadPoolMonitor {
+    private final ThreadPoolExecutor executor;
+    private final ScheduledExecutorService monitor;
+    
+    public ThreadPoolMonitor(ThreadPoolExecutor executor) {
+        this.executor = executor;
+        this.monitor = Executors.newSingleThreadScheduledExecutor();
+    }
+    
+    public void startMonitoring() {
+        monitor.scheduleAtFixedRate(() -> {
+            System.out.println("=== Thread Pool Stats ===");
+            System.out.println("Active Threads: " + executor.getActiveCount());
+            System.out.println("Core Pool Size: " + executor.getCorePoolSize());
+            System.out.println("Pool Size: " + executor.getPoolSize());
+            System.out.println("Max Pool Size: " + executor.getMaximumPoolSize());
+            System.out.println("Task Count: " + executor.getTaskCount());
+            System.out.println("Completed Tasks: " + executor.getCompletedTaskCount());
+            System.out.println("Queue Size: " + executor.getQueue().size());
+        }, 0, 5, TimeUnit.SECONDS);
+    }
+}
+```
+
+## 最佳实践
+
+### 1. 线程池使用建议
+
+1. **合理配置参数**
+   - 根据任务特点设置线程数
+   - 选择合适的任务队列
+   - 设置合理的拒绝策略
+
+2. **异常处理**
+   - 捕获任务异常
+   - 提供异常恢复机制
+   - 记录错误日志
+
+### 2. 常见问题解决
+
+1. **性能问题**
+   - 线程数配置不当
+   - 任务队列过长
+   - 任务执行时间过长
+
+2. **资源管理**
+   - 及时释放资源
+   - 避免线程泄漏
+   - 防止任务堆积
+
+## 面试重点
+
+1. **线程池原理**
+   - 任务提交流程
+   - 线程管理机制
+   - 任务调度策略
+
+2. **性能调优**
+   - 参数配置
+   - 监控指标
+   - 优化方案
+
+3. **实践经验**
+   - 最佳实践
+   - 问题排查
+   - 优化案例

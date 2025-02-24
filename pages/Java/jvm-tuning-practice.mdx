@@ -1,0 +1,218 @@
+# JVM调优实践
+
+## JVM性能监控
+
+### 1. 性能监控工具
+
+```plaintext
+问：在生产环境中，如何进行JVM性能监控？常用的监控工具有哪些？
+
+答：JVM性能监控方案：
+
+1. 命令行工具
+   - jstat：查看GC状态
+   - jmap：导出堆内存快照
+   - jstack：查看线程状态
+   - jinfo：查看JVM参数
+
+2. 可视化工具
+   - JVisualVM：内存分析
+   - JMC：性能分析
+   - MAT：堆转储分析
+   - Arthas：在线诊断
+
+3. 监控指标
+   - 堆内存使用率
+   - GC频率和时间
+   - 线程数量和状态
+   - CPU使用率
+```
+
+### 2. 监控实践示例
+
+```bash
+# 查看GC状态
+jstat -gc <pid> 1000
+
+# 导出堆转储
+jmap -dump:format=b,file=heap.bin <pid>
+
+# 查看线程状态
+jstack -l <pid>
+
+# 查看JVM参数
+jinfo -flags <pid>
+```
+
+## JVM调优实战
+
+### 1. 内存调优
+
+```plaintext
+问：如何针对不同业务场景进行JVM内存调优？
+
+答：内存调优策略：
+
+1. 堆内存调优
+   - 合理设置新生代和老年代大小
+   - 优化对象晋升阈值
+   - 控制大对象直接进入老年代
+
+2. 栈内存调优
+   - 调整线程栈大小
+   - 优化方法内存分配
+   - 控制递归深度
+
+3. 元空间调优
+   - 设置合适的元空间大小
+   - 控制类加载数量
+   - 及时回收无用类
+```
+
+### 2. GC调优实践
+
+```java
+// GC日志配置示例
+public class GCLogConfig {
+    public static void main(String[] args) {
+        // JVM参数示例
+        // -XX:+UseG1GC
+        // -XX:MaxGCPauseMillis=200
+        // -XX:+PrintGCDetails
+        // -XX:+PrintGCDateStamps
+        // -Xloggc:gc.log
+        
+        // 模拟内存分配
+        List<byte[]> list = new ArrayList<>();
+        while (true) {
+            list.add(new byte[1024 * 1024]); // 1MB
+            Thread.sleep(100);
+        }
+    }
+}
+```
+
+## 性能优化案例
+
+### 1. 频繁Full GC优化
+
+```plaintext
+问：如何解决生产环境中频繁Full GC的问题？
+
+答：Full GC优化方案：
+
+1. 问题分析
+   - 查看GC日志
+   - 分析内存占用
+   - 定位大对象来源
+
+2. 优化措施
+   - 增大年轻代空间
+   - 调整晋升阈值
+   - 优化内存分配
+   - 检查内存泄漏
+
+3. 效果验证
+   - 监控GC频率
+   - 观察停顿时间
+   - 评估系统性能
+```
+
+### 2. 线程优化案例
+
+```java
+public class ThreadPoolOptimization {
+    public static ThreadPoolExecutor createOptimizedThreadPool() {
+        // 根据CPU核心数设置线程池
+        int processors = Runtime.getRuntime().availableProcessors();
+        return new ThreadPoolExecutor(
+            processors, // 核心线程数
+            processors * 2, // 最大线程数
+            60L, // 空闲线程存活时间
+            TimeUnit.SECONDS,
+            new LinkedBlockingQueue<>(1000), // 工作队列
+            new ThreadFactory() {
+                private final AtomicInteger counter = new AtomicInteger(1);
+                @Override
+                public Thread newThread(Runnable r) {
+                    Thread thread = new Thread(r);
+                    thread.setName("OptimizedThread-" + counter.getAndIncrement());
+                    return thread;
+                }
+            },
+            new ThreadPoolExecutor.CallerRunsPolicy() // 拒绝策略
+        );
+    }
+}
+```
+
+## 调优工具使用
+
+### 1. Arthas使用技巧
+
+```plaintext
+问：如何使用Arthas进行线上问题诊断？
+
+答：Arthas使用方法：
+
+1. 常用命令
+   - dashboard：系统整体状况
+   - thread：线程详情
+   - jvm：JVM参数
+   - heapdump：导出堆转储
+
+2. 性能分析
+   - trace：方法耗时
+   - stack：调用栈
+   - profiler：性能分析
+
+3. 实战技巧
+   - 热更新类文件
+   - 查看方法参数
+   - 监控方法执行
+```
+
+### 2. MAT分析技巧
+
+```plaintext
+问：如何使用MAT分析内存泄漏？
+
+答：MAT分析步骤：
+
+1. 获取堆转储
+   - 使用jmap导出
+   - OOM时自动导出
+   - 手动触发导出
+
+2. 分析方法
+   - Histogram：查看对象数量
+   - Dominator Tree：对象占用
+   - Leak Suspects：泄漏点
+
+3. 实践技巧
+   - 对比多个转储文件
+   - 分析对象引用链
+   - 查找GC Root
+```
+
+## 面试重点
+
+1. **性能监控**
+   - 监控工具的使用
+   - 关键指标的选择
+   - 监控数据分析
+
+2. **调优经验**
+   - GC参数调优
+   - 内存分配优化
+   - 线程池配置
+
+3. **问题诊断**
+   - 性能瓶颈定位
+   - 内存泄漏分析
+   - 线程问题排查
+
+4. **最佳实践**
+   - 调优流程规范
+   - 监控系统搭建
+   - 应急预案制定

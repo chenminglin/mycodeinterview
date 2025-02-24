@@ -1,0 +1,183 @@
+# Java AQS原理详解
+
+## AQS核心机制
+
+### 1. AQS基本概念
+
+```plaintext
+问：什么是AQS（AbstractQueuedSynchronizer）？它在并发编程中的作用是什么？
+
+答：AQS的核心概念：
+
+1. 基本定义
+   - 抽象队列同步器
+   - JUC包的基础框架
+   - 锁和同步器的基础构建块
+
+2. 核心功能
+   - 原子状态管理
+   - 线程等待队列
+   - 阻塞和唤醒机制
+
+3. 应用场景
+   - ReentrantLock的实现
+   - Semaphore的实现
+   - CountDownLatch的实现
+```
+
+### 2. AQS工作原理
+
+```java
+public class AQSExample {
+    private static class CustomLock extends AbstractQueuedSynchronizer {
+        @Override
+        protected boolean tryAcquire(int arg) {
+            return compareAndSetState(0, 1);
+        }
+        
+        @Override
+        protected boolean tryRelease(int arg) {
+            setState(0);
+            return true;
+        }
+    }
+    
+    public static void main(String[] args) {
+        CustomLock lock = new CustomLock();
+        
+        // 模拟多线程竞争
+        for (int i = 0; i < 3; i++) {
+            new Thread(() -> {
+                lock.acquire(1);
+                try {
+                    System.out.println(Thread.currentThread().getName() + " 获得锁");
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                } finally {
+                    lock.release(1);
+                }
+            }).start();
+        }
+    }
+}
+```
+
+## 等待队列机制
+
+### 1. 队列结构
+
+```plaintext
+问：请详细说明AQS中等待队列的结构和工作机制？
+
+答：等待队列的核心特点：
+
+1. 队列结构
+   - CLH变体的FIFO队列
+   - 双向链表实现
+   - Node节点状态管理
+
+2. 入队机制
+   - 尾部插入新节点
+   - CAS保证原子性
+   - 处理并发冲突
+
+3. 出队机制
+   - 头节点释放
+   - 后继节点获取锁
+   - 状态更新和传播
+```
+
+### 2. 同步状态管理
+
+```java
+public class AQSStateExample {
+    private static final class Sync extends AbstractQueuedSynchronizer {
+        // 共享资源数量
+        private final int maxCount;
+        
+        Sync(int count) {
+            this.maxCount = count;
+            setState(count);
+        }
+        
+        // 共享模式获取
+        @Override
+        protected int tryAcquireShared(int arg) {
+            for (;;) {
+                int current = getState();
+                int newCount = current - arg;
+                if (newCount < 0 || compareAndSetState(current, newCount)) {
+                    return newCount;
+                }
+            }
+        }
+        
+        // 共享模式释放
+        @Override
+        protected boolean tryReleaseShared(int arg) {
+            for (;;) {
+                int current = getState();
+                int newCount = current + arg;
+                if (compareAndSetState(current, newCount)) {
+                    return true;
+                }
+            }
+        }
+    }
+}
+```
+
+## 实践应用
+
+### 1. 自定义同步器
+
+```plaintext
+问：如何基于AQS实现一个自定义的同步器？需要注意哪些关键点？
+
+答：实现自定义同步器的要点：
+
+1. 基本步骤
+   - 继承AbstractQueuedSynchronizer
+   - 实现tryAcquire/tryRelease
+   - 定义同步状态含义
+
+2. 注意事项
+   - 状态的原子性管理
+   - 公平性的处理
+   - 超时机制的实现
+
+3. 性能优化
+   - 减少锁竞争
+   - 优化等待策略
+   - 合理设置超时时间
+```
+
+### 2. 常见问题
+
+1. **状态管理**
+   - volatile状态变量
+   - CAS操作保证原子性
+   - 状态变化的有效性验证
+
+2. **线程调度**
+   - 公平与非公平策略
+   - 线程唤醒机制
+   - 超时处理
+
+## 面试重点
+
+1. **AQS原理**
+   - 同步队列的实现
+   - 状态变量的管理
+   - 线程调度机制
+
+2. **实现方式**
+   - 独占模式实现
+   - 共享模式实现
+   - 条件队列应用
+
+3. **性能考虑**
+   - 锁竞争的处理
+   - 等待策略的选择
+   - 超时机制的实现
